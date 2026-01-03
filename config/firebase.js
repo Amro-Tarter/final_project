@@ -5,6 +5,8 @@ import {
   getReactNativePersistence 
 } from 'firebase/auth';
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
+import { getFirestore } from "firebase/firestore";
+
 const firebaseConfig = {
   apiKey: "AIzaSyBcUcbMdtTTItXvG0nvQKLKNisYjSrf2A4",
   authDomain: "finalproject-42f84.firebaseapp.com",
@@ -35,3 +37,4 @@ if (getApps().length > 0) {
 }
 
 export { auth, app };
+export const db = getFirestore(app);

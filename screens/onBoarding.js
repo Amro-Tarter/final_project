@@ -1,59 +1,91 @@
 import React, { useState } from "react";
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, Text, ScrollView } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Theme,
   LogoHeader,
   MyButton,
   MyCheckbox,
-} from "../components/components"; // adjust path if needed
+} from "../components/components";
+import { db } from "../config/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 const QUESTIONS = [
   {
-    key: "reason",
-    title: "Why are you using this app?",
-    subtitle: "Choose the main reason",
+    key: "identity_vision",
+    title: "If you had a 'perfect' productive day tomorrow, how would you feel at the end of it?",
+    subtitle: "Focusing on the feeling helps us set the right pace for you.",
     type: "single",
     options: [
-      "Improve my productivity",
-      "Build better habits",
-      "Achieve personal goals",
-      "Get organized",
+      "Peaceful and calm—I finally have things under control.",
+      "Energized and proud—I smashed my big targets!",
+      "Relieved—I finally stopped putting things off.",
+      "Connected—I did my work and still had time for loved ones."
     ],
   },
   {
-    key: "development",
-    title: "What do you want to develop?",
-    subtitle: "You can choose more than one",
-    type: "multi",
+    key: "locus_of_control",
+    title: "When things don't go as planned, what is your first thought?",
+    subtitle: "This helps us tailor your daily encouragement.",
+    type: "single",
     options: [
-      "Discipline",
-      "Focus",
-      "Confidence",
-      "Time management",
-      "Consistency",
+      " 'I need a better plan next time' (I'm in the driver's seat)",
+      " 'Life just got in the way again' (The world is moving too fast)",
+      " 'I'm just not disciplined enough' (I'm my own worst critic)",
+      " 'I'll just try harder tomorrow' (I'm ready to keep going)"
     ],
   },
   {
-    key: "obstacles",
-    title: "What obstacles do you face?",
-    subtitle: "Select all that apply",
+    key: "future_self_identity",
+    title: "When you imagine yourself a year from now, what feels most important?",
+    subtitle: "Think about the version of you that you’d feel proud of.",
+    type: "single",
+    options: [
+      "Being more consistent and reliable",
+      "Feeling calmer and less stressed",
+      "Making real progress toward my goals",
+      "Understanding myself better",
+      "I’m still figuring that out"
+    ]
+  },
+  {
+    key: "cbt_friction",
+    title: "What usually 'steals' your focus during the day?",
+    subtitle: "We all have focus-thieves; let's find yours. Select all that apply.",
     type: "multi",
     options: [
-      "Lack of motivation",
-      "Procrastination",
-      "Stress",
-      "Poor planning",
-      "Low energy",
+      "The 'I'll do it later' voice (Procrastination)",
+      "Feeling overwhelmed by a giant to-do list (Analysis Paralysis)",
+      "Wait, what was I doing? (Distractions & Notifications)",
+      "Thinking it has to be 100% perfect or it's a failure (Perfectionism)",
+      "Simply feeling too tired to start (Energy management)"
     ],
+  },
+  {
+    key: "motivation_fuel",
+    title: "What helps you keep going when motivation drops?",
+    subtitle: "Different people need different kinds of fuel.",
+    type: "multi",
+    options: [
+      "Encouraging words and reminders",
+      "Seeing clear progress and numbers",
+      "Small wins and quick feedback",
+      "Understanding the deeper reason behind the goal",
+      "Reminders of *why* I started this journey in the first place"
+    ]
   },
 ];
 
-export default function OnboardingScreen() {
+export default function OnboardingScreen({ navigation }) {
+  const [isStarted, setIsStarted] = useState(false);
   const [step, setStep] = useState(0);
+
   const [answers, setAnswers] = useState({
-    reason: null,
-    development: [],
-    obstacles: [],
+    identity_vision: null,
+    locus_of_control: null,
+    future_self_identity: null,
+    cbt_friction: [],
+    motivation_fuel: [],
   });
 
   const current = QUESTIONS[step];
@@ -63,12 +95,16 @@ export default function OnboardingScreen() {
       ...prev,
       [current.key]: value,
     }));
-    setStep(step + 1);
+    if (step < QUESTIONS.length - 1) {
+      setStep(step + 1);
+    } else {
+      handleFinish();
+    }
   };
 
   const handleMultiToggle = (value) => {
     setAnswers((prev) => {
-      const list = prev[current.key];
+      const list = prev[current.key] || [];
       return {
         ...prev,
         [current.key]: list.includes(value)
@@ -82,65 +118,138 @@ export default function OnboardingScreen() {
     if (step < QUESTIONS.length - 1) {
       setStep(step + 1);
     } else {
-      console.log("Onboarding completed:", answers);
-      // TODO: Save to backend / context / AsyncStorage
+      handleFinish();
     }
   };
 
-  return (
-    <View style={styles.container}>
-      <LogoHeader
-        title={current.title}
-        subtitle={current.subtitle}
-      />
+  const handleFinish = async () => {
+    try {
+      // 1. Save answers to temporary document
+      const docRef = await addDoc(collection(db, "users_personal_answers"), {
+        ...answers,
+        isLinked: false,
+        createdAt: serverTimestamp(),
+      });
 
-      <View style={styles.options}>
-        {current.type === "single" &&
-          current.options.map((option) => (
+      // 2. Pass Document ID to SignUp
+      navigation.navigate('SignUp', { tempAnswerId: docRef.id });
+    } catch (error) {
+      console.error("Error saving onboarding: ", error);
+      navigation.navigate('SignUp');
+    }
+  };
+
+  if (!isStarted) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.contentContainer}>
+          <LogoHeader
+            title="Welcome to Achievements Ahead"
+            subtitle="Let's build your personalized path to success."
+            style={{ marginTop: Theme.spacing.xxl }}
+          />
+          <View style={styles.welcomeBox}>
+            <Text style={styles.welcomeText}>
+              To give you the best experience, we’re going to ask a few quick questions about your goals and habits.
+            </Text>
+            <Text style={styles.welcomeText}>
+              This helps us tailor the app specifically for you.
+            </Text>
+          </View>
+          <View style={{ flex: 1 }} />
+          <MyButton
+            title="Let's Begin"
+            onPress={() => setIsStarted(true)}
+            style={styles.nextBtn}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <LogoHeader
+          title={current.title}
+          subtitle={current.subtitle}
+          style={{ marginTop: Theme.spacing.lg }}
+        />
+
+        <View style={styles.options}>
+          {current.type === "single" && current.options.map((option) => (
             <MyButton
               key={option}
               title={option}
-              style={styles.optionBtn}
+              type="secondary" // Use secondary for options to look cleaner
+              style={[
+                styles.optionBtn,
+                answers[current.key] === option && styles.optionBtnSelected
+              ]}
               onPress={() => handleSingleSelect(option)}
             />
           ))}
 
-        {current.type === "multi" &&
-          current.options.map((option) => (
+          {current.type === "multi" && current.options.map((option) => (
             <MyCheckbox
               key={option}
               label={option}
-              checked={answers[current.key].includes(option)}
+              checked={answers[current.key]?.includes(option)}
               onPress={() => handleMultiToggle(option)}
             />
           ))}
-      </View>
+        </View>
 
-      {current.type === "multi" && (
-        <MyButton
-          title={step === QUESTIONS.length - 1 ? "Finish" : "Next"}
-          onPress={handleNext}
-          style={styles.nextBtn}
-        />
-      )}
-    </View>
+        {current.type === "multi" && (
+          <MyButton
+            title={step === QUESTIONS.length - 1 ? "Finish" : "Next"}
+            onPress={handleNext}
+            style={styles.nextBtn}
+          />
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: Theme.colors.background
+  },
+  contentContainer: {
+    flex: 1,
     padding: Theme.spacing.lg,
-    justifyContent: "center",
+  },
+  scrollContent: {
+    padding: Theme.spacing.lg,
+    paddingBottom: 40
+  },
+  welcomeBox: {
+    marginVertical: Theme.spacing.xl,
+    paddingHorizontal: Theme.spacing.md
+  },
+  welcomeText: {
+    fontSize: 16,
+    fontFamily: Theme.typography.body,
+    color: Theme.colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: Theme.spacing.md,
+    lineHeight: 24
   },
   options: {
-    marginTop: Theme.spacing.xl,
+    marginTop: Theme.spacing.lg
   },
   optionBtn: {
-    marginBottom: Theme.spacing.md,
+    marginBottom: 12,
+    alignItems: 'flex-start', // Left align text for long options
+    paddingHorizontal: 20
+  },
+  optionBtnSelected: {
+    borderColor: Theme.colors.primary,
+    backgroundColor: "#EFF6FF"
   },
   nextBtn: {
-    marginTop: Theme.spacing.xl,
+    marginTop: Theme.spacing.xl
   },
 });
