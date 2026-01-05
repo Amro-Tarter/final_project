@@ -5,7 +5,6 @@ import { Theme, MyButton, MyInput, MyCheckbox, MyDatePicker, MyTimePicker } from
 
 import { ArrowLeft, Calendar } from 'lucide-react-native';
 import { useTasks } from '../../hooks/useTasks';
-import { useNotifications } from '../../context/NotificationContext';
 
 export default function TaskForm({ navigation, route }) {
     // If editing, we passed the full task object
@@ -27,11 +26,9 @@ export default function TaskForm({ navigation, route }) {
     const [reminderType, setReminderType] = useState(taskToEdit?.reminder?.type || 'none'); // none, time, period
     const [reminderValue, setReminderValue] = useState(taskToEdit?.reminder?.value || ''); // "09:00" or "morning"
 
-    const { showNotification } = useNotifications();
-
     const handleSave = async () => {
         if (!title.trim()) {
-            showNotification('warning', "Please add a task title 📝");
+            Alert.alert('Missing Info', 'Please add a task title.');
             return;
         }
 
@@ -59,15 +56,12 @@ export default function TaskForm({ navigation, route }) {
 
             if (isEditing) {
                 await updateTask(taskToEdit.id, taskData);
-                showNotification('success', "Task updated successfully ✨", 1);
             } else {
                 await addTask(taskData);
-                showNotification('success', "New task created 🌱", 1);
             }
             navigation.goBack();
         } catch (error) {
-            console.error("Save error:", error);
-            showNotification('error', "Could not save task. Please try again 🛑");
+            Alert.alert("Error", "Could not save task. Please try again.");
         } finally {
             setSubmitting(false);
         }
