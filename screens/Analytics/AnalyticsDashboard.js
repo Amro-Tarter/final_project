@@ -4,6 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '../../components/components';
 import { ArrowLeft } from 'lucide-react-native';
 
+import { useTasks } from '../../hooks/useTasks';
+
 const ChartBar = ({ height, day, color }) => (
     <View style={styles.chartBarContainer}>
         <View style={[styles.chartBar, { height, backgroundColor: color }]} />
@@ -12,10 +14,27 @@ const ChartBar = ({ height, day, color }) => (
 );
 
 export default function AnalyticsDashboard({ navigation }) {
-    const weeklyData = [
-        { day: 'Mon', h: 60 }, { day: 'Tue', h: 80 }, { day: 'Wed', h: 50 },
-        { day: 'Thu', h: 90 }, { day: 'Fri', h: 70 }, { day: 'Sat', h: 30 }, { day: 'Sun', h: 40 }
-    ];
+    const { tasks } = useTasks();
+
+    // Helper: Get counts for last 7 days
+    const getWeeklyData = () => {
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const data = days.map(day => ({ day, h: 10 })); // Baseline height
+
+        // In a real app, we would parse `completedAt` timestamps
+        // For now, we mock the distribution based on total completed count
+        const completedCount = tasks.filter(t => t.status === 'completed').length;
+
+        // Distribute completion visuals (Mock logic for visual demo)
+        if (completedCount > 0) {
+            data[1].h = 40 + (completedCount * 10); // Mon
+            data[2].h = 20 + (completedCount * 5);  // Tue
+        }
+        return data;
+    };
+
+    const weeklyData = getWeeklyData();
+    const completedTotal = tasks.filter(t => t.status === 'completed').length;
 
     return (
         <SafeAreaView style={styles.container}>
@@ -51,8 +70,8 @@ export default function AnalyticsDashboard({ navigation }) {
 
                 <View style={styles.summaryRow}>
                     <View style={styles.summaryCard}>
-                        <Text style={styles.summaryValue}>85%</Text>
-                        <Text style={styles.summaryLabel}>Goal Progress</Text>
+                        <Text style={styles.summaryValue}>{completedTotal}</Text>
+                        <Text style={styles.summaryLabel}>Tasks Done</Text>
                     </View>
                     <View style={styles.summaryCard}>
                         <Text style={styles.summaryValue}>12</Text>

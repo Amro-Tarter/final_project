@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme, MyInput } from '../../components/components';
+import { useTasks } from '../../hooks/useTasks';
 import { Plus, CheckCircle2, Circle, Search, Filter } from 'lucide-react-native';
 
 // Mock data for UI development
@@ -13,8 +14,19 @@ const MOCK_TASKS = [
 ];
 
 export default function TaskList({ navigation }) {
+    const { tasks, loading, toggleTaskStatus } = useTasks();
     const [filter, setFilter] = useState('All'); // All, Pending, Completed
     const [searchQuery, setSearchQuery] = useState('');
+
+    const filteredTasks = tasks.filter(task => {
+        const matchesFilter = filter === 'All'
+            ? true
+            : task.status === filter.toLowerCase();
+
+        const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase());
+
+        return matchesFilter && matchesSearch;
+    });
 
     const renderItem = ({ item }) => (
         <TouchableOpacity
@@ -24,7 +36,10 @@ export default function TaskList({ navigation }) {
             ]}
             onPress={() => navigation.navigate('TaskDetails', { taskId: item.id })}
         >
-            <TouchableOpacity style={styles.checkButton}>
+            <TouchableOpacity
+                style={styles.checkButton}
+                onPress={() => toggleTaskStatus(item)}
+            >
                 {item.status === 'completed' ? (
                     <CheckCircle2 size={24} color={Theme.colors.success} />
                 ) : (
@@ -39,7 +54,7 @@ export default function TaskList({ navigation }) {
                 ]}>
                     {item.title}
                 </Text>
-                <Text style={styles.taskDue}>{item.due}</Text>
+                {item.due && <Text style={styles.taskDue}>Due: {item.due}</Text>}
             </View>
         </TouchableOpacity>
     );
@@ -48,6 +63,7 @@ export default function TaskList({ navigation }) {
         <SafeAreaView style={styles.container} edges={['top']}>
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>My Tasks</Text>
+                {/* Placeholder for future sort/filter modal */}
                 <TouchableOpacity>
                     <Filter size={24} color={Theme.colors.primary} />
                 </TouchableOpacity>
@@ -59,7 +75,7 @@ export default function TaskList({ navigation }) {
                     icon={Search}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
-                    style={{ marginBottom: 0 }} // Override default margin
+                    style={{ marginBottom: 0 }}
                 />
             </View>
 
@@ -78,11 +94,18 @@ export default function TaskList({ navigation }) {
             </View>
 
             <FlatList
-                data={MOCK_TASKS}
+                data={filteredTasks}
                 renderItem={renderItem}
                 keyExtractor={item => item.id}
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
+                ListEmptyComponent={
+                    <View style={styles.emptyState}>
+                        <Text style={styles.emptyText}>
+                            {loading ? "Loading tasks..." : "No tasks found. Add one!"}
+                        </Text>
+                    </View>
+                }
             />
 
             {/* Floating Action Button */}

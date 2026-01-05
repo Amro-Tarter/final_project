@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Theme, MyButton, MyInput, MyCheckbox } from '../../components/components';
+import { Theme, MyButton, MyInput, MyCheckbox, MyDatePicker } from '../../components/components';
+
 import { ArrowLeft, Calendar } from 'lucide-react-native';
+import { useNotifications } from '../../context/NotificationContext';
 
 export default function GoalForm({ navigation, route }) {
     const isEditing = !!route.params?.goalId;
@@ -11,12 +13,16 @@ export default function GoalForm({ navigation, route }) {
     const [motivation, setMotivation] = useState(isEditing ? 'To prove to myself I can do it.' : '');
     const [deadline, setDeadline] = useState(isEditing ? '2026-12-31' : '');
 
+    const { showNotification } = useNotifications();
+
     const handleSave = () => {
-        if (!title) {
-            Alert.alert('Missing Info', 'Please add a goal title.');
+        if (!title.trim()) {
+            showNotification('warning', "Please add a goal title 🎯");
             return;
         }
         // Logic to save would go here
+
+        showNotification('success', "Goal saved! Let's do this 🚀", 1);
         navigation.goBack();
     };
 
@@ -50,11 +56,10 @@ export default function GoalForm({ navigation, route }) {
                     style={{ height: 80, textAlignVertical: 'top' }}
                 />
 
-                <MyInput
+                <MyDatePicker
                     label="Target Deadline"
-                    placeholder="YYYY-MM-DD"
                     value={deadline}
-                    onChangeText={setDeadline}
+                    onChange={setDeadline}
                     icon={Calendar}
                 />
 

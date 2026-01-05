@@ -1,18 +1,80 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme, MyButton } from '../../components/components';
-import { ArrowLeft, Calendar, Flag, Clock } from 'lucide-react-native';
+import { ArrowLeft, Calendar, Flag, RotateCw } from 'lucide-react-native';
+import { useTasks } from '../../hooks/useTasks';
+import { useNotifications } from '../../context/NotificationContext';
 
 export default function TaskDetails({ navigation, route }) {
-    // Mock data - normally would fetch by ID
-    const item = {
-        id: route.params?.taskId || '1',
-        title: 'Complete Project Proposal',
-        desc: 'Draft the initial proposal for the client meeting including timeline and budget estimates.',
-        due: 'Today, 5:00 PM',
-        priority: 'High',
-        status: 'pending'
+    const { taskId } = route.params;
+    const { tasks, deleteTask, toggleTaskStatus } = useTasks();
+    const { showNotification } = useNotifications();
+
+    // Find the live task from the hook
+    const item = tasks.find(t => t.id === taskId);
+
+    if (!item) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                        <ArrowLeft size={24} color={Theme.colors.textMain} />
+                    </TouchableOpacity>
+                </View>
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <Text style={{ fontFamily: Theme.typography.body, color: Theme.colors.textSecondary }}>
+                        Task not found or deleted.
+                    </Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    const handleDelete = () => {
+        Alert.alert(
+            "Delete Task",
+            "Are you sure you want to delete this task?",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        await deleteTask(item.id);
+                        navigation.goBack();
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleToggle = async () => {
+        try {
+            await toggleTaskStatus(item);
+
+            // Logic to determine what notification to show
+            if (item.status === 'pending') {
+                // We just marked it as done (pending -> completed)
+                // EXCEPT toggleTaskStatus runs before this check, but local 'item' is stale until re-render.
+                // Actually wait, 'item' is const item = tasks.find... 
+                // We need to check the NEW status or infer it.
+                // If it WAS pending, and we toggled, it IS NOW completed (unless recurring).
+
+                if (item.recurrence?.type && item.recurrence.type !== 'none') {
+                    showNotification('success', "Recurring task rescheduled 🔄", 2);
+                } else {
+                    // Standard completion
+                    showNotification('success', "Task completed! 🎉", 3);
+                }
+            } else {
+                // It WAS completed, now pending
+                showNotification('warning', "Task marked as pending 📝", 1);
+            }
+        } catch (error) {
+            console.error("Toggle error:", error);
+            showNotification('error', "Could not update task status 🛑");
+        }
     };
 
     return (
@@ -22,7 +84,7 @@ export default function TaskDetails({ navigation, route }) {
                     <ArrowLeft size={24} color={Theme.colors.textMain} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Task Details</Text>
-                <TouchableOpacity onPress={() => navigation.navigate('TaskForm', { taskId: item.id })}>
+                <TouchableOpacity onPress={() => navigation.navigate('TaskForm', { task: item })}>
                     <Text style={styles.editText}>Edit</Text>
                 </TouchableOpacity>
             </View>
@@ -34,36 +96,58 @@ export default function TaskDetails({ navigation, route }) {
                     <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
                 </View>
 
-                <Text style={styles.sectionLabel}>Description</Text>
-                <Text style={styles.description}>{item.desc}</Text>
+                {item.desc ? (
+                    <>
+                        <Text style={styles.sectionLabel}>Description</Text>
+                        <Text style={styles.description}>{item.desc}</Text>
+                    </>
+                ) : null}
 
                 <View style={styles.divider} />
 
-                <View style={styles.row}>
-                    <Calendar size={20} color={Theme.colors.primary} />
-                    <View style={styles.rowText}>
-                        <Text style={styles.label}>Due Date</Text>
-                        <Text style={styles.value}>{item.due}</Text>
+                {item.due ? (
+                    <View style={styles.row}>
+                        <Calendar size={20} color={Theme.colors.primary} />
+                        <View style={styles.rowText}>
+                            <Text style={styles.label}>Due Date</Text>
+                            <Text style={styles.value}>{item.due}</Text>
+                        </View>
                     </View>
-                </View>
+                ) : null}
+
+                {item.recurrence && item.recurrence.type !== 'none' && (
+                    <View style={styles.row}>
+                        <RotateCw size={20} color={Theme.colors.secondary} />
+                        <View style={styles.rowText}>
+                            <Text style={styles.label}>Repeats</Text>
+                            <Text style={styles.value}>
+                                {item.recurrence.type === 'daily' ? 'Daily' :
+                                    item.recurrence.type === 'weekly' ? 'Weekly' :
+                                        item.recurrence.type === 'custom' ? `Every ${item.recurrence.interval} Days` : ''}
+                            </Text>
+                        </View>
+                    </View>
+                )}
 
                 <View style={styles.row}>
-                    <Flag size={20} color={Theme.colors.error} />
+                    <Flag size={20} color={item.priority === 'High' ? Theme.colors.error : Theme.colors.textSecondary} />
                     <View style={styles.rowText}>
                         <Text style={styles.label}>Priority</Text>
-                        <Text style={styles.value}>{item.priority}</Text>
+                        <Text style={styles.value}>{item.priority || 'Normal'}</Text>
                     </View>
                 </View>
 
                 <View style={{ flex: 1 }} />
 
                 <MyButton
-                    title="Mark as Completed"
+                    title={item.status === 'completed' ? "Mark as Pending" : "Mark as Completed"}
+                    onPress={handleToggle}
                     style={{ marginTop: Theme.spacing.xl }}
                 />
 
                 <MyButton
                     title="Delete Task"
+                    onPress={handleDelete}
                     type="secondary"
                     style={{ marginTop: Theme.spacing.md, borderColor: Theme.colors.error }}
                     textStyle={{ color: Theme.colors.error }}

@@ -2,12 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
-import { MessageCircleHeart, CheckCircle2 } from 'lucide-react-native';
+import { MessageCircleHeart, CheckCircle2, Plus } from 'lucide-react-native';
 import { Theme } from '../components/components';
+import { useTasks } from '../hooks/useTasks';
 
 export default function HomeScreen({ navigation }) {
   const { user } = useAuth();
+  const { tasks, loading } = useTasks();
   const [fadeAnim] = useState(new Animated.Value(0));
+
+  // Find the "One Thing" - First pending task, ideally High Priority
+  const focusTask = tasks.find(t => t.status === 'pending' && t.priority === 'High')
+    || tasks.find(t => t.status === 'pending');
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -27,39 +33,48 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.subGreeting}>Take a breath. You're doing great.</Text>
         </Animated.View>
 
-        {/* 2. AI Companion Card (Support) */}
-        <TouchableOpacity
-          style={styles.aiCard}
-          onPress={() => navigation.navigate('AIChat')}
-          activeOpacity={0.95}
-        >
-          <View style={styles.aiHeader}>
-            <MessageCircleHeart size={28} color={Theme.colors.primary} />
-            <Text style={styles.aiTitle}>Your Companion</Text>
-          </View>
-          <Text style={styles.aiMessage}>
-            "I'm here to support you. No pressure today—just progress at your own pace."
-          </Text>
-          <View style={styles.aiPromptContainer}>
-            <Text style={styles.aiPrompt}>Tap to chat</Text>
-          </View>
-        </TouchableOpacity>
+        {/* 2. Today's Journey (Full List) */}
+        <View style={styles.listSection}>
+          <Text style={styles.sectionTitle}>Your Journey Today</Text>
 
-        {/* 3. Today's Focus (Gentle Steps) */}
-        <View style={styles.focusSection}>
-          <Text style={styles.sectionTitle}>One Thing for Today</Text>
-          <TouchableOpacity
-            style={styles.focusCard}
-            onPress={() => navigation.navigate('TaskDetails', { taskId: '1' })}
-          >
-            <View style={styles.focusIcon}>
-              <CheckCircle2 size={24} color={Theme.colors.textSecondary} />
+          {loading ? (
+            <Text style={styles.subGreeting}>Loading path...</Text>
+          ) : tasks.filter(t => t.status === 'pending').length > 0 ? (
+            <View>
+              {tasks.filter(t => t.status === 'pending').map(task => (
+                <TouchableOpacity
+                  key={task.id}
+                  style={styles.taskCard}
+                  onPress={() => navigation.navigate('TaskDetails', { taskId: task.id })}
+                >
+                  <View style={styles.taskIcon}>
+                    {task.priority === 'High' ? (
+                      <CheckCircle2 size={24} color={Theme.colors.primary} />
+                    ) : (
+                      <CheckCircle2 size={24} color={Theme.colors.textSecondary} />
+                    )}
+                  </View>
+                  <View style={styles.taskContent}>
+                    <Text style={styles.taskTitle}>{task.title}</Text>
+                    {task.due && <Text style={styles.taskDue}>{task.due}</Text>}
+                    {task.recurrence?.type !== 'none' && (
+                      <Text style={styles.recurringTag}>↻ Repeats</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
             </View>
-            <View style={styles.focusContent}>
-              <Text style={styles.focusText}>Drink water first thing</Text>
-              <Text style={styles.focusSubtext}>Small steps matter.</Text>
-            </View>
-          </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.taskCard, { borderStyle: 'dashed', justifyContent: 'center' }]}
+              onPress={() => navigation.navigate('TaskForm')}
+            >
+              <Plus size={24} color={Theme.colors.primary} />
+              <Text style={[styles.taskTitle, { marginLeft: 12, color: Theme.colors.primary }]}>
+                Add a Stop to Your Journey
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={{ flex: 1 }} />
@@ -94,86 +109,41 @@ const styles = StyleSheet.create({
     color: Theme.colors.textSecondary,
   },
 
-  // AI Card (Soft & Prominent)
-  aiCard: {
-    backgroundColor: "#F5F3FF", // Very light indigo
-    borderRadius: 24,
-    padding: 32,
-    marginBottom: 48,
-    borderWidth: 1,
-    borderColor: "#DDD6FE", // Indigo 200
-    alignItems: 'center',
-    ...Theme.shadows.sm,
-  },
-  aiHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  aiTitle: {
-    fontSize: 18,
-    fontFamily: Theme.typography.subHeader,
-    color: Theme.colors.primary,
-    marginLeft: 10,
-  },
-  aiMessage: {
-    fontSize: 18,
-    fontFamily: Theme.typography.body,
-    color: Theme.colors.textMain,
-    lineHeight: 28,
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  aiPromptContainer: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 16,
-  },
-  aiPrompt: {
-    color: Theme.colors.primary,
-    fontFamily: Theme.typography.subHeader,
-    fontSize: 14,
-  },
-
-  // Focus Section
-  focusSection: {
+  // Task List Styles
+  listSection: {
     marginBottom: 32,
   },
-  sectionTitle: {
-    fontSize: 14,
-    fontFamily: Theme.typography.subHeader,
-    color: Theme.colors.textSecondary,
-    marginBottom: 16,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    textAlign: 'center',
-  },
-  focusCard: {
+  taskCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Theme.colors.surface,
-    padding: 24,
-    borderRadius: 20,
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: Theme.colors.border,
     ...Theme.shadows.sm,
   },
-  focusIcon: {
+  taskIcon: {
     marginRight: 16,
   },
-  focusContent: {
+  taskContent: {
     flex: 1,
   },
-  focusText: {
-    fontSize: 18,
+  taskTitle: {
+    fontSize: 16,
     fontFamily: Theme.typography.body,
     color: Theme.colors.textMain,
     marginBottom: 4,
   },
-  focusSubtext: {
-    fontSize: 14,
+  taskDue: {
+    fontSize: 12,
     color: Theme.colors.textSecondary,
-    fontStyle: 'italic',
+  },
+  recurringTag: {
+    fontSize: 10,
+    color: Theme.colors.primary,
+    marginTop: 4,
+    fontFamily: Theme.typography.subHeader,
   },
 });

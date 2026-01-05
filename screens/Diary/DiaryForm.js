@@ -3,17 +3,24 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme, MyButton, MyInput } from '../../components/components';
 import { ArrowLeft, Smile, Meh, Frown } from 'lucide-react-native';
+import { useNotifications } from '../../context/NotificationContext';
 
 export default function DiaryForm({ navigation }) {
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [mood, setMood] = useState('good'); // good, neutral, bad
 
+    const { showNotification } = useNotifications();
+
     const handleSave = () => {
-        if (!title || !content) {
-            Alert.alert('Missing content', 'Please write something before saving.');
+        if (!title.trim() || !content.trim()) {
+            showNotification('warning', "Please write something before saving 🖊️");
             return;
         }
+
+        // Save logic here
+
+        showNotification('success', "Entry saved to your diary 📔", 1);
         navigation.goBack();
     };
 

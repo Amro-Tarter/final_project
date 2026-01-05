@@ -14,6 +14,7 @@ import {
 } from '@expo-google-fonts/poppins';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
 import LoginScreen from './screens/login';
 import SignUpScreen from './screens/SignUp';
 import ForgotPassword from './screens/ForgotPassword';
@@ -23,7 +24,7 @@ import OnboardingScreen from './screens/onBoarding';
 const Stack = createNativeStackNavigator();
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Home, CheckSquare, Target, Book, User, LayoutDashboard } from 'lucide-react-native';
+import { Home, CheckSquare, Target, Book, User, LayoutDashboard, MessageCircleHeart } from 'lucide-react-native';
 import { Theme } from './components/components';
 
 // Tabs
@@ -47,7 +48,7 @@ function MainTabs() {
         tabBarInactiveTintColor: Theme.colors.textSecondary,
         tabBarLabelStyle: {
           fontFamily: Theme.typography.body,
-          fontSize: 12,
+          fontSize: 10,
         },
       }}
     >
@@ -65,6 +66,14 @@ function MainTabs() {
         options={{
           tabBarLabel: 'Tasks',
           tabBarIcon: ({ color }) => <CheckSquare size={24} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="AITab"
+        component={require('./screens/AI/AIChat').default}
+        options={{
+          tabBarLabel: 'Companion',
+          tabBarIcon: ({ color }) => <MessageCircleHeart size={24} color={color} />,
         }}
       />
       <Tab.Screen
@@ -158,9 +167,11 @@ export default function App() {
   return (
     <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <AuthProvider>
-        <NavigationContainer>
-          <RootNavigator />
-        </NavigationContainer>
+        <NotificationProvider>
+          <NavigationContainer>
+            <RootNavigator />
+          </NavigationContainer>
+        </NotificationProvider>
       </AuthProvider>
     </View>
   );
