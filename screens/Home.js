@@ -1,91 +1,68 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { signOut } from 'firebase/auth';
-import { app } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, User as UserIcon, Map, MessageCircleHeart, CheckCircle2 } from 'lucide-react-native';
-import { auth } from '../config/firebase';
-import { Theme, LogoHeader, MyButton } from '../components/components';
+import { MessageCircleHeart, CheckCircle2 } from 'lucide-react-native';
+import { Theme } from '../components/components';
 
-export default function HomeScreen() {
+export default function HomeScreen({ navigation }) {
   const { user } = useAuth();
+  const [fadeAnim] = useState(new Animated.Value(0));
 
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      console.log("User signed out successfully.");
-    } catch (error) {
-      console.error("Sign Out Error:", error.message);
-    }
-  };
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start();
+  }, []);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-        {/* Header Section */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greetingText}>Hello,</Text>
-            <Text style={styles.userText}>{user?.email?.split('@')[0] || 'Traveler'}</Text>
-          </View>
-          <View style={styles.avatarContainer}>
-            <UserIcon size={24} color={Theme.colors.primary} />
-          </View>
-        </View>
+        {/* 1. Warm Greeting (Emotional Orientation) */}
+        <Animated.View style={[styles.header, { opacity: fadeAnim }]}>
+          <Text style={styles.greetingText}>Hello, {user?.email?.split('@')[0] || 'Friend'}.</Text>
+          <Text style={styles.subGreeting}>Take a breath. You're doing great.</Text>
+        </Animated.View>
 
-        {/* AI Agent / Companion Card */}
-        <View style={styles.aiCard}>
+        {/* 2. AI Companion Card (Support) */}
+        <TouchableOpacity
+          style={styles.aiCard}
+          onPress={() => navigation.navigate('AIChat')}
+          activeOpacity={0.95}
+        >
           <View style={styles.aiHeader}>
-            <MessageCircleHeart size={24} color={Theme.colors.primary} />
+            <MessageCircleHeart size={28} color={Theme.colors.primary} />
             <Text style={styles.aiTitle}>Your Companion</Text>
           </View>
           <Text style={styles.aiMessage}>
-            "You’ve made great progress this week. Should we look at your next milestone together?"
+            "I'm here to support you. No pressure today—just progress at your own pace."
           </Text>
-          <TouchableOpacity style={styles.aiAction}>
-            <Text style={styles.aiActionText}>Review Plan</Text>
+          <View style={styles.aiPromptContainer}>
+            <Text style={styles.aiPrompt}>Tap to chat</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* 3. Today's Focus (Gentle Steps) */}
+        <View style={styles.focusSection}>
+          <Text style={styles.sectionTitle}>One Thing for Today</Text>
+          <TouchableOpacity
+            style={styles.focusCard}
+            onPress={() => navigation.navigate('TaskDetails', { taskId: '1' })}
+          >
+            <View style={styles.focusIcon}>
+              <CheckCircle2 size={24} color={Theme.colors.textSecondary} />
+            </View>
+            <View style={styles.focusContent}>
+              <Text style={styles.focusText}>Drink water first thing</Text>
+              <Text style={styles.focusSubtext}>Small steps matter.</Text>
+            </View>
           </TouchableOpacity>
         </View>
 
-        {/* Goal Manager / Current Path */}
-        <Text style={styles.sectionTitle}>Your Journey</Text>
-        <View style={styles.goalCard}>
-          <View style={styles.goalHeader}>
-            <Map size={24} color={Theme.colors.textSecondary} />
-            <Text style={styles.goalTitle}>Current Destination</Text>
-          </View>
-          <Text style={styles.goalName}>Build a Consistent Morning Routine</Text>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '35%' }]} />
-          </View>
-          <Text style={styles.progressText}>35% of the way there • Small steps verify big changes</Text>
-        </View>
-
-        <View style={styles.todayCard}>
-          <Text style={styles.sectionTitleSmall}>Today's Focus</Text>
-          <View style={styles.taskRow}>
-            <CheckCircle2 size={20} color={Theme.colors.textSecondary} />
-            <Text style={styles.taskText}>Drink water first thing</Text>
-          </View>
-          <View style={styles.taskRow}>
-            <CheckCircle2 size={20} color={Theme.colors.primary} />
-            <Text style={[styles.taskText, styles.taskCompleted]}>5 min meditation</Text>
-          </View>
-        </View>
-
         <View style={{ flex: 1 }} />
-
-        <TouchableOpacity
-          style={styles.signOutButton}
-          onPress={handleSignOut}
-          activeOpacity={0.7}
-        >
-          <LogOut size={20} color={Theme.colors.error} style={{ marginRight: 10 }} />
-          <Text style={styles.buttonText}>Sign Out</Text>
-        </TouchableOpacity>
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -99,168 +76,104 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     padding: Theme.spacing.lg,
+    justifyContent: 'center',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Theme.spacing.xl,
+    marginTop: 40,
+    marginBottom: 48,
   },
   greetingText: {
-    fontSize: 16,
+    fontSize: 32,
+    fontFamily: Theme.typography.header,
+    color: Theme.colors.textMain,
+    marginBottom: 8,
+  },
+  subGreeting: {
+    fontSize: 18,
     fontFamily: Theme.typography.body,
     color: Theme.colors.textSecondary,
   },
-  userText: {
-    fontSize: 24,
-    fontFamily: Theme.typography.header,
-    color: Theme.colors.textMain,
-  },
-  avatarContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#EEF2FF",
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: "#E0E7FF"
-  },
 
-  // AI Card
+  // AI Card (Soft & Prominent)
   aiCard: {
-    backgroundColor: "#F5F3FF", // Very light indigo/lavender
-    borderRadius: Theme.radius,
-    padding: Theme.spacing.lg,
-    marginBottom: Theme.spacing.xl,
+    backgroundColor: "#F5F3FF", // Very light indigo
+    borderRadius: 24,
+    padding: 32,
+    marginBottom: 48,
     borderWidth: 1,
     borderColor: "#DDD6FE", // Indigo 200
+    alignItems: 'center',
+    ...Theme.shadows.sm,
   },
   aiHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   aiTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: Theme.typography.subHeader,
     color: Theme.colors.primary,
     marginLeft: 10,
   },
   aiMessage: {
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: Theme.typography.body,
     color: Theme.colors.textMain,
-    lineHeight: 24,
-    fontStyle: 'italic',
-    marginBottom: 16,
+    lineHeight: 28,
+    textAlign: 'center',
+    marginBottom: 24,
   },
-  aiAction: {
-    alignSelf: 'flex-start',
+  aiPromptContainer: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
   },
-  aiActionText: {
+  aiPrompt: {
     color: Theme.colors.primary,
     fontFamily: Theme.typography.subHeader,
     fontSize: 14,
   },
 
-  // Goals
+  // Focus Section
+  focusSection: {
+    marginBottom: 32,
+  },
   sectionTitle: {
-    fontSize: 20,
-    fontFamily: Theme.typography.header,
-    color: Theme.colors.textMain,
-    marginBottom: Theme.spacing.md,
-  },
-  sectionTitleSmall: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: Theme.typography.subHeader,
-    color: Theme.colors.textMain,
-    marginBottom: Theme.spacing.md,
+    color: Theme.colors.textSecondary,
+    marginBottom: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    textAlign: 'center',
   },
-  goalCard: {
+  focusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Theme.colors.surface,
-    borderRadius: Theme.radius,
-    padding: Theme.spacing.lg,
-    marginBottom: Theme.spacing.xl,
+    padding: 24,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: Theme.colors.border,
     ...Theme.shadows.sm,
   },
-  goalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
+  focusIcon: {
+    marginRight: 16,
   },
-  goalTitle: {
-    fontSize: 14,
-    fontFamily: Theme.typography.subHeader,
-    color: Theme.colors.textSecondary,
-    marginLeft: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  focusContent: {
+    flex: 1,
   },
-  goalName: {
+  focusText: {
     fontSize: 18,
-    fontFamily: Theme.typography.header,
-    color: Theme.colors.textMain,
-    marginBottom: 16,
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: "#F1F5F9",
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: Theme.colors.success,
-    borderRadius: 4,
-  },
-  progressText: {
-    fontSize: 12,
-    fontFamily: Theme.typography.body,
-    color: Theme.colors.textSecondary,
-  },
-
-  // Today
-  todayCard: {
-    marginBottom: Theme.spacing.xxl,
-  },
-  taskRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
-  },
-  taskText: {
-    marginLeft: 12,
-    fontSize: 16,
     fontFamily: Theme.typography.body,
     color: Theme.colors.textMain,
+    marginBottom: 4,
   },
-  taskCompleted: {
-    textDecorationLine: 'line-through',
+  focusSubtext: {
+    fontSize: 14,
     color: Theme.colors.textSecondary,
-  },
-
-  // Sign Out
-  signOutButton: {
-    flexDirection: 'row',
-    backgroundColor: "#FEF2F2", // Light red bg
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    borderWidth: 1,
-    borderColor: "#FEE2E2",
-  },
-  buttonText: {
-    color: Theme.colors.error,
-    fontSize: 16,
-    fontFamily: Theme.typography.subHeader,
+    fontStyle: 'italic',
   },
 });
