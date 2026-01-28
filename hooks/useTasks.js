@@ -91,10 +91,13 @@ export function useTasks() {
         // Logic for Recurrence
         if (task.status === 'pending' && task.recurrence && typeof task.recurrence === 'object' && task.recurrence.type !== 'none') {
             // It is a recurring task being marked as done
-            // We reschedule it instead of completing it
+            // 1. Mark the current task as completed (preserve history)
+            await updateTask(task.id, { status: 'completed' });
 
-            const nextDate = new Date(); // Start from today
-            // Or start from task.due? usually "recur from completion" is better for personal habits
+            // 2. Clone and create a NEW task for the next occurrence
+            const nextDate = new Date();
+            // We use today as the base for the next interval so it doesn't drift if they are late
+            // (or use task.due if strict schedule preferred - usually 'from completion' is friendlier)
 
             const interval = task.recurrence.interval || 1;
 
@@ -106,13 +109,21 @@ export function useTasks() {
                 nextDate.setDate(nextDate.getDate() + interval);
             }
 
-            // Format back to YYYY-MM-DD
             const nextDueStr = nextDate.toISOString().split('T')[0];
 
-            await updateTask(task.id, {
+            // Create the new task
+            await addDoc(collection(db, 'tasks'), {
+                title: task.title,
+                desc: task.desc || '',
+                priority: task.priority || 'Normal',
+                userId: user.uid,
+                createdAt: serverTimestamp(),
+                status: 'pending',
                 due: nextDueStr,
-                status: 'pending' // Still pending, just moved
+                recurrence: task.recurrence,
+                reminder: task.reminder || null
             });
+
             return;
         }
 

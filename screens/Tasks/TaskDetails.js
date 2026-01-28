@@ -62,7 +62,7 @@ export default function TaskDetails({ navigation, route }) {
                 // If it WAS pending, and we toggled, it IS NOW completed (unless recurring).
 
                 if (item.recurrence?.type && item.recurrence.type !== 'none') {
-                    showNotification('success', "Recurring task rescheduled 🔄", 2);
+                    showNotification('success', "Task completed! Next occurrence scheduled 🗓️", 2);
                 } else {
                     // Standard completion
                     showNotification('success', "Task completed! 🎉", 3);
