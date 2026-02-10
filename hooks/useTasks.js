@@ -91,8 +91,6 @@ export function useTasks() {
         // Logic for Recurrence
         if (task.status === 'pending' && task.recurrence && typeof task.recurrence === 'object' && task.recurrence.type !== 'none') {
             // It is a recurring task being marked as done
-            // 1. Mark the current task as completed (preserve history)
-            await updateTask(task.id, { status: 'completed' });
 
             // 2. Clone and create a NEW task for the next occurrence
             const nextDate = new Date();
@@ -112,7 +110,7 @@ export function useTasks() {
             const nextDueStr = nextDate.toISOString().split('T')[0];
 
             // Create the new task
-            await addDoc(collection(db, 'tasks'), {
+            const newDocRef = await addDoc(collection(db, 'tasks'), {
                 title: task.title,
                 desc: task.desc || '',
                 priority: task.priority || 'Normal',
@@ -124,6 +122,30 @@ export function useTasks() {
                 reminder: task.reminder || null
             });
 
+            // 1. Mark the current task as completed (preserve history) AND LINK the next one
+            await updateTask(task.id, {
+                status: 'completed',
+                nextOccurrenceId: newDocRef.id
+            });
+
+            return;
+        }
+
+        // Logic for UNDOING a recurring task completion
+        // If we are marking a completed task as pending, check if it spawned a next occurrence.
+        if (task.status === 'completed' && task.nextOccurrenceId) {
+            try {
+                // Delete the future task that was created automatically
+                await deleteTask(task.nextOccurrenceId);
+            } catch (e) {
+                console.log("Could not delete next occurrence (maybe already deleted):", e);
+            }
+
+            // Unmark the current task and clear the link
+            await updateTask(task.id, {
+                status: 'pending',
+                nextOccurrenceId: null
+            });
             return;
         }
 

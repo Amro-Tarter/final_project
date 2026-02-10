@@ -87,7 +87,7 @@ export const MyInput = ({ label, icon: Icon, rightIcon: RightIcon, onRightIconPr
       {Icon && <View style={styles.inputIcon}><Icon size={20} color={Theme.colors.textSecondary} /></View>}
 
       <TextInput
-        style={styles.input}
+        style={[styles.input, props.style]}
         placeholderTextColor="#94A3B8"
         selectionColor={Theme.colors.primary}
         {...props}

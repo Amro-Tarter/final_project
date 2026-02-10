@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme, MyInput } from '../../components/components';
 import { useTasks } from '../../hooks/useTasks';
+import { useNotifications } from '../../context/NotificationContext';
 import { Plus, CheckCircle2, Circle, Search, Filter } from 'lucide-react-native';
 
 // Mock data for UI development
@@ -15,6 +16,7 @@ const MOCK_TASKS = [
 
 export default function TaskList({ navigation }) {
     const { tasks, loading, toggleTaskStatus } = useTasks();
+    const { showNotification } = useNotifications();
     const [filter, setFilter] = useState('All'); // All, Pending, Completed
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -38,7 +40,20 @@ export default function TaskList({ navigation }) {
         >
             <TouchableOpacity
                 style={styles.checkButton}
-                onPress={() => toggleTaskStatus(item)}
+                onPress={async () => {
+                    await toggleTaskStatus(item);
+                    if (item.status === 'pending') {
+                        // Logic implies it WAS pending, now completed (unless async failed, but we assume success)
+                        // Note: 'item' is stale here, so we use its pre-toggle state
+                        if (item.recurrence?.type && item.recurrence.type !== 'none') {
+                            showNotification('success', "Task completed! Next occurrence scheduled 🗓️", 2);
+                        } else {
+                            showNotification('success', "Task completed! 🎉", 3);
+                        }
+                    } else {
+                        showNotification('warning', "Task marked as pending 📝", 1);
+                    }
+                }}
             >
                 {item.status === 'completed' ? (
                     <CheckCircle2 size={24} color={Theme.colors.success} />

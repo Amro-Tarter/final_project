@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
-import { MessageCircleHeart, CheckCircle2, Plus } from 'lucide-react-native';
+import { MessageCircleHeart, CheckCircle2, Circle, Plus } from 'lucide-react-native';
 import { Theme } from '../components/components';
 import { useTasks } from '../hooks/useTasks';
 
@@ -49,9 +49,9 @@ export default function HomeScreen({ navigation }) {
                 >
                   <View style={styles.taskIcon}>
                     {task.priority === 'High' ? (
-                      <CheckCircle2 size={24} color={Theme.colors.primary} />
+                      <Circle size={24} color={Theme.colors.primary} />
                     ) : (
-                      <CheckCircle2 size={24} color={Theme.colors.textSecondary} />
+                      <Circle size={24} color={Theme.colors.textSecondary} />
                     )}
                   </View>
                   <View style={styles.taskContent}>
