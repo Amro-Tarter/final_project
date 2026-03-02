@@ -9,7 +9,8 @@ import {
     where,
     onSnapshot,
     orderBy,
-    serverTimestamp
+    serverTimestamp,
+    getDocs
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
@@ -51,37 +52,79 @@ export function useTasks() {
     const addTask = async (taskData) => {
         if (!user) return;
         try {
-            await addDoc(collection(db, 'tasks'), {
+            const docRef = await addDoc(collection(db, 'tasks'), {
                 ...taskData,
                 userId: user.uid,
                 createdAt: serverTimestamp(),
                 status: 'pending', // default status
             });
+            if (taskData.goalId) {
+                await recalculateGoalProgress(taskData.goalId);
+            }
+            return docRef;
         } catch (error) {
             console.error("Error adding task:", error);
             throw error;
         }
     };
 
-    const updateTask = async (taskId, updates) => {
+    const updateTask = async (taskId, updates, oldGoalId = null) => {
         if (!user) return;
         try {
             const taskRef = doc(db, 'tasks', taskId);
             await updateDoc(taskRef, updates);
+
+            if (updates.goalId) {
+                await recalculateGoalProgress(updates.goalId);
+            }
+            if (oldGoalId && oldGoalId !== updates.goalId) {
+                await recalculateGoalProgress(oldGoalId);
+            }
         } catch (error) {
             console.error("Error updating task:", error);
             throw error;
         }
     };
 
-    const deleteTask = async (taskId) => {
+    const deleteTask = async (taskId, goalId = null) => {
         if (!user) return;
         try {
             const taskRef = doc(db, 'tasks', taskId);
             await deleteDoc(taskRef);
+
+            if (goalId) {
+                await recalculateGoalProgress(goalId);
+            }
         } catch (error) {
             console.error("Error deleting task:", error);
             throw error;
+        }
+    };
+
+    const recalculateGoalProgress = async (goalId) => {
+        if (!goalId) return;
+        try {
+            // Get all tasks for this goal
+            const tasksQuery = query(collection(db, 'tasks'), where('goalId', '==', goalId));
+            const tasksSnapshot = await getDocs(tasksQuery);
+
+            const totalTasks = tasksSnapshot.size;
+            if (totalTasks === 0) {
+                await updateDoc(doc(db, 'goals', goalId), { progress: 0 });
+                return;
+            }
+
+            let completedCount = 0;
+            tasksSnapshot.forEach(doc => {
+                if (doc.data().status === 'completed') {
+                    completedCount++;
+                }
+            });
+
+            const progress = completedCount / totalTasks;
+            await updateDoc(doc(db, 'goals', goalId), { progress });
+        } catch (error) {
+            console.error("Error recalculating goal progress:", error);
         }
     };
 
@@ -126,8 +169,11 @@ export function useTasks() {
             await updateTask(task.id, {
                 status: 'completed',
                 nextOccurrenceId: newDocRef.id
-            });
+            }, task.goalId);
 
+            if (task.goalId) {
+                await recalculateGoalProgress(task.goalId);
+            }
             return;
         }
 
@@ -145,12 +191,20 @@ export function useTasks() {
             await updateTask(task.id, {
                 status: 'pending',
                 nextOccurrenceId: null
-            });
+            }, task.goalId);
+
+            if (task.goalId) {
+                await recalculateGoalProgress(task.goalId);
+            }
             return;
         }
 
         const newStatus = task.status === 'completed' ? 'pending' : 'completed';
-        await updateTask(task.id, { status: newStatus });
+        await updateTask(task.id, { status: newStatus }, task.goalId);
+
+        if (task.goalId) {
+            await recalculateGoalProgress(task.goalId);
+        }
     };
 
     return {
@@ -159,6 +213,7 @@ export function useTasks() {
         addTask,
         updateTask,
         deleteTask,
-        toggleTaskStatus
+        toggleTaskStatus,
+        recalculateGoalProgress
     };
 }

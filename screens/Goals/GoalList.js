@@ -1,16 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '../../components/components';
 import { Plus, Target, ChevronRight } from 'lucide-react-native';
-
-const MOCK_GOALS = [
-    { id: '1', title: 'Run a Marathon', progress: 0.6, deadline: 'Dec 2026' },
-    { id: '2', title: 'Learn Spanish', progress: 0.2, deadline: 'June 2026' },
-    { id: '3', title: 'Save $10k', progress: 0.85, deadline: 'Aug 2026' },
-];
+import { useGoals } from '../../hooks/useGoals';
 
 export default function GoalList({ navigation }) {
+    const { goals, loading } = useGoals();
     const renderItem = ({ item }) => (
         <TouchableOpacity
             style={styles.card}
@@ -27,9 +23,9 @@ export default function GoalList({ navigation }) {
             <Text style={styles.deadline}>By {item.deadline}</Text>
 
             <View style={styles.progressContainer}>
-                <View style={[styles.progressBar, { width: `${item.progress * 100}%` }]} />
+                <View style={[styles.progressBar, { width: `${(item.progress || 0) * 100}%` }]} />
             </View>
-            <Text style={styles.progressText}>{Math.round(item.progress * 100)}% Complete</Text>
+            <Text style={styles.progressText}>{Math.round((item.progress || 0) * 100)}% Complete</Text>
         </TouchableOpacity>
     );
 
@@ -46,11 +42,22 @@ export default function GoalList({ navigation }) {
             </View>
 
             <FlatList
-                data={MOCK_GOALS}
+                data={goals}
                 renderItem={renderItem}
                 keyExtractor={item => item.id}
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
+                ListEmptyComponent={
+                    <View style={{ marginTop: 40, alignItems: 'center' }}>
+                        {loading ? (
+                            <ActivityIndicator size="large" color={Theme.colors.primary} />
+                        ) : (
+                            <Text style={{ fontFamily: Theme.typography.body, color: Theme.colors.textSecondary }}>
+                                You have no goals yet. Create one!
+                            </Text>
+                        )}
+                    </View>
+                }
             />
         </SafeAreaView>
     );

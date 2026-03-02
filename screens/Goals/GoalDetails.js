@@ -1,19 +1,75 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme, MyButton } from '../../components/components';
 import { ArrowLeft, MapPin, CheckCircle2, Circle } from 'lucide-react-native';
-
-const MILESTONES = [
-    { id: '1', title: 'Buy running shoes', status: 'completed' },
-    { id: '2', title: 'Run 5k without stopping', status: 'completed' },
-    { id: '3', title: 'Run 10k', status: 'pending' },
-    { id: '4', title: 'Half-Marathon', status: 'pending' },
-];
+import { useGoals } from '../../hooks/useGoals';
+import { useTasks } from '../../hooks/useTasks';
+import { useNotifications } from '../../context/NotificationContext';
 
 export default function GoalDetails({ navigation, route }) {
-    // Mock data
-    const goal = { title: 'Run a Marathon', progress: 0.5 };
+    const { goalId } = route.params;
+    const { goals, updateGoal, deleteGoal } = useGoals();
+    const { tasks } = useTasks();
+    const { showNotification } = useNotifications();
+
+    const goal = goals.find(g => g.id === goalId);
+
+    // Get tasks associated with this goal
+    const goalTasks = tasks.filter(t => t.goalId === goalId);
+
+    if (!goal) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                        <ArrowLeft size={24} color={Theme.colors.textMain} />
+                    </TouchableOpacity>
+                </View>
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <Text style={{ fontFamily: Theme.typography.body, color: Theme.colors.textSecondary }}>
+                        Goal not found or deleted.
+                    </Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    const handleComplete = async () => {
+        Alert.alert(
+            "Complete Goal",
+            "Are you sure you want to mark this goal as completed? Congratulations on finishing it!",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Complete Goal",
+                    onPress: async () => {
+                        await updateGoal(goal.id, { status: 'completed', progress: 1 });
+                        showNotification('success', `🎉 Amazing job! You completed: ${goal.title}`, 4);
+                        navigation.goBack();
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleDelete = () => {
+        Alert.alert(
+            "Delete Goal",
+            "Are you sure you want to delete this goal? Tasks attached to it will not be deleted, but they will be unlinked from this goal.",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        await deleteGoal(goal.id);
+                        navigation.goBack();
+                    }
+                }
+            ]
+        );
+    };
 
     return (
         <SafeAreaView style={styles.container}>
@@ -22,7 +78,7 @@ export default function GoalDetails({ navigation, route }) {
                     <ArrowLeft size={24} color={Theme.colors.textMain} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Goal Roadmap</Text>
-                <TouchableOpacity onPress={() => navigation.navigate('GoalForm', { goalId: '1' })}>
+                <TouchableOpacity onPress={() => navigation.navigate('GoalForm', { goal })}>
                     <Text style={styles.editText}>Edit</Text>
                 </TouchableOpacity>
             </View>
@@ -35,8 +91,12 @@ export default function GoalDetails({ navigation, route }) {
                     {/* Vertical Line */}
                     <View style={styles.line} />
 
-                    {MILESTONES.map((item, index) => (
-                        <View key={item.id} style={styles.milestoneRow}>
+                    {goalTasks.map((item) => (
+                        <TouchableOpacity
+                            key={item.id}
+                            style={styles.milestoneRow}
+                            onPress={() => navigation.navigate('TaskDetails', { taskId: item.id })}
+                        >
                             <View style={styles.markerContainer}>
                                 {item.status === 'completed' ? (
                                     <CheckCircle2 size={24} color={Theme.colors.success} />
@@ -52,10 +112,10 @@ export default function GoalDetails({ navigation, route }) {
                                     {item.title}
                                 </Text>
                                 <Text style={styles.milestoneStatus}>
-                                    {item.status === 'completed' ? 'Reached' : 'Next Stop'}
+                                    {item.status === 'completed' ? 'Done' : 'Pending'}
                                 </Text>
                             </View>
-                        </View>
+                        </TouchableOpacity>
                     ))}
 
                     <View style={styles.milestoneRow}>
@@ -67,9 +127,26 @@ export default function GoalDetails({ navigation, route }) {
                 </View>
 
                 <MyButton
+                    title={goal.status === 'completed' ? "Completed 🎉" : "Complete Goal"}
+                    disabled={goal.status === 'completed'}
+                    style={{ marginTop: Theme.spacing.xl, backgroundColor: goal.status === 'completed' ? Theme.colors.success : Theme.colors.primary }}
+                    onPress={handleComplete}
+                />
+
+                <MyButton
+                    title="Delete Goal"
+                    onPress={handleDelete}
+                    type="secondary"
+                    style={{ marginTop: Theme.spacing.md, borderColor: Theme.colors.error }}
+                    textStyle={{ color: Theme.colors.error }}
+                />
+
+                <View style={{ height: 20 }} />
+
+                <MyButton
                     title="Add Milestone"
                     type="secondary"
-                    style={{ marginTop: Theme.spacing.xl }}
+                    onPress={() => navigation.navigate('TaskForm', { prefilledGoalId: goal.id })}
                 />
 
                 <View style={{ height: 40 }} />

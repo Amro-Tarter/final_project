@@ -5,12 +5,14 @@ import { Theme, MyButton, MyInput, MyCheckbox, MyDatePicker, MyTimePicker } from
 
 import { ArrowLeft, Calendar } from 'lucide-react-native';
 import { useTasks } from '../../hooks/useTasks';
+import { useGoals } from '../../hooks/useGoals';
 
 export default function TaskForm({ navigation, route }) {
     // If editing, we passed the full task object
     const taskToEdit = route.params?.task;
     const isEditing = !!taskToEdit;
     const { addTask, updateTask } = useTasks();
+    const { goals } = useGoals();
     const [submitting, setSubmitting] = useState(false);
 
     const [title, setTitle] = useState(taskToEdit?.title || '');
@@ -25,6 +27,11 @@ export default function TaskForm({ navigation, route }) {
     // Reminder State
     const [reminderType, setReminderType] = useState(taskToEdit?.reminder?.type || 'none'); // none, time, period
     const [reminderValue, setReminderValue] = useState(taskToEdit?.reminder?.value || ''); // "09:00" or "morning"
+
+    // Goal Link State
+    const [selectedGoalId, setSelectedGoalId] = useState(taskToEdit?.goalId || route.params?.prefilledGoalId || null);
+
+    const activeGoals = goals.filter(g => g.status !== 'completed' || g.id === selectedGoalId);
 
     const handleSave = async () => {
         if (!title.trim()) {
@@ -51,11 +58,13 @@ export default function TaskForm({ navigation, route }) {
                 priority: isHighPriority ? 'High' : 'Normal',
                 status: taskToEdit?.status || 'pending',
                 recurrence,
-                reminder
+                reminder,
+                goalId: selectedGoalId
             };
 
             if (isEditing) {
-                await updateTask(taskToEdit.id, taskData);
+                // Pass the old goalId to updateTask so it can recalculate both old and new goal progress
+                await updateTask(taskToEdit.id, taskData, taskToEdit.goalId);
             } else {
                 await addTask(taskData);
             }
@@ -151,6 +160,30 @@ export default function TaskForm({ navigation, route }) {
                         value={reminderValue}
                         onChange={setReminderValue}
                     />
+                )}
+
+                {/* Link to Goal Section */}
+                {activeGoals.length > 0 && (
+                    <>
+                        <Text style={styles.sectionLabel}>Link to Goal (Optional)</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+                            <View style={[styles.chipRow, { flexWrap: 'nowrap' }]}>
+                                <OptionChip
+                                    label="None"
+                                    selected={selectedGoalId === null}
+                                    onPress={() => setSelectedGoalId(null)}
+                                />
+                                {activeGoals.map(g => (
+                                    <OptionChip
+                                        key={g.id}
+                                        label={g.title}
+                                        selected={selectedGoalId === g.id}
+                                        onPress={() => setSelectedGoalId(g.id)}
+                                    />
+                                ))}
+                            </View>
+                        </ScrollView>
+                    </>
                 )}
 
                 <View style={{ marginVertical: Theme.spacing.md }}>

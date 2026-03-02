@@ -1,29 +1,52 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme, MyButton, MyInput, MyCheckbox, MyDatePicker } from '../../components/components';
 
 import { ArrowLeft, Calendar } from 'lucide-react-native';
 import { useNotifications } from '../../context/NotificationContext';
+import { useGoals } from '../../hooks/useGoals';
 
 export default function GoalForm({ navigation, route }) {
-    const isEditing = !!route.params?.goalId;
+    const goalToEdit = route.params?.goal;
+    const isEditing = !!goalToEdit;
 
-    const [title, setTitle] = useState(isEditing ? 'Run a Marathon' : '');
-    const [motivation, setMotivation] = useState(isEditing ? 'To prove to myself I can do it.' : '');
-    const [deadline, setDeadline] = useState(isEditing ? '2026-12-31' : '');
+    const [title, setTitle] = useState(goalToEdit?.title || '');
+    const [motivation, setMotivation] = useState(goalToEdit?.motivation || '');
+    const [deadline, setDeadline] = useState(goalToEdit?.deadline || '');
+
+    const [submitting, setSubmitting] = useState(false);
 
     const { showNotification } = useNotifications();
+    const { addGoal, updateGoal } = useGoals();
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!title.trim()) {
             showNotification('warning', "Please add a goal title 🎯");
             return;
         }
-        // Logic to save would go here
 
-        showNotification('success', "Goal saved! Let's do this 🚀", 1);
-        navigation.goBack();
+        setSubmitting(true);
+        try {
+            const goalData = {
+                title,
+                motivation,
+                deadline
+            };
+
+            if (isEditing) {
+                await updateGoal(goalToEdit.id, goalData);
+                showNotification('success', "Goal updated! Keep it up 💪", 1);
+            } else {
+                await addGoal(goalData);
+                showNotification('success', "Goal saved! Let's do this 🚀", 1);
+            }
+            navigation.goBack();
+        } catch (error) {
+            showNotification('error', "Could not save goal. Please try again.");
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (
@@ -64,8 +87,9 @@ export default function GoalForm({ navigation, route }) {
                 />
 
                 <MyButton
-                    title={isEditing ? "Save Changes" : "Start Journey"}
+                    title={submitting ? "Saving..." : (isEditing ? "Save Changes" : "Start Journey")}
                     onPress={handleSave}
+                    disabled={submitting}
                     style={{ marginTop: Theme.spacing.xl }}
                 />
             </ScrollView>
