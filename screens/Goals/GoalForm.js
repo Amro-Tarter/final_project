@@ -18,7 +18,7 @@ export default function GoalForm({ navigation, route }) {
     const [submitting, setSubmitting] = useState(false);
 
     const { showNotification } = useNotifications();
-    const { addGoal, updateGoal } = useGoals();
+    const { goals, addGoal, updateGoal } = useGoals();
 
     const handleSave = async () => {
         if (!title.trim()) {
@@ -38,10 +38,14 @@ export default function GoalForm({ navigation, route }) {
                 await updateGoal(goalToEdit.id, goalData);
                 showNotification('success', "Goal updated! Keep it up 💪", 1);
             } else {
-                await addGoal(goalData);
+                const newGoal = await addGoal(goalData);
                 showNotification('success', "Goal saved! Let's do this 🚀", 1);
-            }
-            navigation.goBack();
+                navigation.navigate('GoalDetails', {
+                goalId: newGoal.id,
+                });
+
+                }
+            
         } catch (error) {
             showNotification('error', "Could not save goal. Please try again.");
         } finally {

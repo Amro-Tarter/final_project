@@ -18,6 +18,7 @@ import { NotificationProvider } from './context/NotificationContext';
 import LoginScreen from './screens/login';
 import SignUpScreen from './screens/SignUp';
 import ForgotPassword from './screens/ForgotPassword';
+import WelcomeScreen from './screens/Welcome';
 import HomeScreen from './screens/Home';
 import OnboardingScreen from './screens/onBoarding';
 
@@ -38,7 +39,7 @@ function MainTabs() {
         tabBarStyle: {
           backgroundColor: Theme.colors.surface,
           borderTopColor: Theme.colors.border,
-          height: 60,
+          height: 80,
           paddingBottom: 8,
           paddingTop: 8,
           elevation: 0,
@@ -110,29 +111,33 @@ function RootNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {user ? (
-        <>
-          {/* Main Tab Navigator */}
-          <Stack.Screen name="MainTabs" component={MainTabs} />
+        user.onboardingComplete ? (
+          <>
+            {/* Main Tab Navigator */}
+            <Stack.Screen name="MainTabs" component={MainTabs} />
 
-          {/* Details & Forms (Sitting on top of tabs) */}
-          <Stack.Screen name="TaskDetails" component={require('./screens/Tasks/TaskDetails').default} />
-          <Stack.Screen name="TaskForm" component={require('./screens/Tasks/TaskForm').default} />
+            {/* Details & Forms (Sitting on top of tabs) */}
+            <Stack.Screen name="TaskDetails" component={require('./screens/Tasks/TaskDetails').default} />
+            <Stack.Screen name="TaskForm" component={require('./screens/Tasks/TaskForm').default} />
 
-          <Stack.Screen name="GoalDetails" component={require('./screens/Goals/GoalDetails').default} />
-          <Stack.Screen name="GoalForm" component={require('./screens/Goals/GoalForm').default} />
+            <Stack.Screen name="GoalDetails" component={require('./screens/Goals/GoalDetails').default} />
+            <Stack.Screen name="GoalForm" component={require('./screens/Goals/GoalForm').default} />
 
-          <Stack.Screen name="DiaryEntry" component={require('./screens/Diary/DiaryEntry').default} />
-          <Stack.Screen name="DiaryForm" component={require('./screens/Diary/DiaryForm').default} />
+            <Stack.Screen name="DiaryEntry" component={require('./screens/Diary/DiaryEntry').default} />
+            <Stack.Screen name="DiaryForm" component={require('./screens/Diary/DiaryForm').default} />
 
-          <Stack.Screen name="AIChat" component={require('./screens/AI/AIChat').default} />
-          <Stack.Screen name="AIInsights" component={require('./screens/AI/AIInsights').default} />
+            <Stack.Screen name="AIChat" component={require('./screens/AI/AIChat').default} />
+            <Stack.Screen name="AIInsights" component={require('./screens/AI/AIInsights').default} />
 
-          <Stack.Screen name="Settings" component={require('./screens/Profile/Settings').default} />
-          <Stack.Screen name="AnalyticsDashboard" component={require('./screens/Analytics/AnalyticsDashboard').default} />
-        </>
+            <Stack.Screen name="Settings" component={require('./screens/Profile/Settings').default} />
+            <Stack.Screen name="AnalyticsDashboard" component={require('./screens/Analytics/AnalyticsDashboard').default} />
+          </>
+        ) : (
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        )
       ) : (
         <>
-          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          <Stack.Screen name="Welcome" component={WelcomeScreen} />
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="SignUp" component={SignUpScreen} />
           <Stack.Screen name="ForgotPassword" component={ForgotPassword} />

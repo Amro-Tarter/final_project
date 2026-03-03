@@ -48,21 +48,28 @@ export function useGoals() {
         return () => unsubscribe();
     }, [user]);
 
-    const addGoal = async (goalData) => {
-        if (!user) return;
-        try {
-            await addDoc(collection(db, 'goals'), {
-                ...goalData,
-                userId: user.uid,
-                createdAt: serverTimestamp(),
-                status: 'active', // active, completed
-                progress: 0
-            });
-        } catch (error) {
-            console.error("Error adding goal:", error);
-            throw error;
-        }
+const addGoal = async (goalData) => {
+  if (!user) {
+    throw new Error('User is not authenticated');
+  }
+
+  try {
+    const docRef = await addDoc(collection(db, 'goals'), {
+      ...goalData,
+      userId: user.uid,
+      createdAt: serverTimestamp(),
+      status: 'active',
+      progress: 0,
+    });
+    return {
+      id: docRef.id,
+      ...goalData,
     };
+
+  } catch (error) {
+    throw error;
+  }
+};
 
     const updateGoal = async (goalId, updates) => {
         if (!user) return;

@@ -8,15 +8,19 @@ import { useTasks } from '../../hooks/useTasks';
 import { useNotifications } from '../../context/NotificationContext';
 
 export default function GoalDetails({ navigation, route }) {
-    const { goalId } = route.params;
+    const goalId = route?.params?.goalId;
+
     const { goals, updateGoal, deleteGoal } = useGoals();
     const { tasks } = useTasks();
     const { showNotification } = useNotifications();
 
-    const goal = goals.find(g => g.id === goalId);
-
+    
     // Get tasks associated with this goal
     const goalTasks = tasks.filter(t => t.goalId === goalId);
+
+    const hasTasks = goalTasks.length > 0;
+    const allTasksCompleted =hasTasks && goalTasks.every(t => t.status === 'completed');
+    const goal = goals.find(g => g.id === goalId);
 
     if (!goal) {
         return (
@@ -38,7 +42,7 @@ export default function GoalDetails({ navigation, route }) {
     const handleComplete = async () => {
         Alert.alert(
             "Complete Goal",
-            "Are you sure you want to mark this goal as completed? Congratulations on finishing it!",
+            " Congratulations on finishing your goal this is a great step forward!",
             [
                 { text: "Cancel", style: "cancel" },
                 {
@@ -127,9 +131,23 @@ export default function GoalDetails({ navigation, route }) {
                 </View>
 
                 <MyButton
-                    title={goal.status === 'completed' ? "Completed 🎉" : "Complete Goal"}
-                    disabled={goal.status === 'completed'}
-                    style={{ marginTop: Theme.spacing.xl, backgroundColor: goal.status === 'completed' ? Theme.colors.success : Theme.colors.primary }}
+                    title={
+                        goal.status === 'completed'
+                            ? "Completed 🎉"
+                            : "Complete Goal"
+                    }
+                    disabled={
+                        goal.status === 'completed' ||
+                        !allTasksCompleted
+                    }
+                    style={{
+                        marginTop: Theme.spacing.xl,
+                        backgroundColor:
+                            goal.status === 'completed'
+                                ? Theme.colors.success
+                                : Theme.colors.primary,
+                        opacity: !allTasksCompleted && goal.status !== 'completed' ? 0.5 : 1
+                    }}
                     onPress={handleComplete}
                 />
 

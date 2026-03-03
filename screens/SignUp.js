@@ -15,8 +15,6 @@ export default function SignUpScreen({ navigation, route }) {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const tempAnswerId = route.params?.tempAnswerId;
-
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState('');
   const [alertMessage, setAlertMessage] = useState('');
@@ -45,17 +43,8 @@ export default function SignUpScreen({ navigation, route }) {
         fullName,
         email,
         createdAt: serverTimestamp(),
-        onboardingComplete: !!tempAnswerId
+        onboardingComplete: false
       });
-
-      if (tempAnswerId) {
-        const answerDocRef = doc(db, "users_personal_answers", tempAnswerId);
-        await updateDoc(answerDocRef, {
-          uid: user.uid,
-          isLinked: true,
-          linkedAt: serverTimestamp()
-        });
-      }
 
     } catch (error) {
       setAlertTitle("Sign Up Failed");

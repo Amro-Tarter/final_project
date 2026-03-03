@@ -8,7 +8,8 @@ import {
   MyCheckbox,
 } from "../components/components";
 import { db } from "../config/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { doc, updateDoc } from "firebase/firestore";
+import { useAuth } from "../context/AuthContext";
 
 const QUESTIONS = [
   {
@@ -77,6 +78,7 @@ const QUESTIONS = [
 ];
 
 export default function OnboardingScreen({ navigation }) {
+  const { user, updateUser } = useAuth();
   const [isStarted, setIsStarted] = useState(false);
   const [step, setStep] = useState(0);
 
@@ -124,18 +126,17 @@ export default function OnboardingScreen({ navigation }) {
 
   const handleFinish = async () => {
     try {
-      // 1. Save answers to temporary document
-      const docRef = await addDoc(collection(db, "users_personal_answers"), {
-        ...answers,
-        isLinked: false,
-        createdAt: serverTimestamp(),
-      });
-
-      // 2. Pass Document ID to SignUp
-      navigation.navigate('SignUp', { tempAnswerId: docRef.id });
+      if (user) {
+        const userRef = doc(db, "users", user.uid);
+        await updateDoc(userRef, {
+          onboardingAnswers: answers,
+          onboardingComplete: true
+        });
+        updateUser({ onboardingComplete: true });
+        // Navigation handled automatically by App.js state change
+      }
     } catch (error) {
       console.error("Error saving onboarding: ", error);
-      navigation.navigate('SignUp');
     }
   };
 
