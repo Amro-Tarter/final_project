@@ -1,16 +1,13 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '../../components/components';
 import { Plus, Smile, Meh, Frown } from 'lucide-react-native';
-
-const MOCK_ENTRIES = [
-    { id: '1', title: 'Great start to the week', date: 'Oct 25, 2025', mood: 'good', preview: 'Felt really energetic today...' },
-    { id: '2', title: 'Feeling a bit stuck', date: 'Oct 24, 2025', mood: 'bad', preview: 'Had trouble focusing on the report...' },
-    { id: '3', title: 'Neutral day', date: 'Oct 23, 2025', mood: 'neutral', preview: 'Nothing special happened.' },
-];
+import { useDiary } from '../../hooks/useDiary';
 
 export default function DiaryTimeline({ navigation }) {
+    const { entries, loading } = useDiary();
+
     const getMoodIcon = (mood) => {
         switch (mood) {
             case 'good': return <Smile size={24} color={Theme.colors.success} />;
@@ -25,13 +22,25 @@ export default function DiaryTimeline({ navigation }) {
             onPress={() => navigation.navigate('DiaryEntry', { entryId: item.id })}
         >
             <View style={styles.cardHeader}>
-                <Text style={styles.date}>{item.date}</Text>
+                <Text style={styles.date}>
+                    {item.createdAt?.toDate ?
+                        item.createdAt.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                        : 'Just now'}
+                </Text>
                 {getMoodIcon(item.mood)}
             </View>
             <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.preview} numberOfLines={2}>{item.preview}</Text>
+            <Text style={styles.preview} numberOfLines={2}>{item.content}</Text>
         </TouchableOpacity>
     );
+
+    if (loading) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginTop: 100 }} />
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
@@ -45,13 +54,21 @@ export default function DiaryTimeline({ navigation }) {
                 </TouchableOpacity>
             </View>
 
-            <FlatList
-                data={MOCK_ENTRIES}
-                renderItem={renderItem}
-                keyExtractor={item => item.id}
-                contentContainerStyle={styles.listContent}
-                showsVerticalScrollIndicator={false}
-            />
+            {entries.length === 0 ? (
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+                    <Text style={{ fontSize: 16, color: Theme.colors.textSecondary, fontFamily: Theme.typography.body, textAlign: 'center' }}>
+                        Your diary is empty. Tap the + button to start journaling! 📔
+                    </Text>
+                </View>
+            ) : (
+                <FlatList
+                    data={entries}
+                    renderItem={renderItem}
+                    keyExtractor={item => item.id}
+                    contentContainerStyle={styles.listContent}
+                    showsVerticalScrollIndicator={false}
+                />
+            )}
         </SafeAreaView>
     );
 }

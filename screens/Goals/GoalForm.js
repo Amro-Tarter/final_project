@@ -41,11 +41,11 @@ export default function GoalForm({ navigation, route }) {
                 const newGoal = await addGoal(goalData);
                 showNotification('success', "Goal saved! Let's do this 🚀", 1);
                 navigation.navigate('GoalDetails', {
-                goalId: newGoal.id,
+                    goalId: newGoal.id,
                 });
 
-                }
-            
+            }
+
         } catch (error) {
             showNotification('error', "Could not save goal. Please try again.");
         } finally {
@@ -79,8 +79,8 @@ export default function GoalForm({ navigation, route }) {
                     value={motivation}
                     onChangeText={setMotivation}
                     multiline
-                    numberOfLines={3}
-                    style={{ height: 80, textAlignVertical: 'top' }}
+                    numberOfLines={4}
+
                 />
 
                 <MyDatePicker

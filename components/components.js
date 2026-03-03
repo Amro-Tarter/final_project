@@ -83,11 +83,21 @@ export const MyInput = ({ label, icon: Icon, rightIcon: RightIcon, onRightIconPr
   <View style={styles.inputWrapper}>
     {label && <Text style={styles.label}>{label}</Text>}
 
-    <View style={[styles.inputContainer, props.value ? styles.inputContainerActive : null]}>
+    <View
+      style={[
+        styles.inputContainer,
+        props.multiline && styles.inputContainerMultiline,
+        props.value ? styles.inputContainerActive : null
+      ]}
+    >
       {Icon && <View style={styles.inputIcon}><Icon size={20} color={Theme.colors.textSecondary} /></View>}
 
       <TextInput
-        style={[styles.input, props.style]}
+        style={[
+          styles.input,
+          props.multiline && styles.inputMultiline,
+          props.style
+        ]}
         placeholderTextColor="#94A3B8"
         selectionColor={Theme.colors.primary}
         {...props}
@@ -290,16 +300,21 @@ const styles = StyleSheet.create({
   },
 
   // Input
-  inputWrapper: { marginBottom: Theme.spacing.lg, width: '100%' },
+  inputWrapper: {
+    marginBottom: Theme.spacing.lg,
+    width: '100%'
+  },
   label: {
     fontSize: 14,
     fontFamily: Theme.typography.subHeader,
     color: Theme.colors.textMain,
     marginBottom: 8,
-    marginLeft: 4
+    marginLeft: 4,
+    width: '100%'
   },
   inputContainer: {
     flexDirection: 'row',
+    width: '100%',
     alignItems: 'center',
     backgroundColor: Theme.colors.surface,
     borderRadius: Theme.radius,
@@ -443,5 +458,18 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontFamily: Theme.typography.subHeader,
     fontSize: 16
-  }
+  },
+  inputContainerMultiline: {
+    height: 'auto',
+    minHeight: 100,
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+  },
+
+  inputMultiline: {
+    textAlignVertical: 'top',
+    paddingTop: 0,
+    paddingBottom: 0,
+    minHeight: 80,
+  },
 });

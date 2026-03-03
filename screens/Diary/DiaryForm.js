@@ -1,27 +1,61 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme, MyButton, MyInput } from '../../components/components';
 import { ArrowLeft, Smile, Meh, Frown } from 'lucide-react-native';
 import { useNotifications } from '../../context/NotificationContext';
+import { useDiary } from '../../hooks/useDiary';
 
-export default function DiaryForm({ navigation }) {
-    const [title, setTitle] = useState('');
-    const [content, setContent] = useState('');
-    const [mood, setMood] = useState('good'); // good, neutral, bad
+const DiaryInput = ({ label, placeholder, value, onChangeText }) => (
+    <View style={styles.inputWrapper}>
+        {label && <Text style={styles.inputLabel}>{label}</Text>}
+        <View style={styles.diaryInputContainer}>
+            <TextInput
+                style={styles.diaryInput}
+                placeholder={placeholder}
+                placeholderTextColor="#94A3B8"
+                selectionColor={Theme.colors.primary}
+                value={value}
+                onChangeText={onChangeText}
+                multiline
+                textAlignVertical="top"
+            />
+        </View>
+    </View>
+);
+
+export default function DiaryForm({ navigation, route }) {
+    const entryToEdit = route?.params?.entryToEdit;
+
+    const [title, setTitle] = useState(entryToEdit ? entryToEdit.title : '');
+    const [content, setContent] = useState(entryToEdit ? entryToEdit.content : '');
+    const [mood, setMood] = useState(entryToEdit ? entryToEdit.mood : 'good'); // good, neutral, bad
+    const [submitting, setSubmitting] = useState(false);
 
     const { showNotification } = useNotifications();
+    const { addEntry, updateEntry } = useDiary();
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!title.trim() || !content.trim()) {
             showNotification('warning', "Please write something before saving 🖊️");
             return;
         }
 
-        // Save logic here
-
-        showNotification('success', "Entry saved to your diary 📔", 1);
-        navigation.goBack();
+        setSubmitting(true);
+        try {
+            if (entryToEdit) {
+                await updateEntry(entryToEdit.id, { title, content, mood });
+                showNotification('success', "Entry updated 📔", 1);
+            } else {
+                await addEntry({ title, content, mood });
+                showNotification('success', "Entry saved to your diary 📔", 1);
+            }
+            navigation.goBack();
+        } catch (error) {
+            showNotification('error', "Could not save entry. Please try again.");
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (
@@ -30,11 +64,13 @@ export default function DiaryForm({ navigation }) {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <ArrowLeft size={24} color={Theme.colors.textMain} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>New Entry</Text>
+                <Text style={styles.headerTitle}>{entryToEdit ? 'Edit Entry' : 'New Entry'}</Text>
                 <View style={{ width: 24 }} />
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
+            <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={styles.content}>
 
                 <Text style={styles.label}>How are you feeling?</Text>
                 <View style={styles.moodSelector}>
@@ -64,20 +100,20 @@ export default function DiaryForm({ navigation }) {
                     onChangeText={setTitle}
                 />
 
-                <MyInput
+                <DiaryInput
                     label="Dear Diary..."
                     placeholder="What's on your mind?"
                     value={content}
                     onChangeText={setContent}
-                    multiline
-                    numberOfLines={10}
-                    style={styles.textArea}
                 />
 
+                <View style={{ flex: 2 }} />
+
                 <MyButton
-                    title="Save Entry"
+                    title={submitting ? "Saving..." : "Save Entry"}
                     onPress={handleSave}
-                    style={{ marginTop: Theme.spacing.xl }}
+                    disabled={submitting}
+                    style={{ marginTop: 40, marginBottom: 40 }}
                 />
             </ScrollView>
         </SafeAreaView>
@@ -107,6 +143,7 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: Theme.spacing.lg,
+        flexGrow: 1,
     },
     label: {
         fontSize: 16,
@@ -143,8 +180,37 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: 'bold',
     },
-    textArea: {
-        height: 200,
-        textAlignVertical: 'top',
+    inputWrapper: {
+        marginBottom: Theme.spacing.lg,
+        width: '100%'
+    },
+    inputLabel: {
+        fontSize: 14,
+        fontFamily: Theme.typography.subHeader,
+        color: Theme.colors.textMain,
+        marginBottom: 8,
+        marginLeft: 4,
+        width: '100%'
+    },
+    diaryInputContainer: {
+        width: '100%',
+        backgroundColor: Theme.colors.surface,
+        borderRadius: Theme.radius,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        padding: 16,
+        elevation: 2,
+        shadowColor: "#64748B",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+    },
+    diaryInput: {
+        width: '100%',
+        height: 120,
+        fontSize: 14,
+        fontFamily: Theme.typography.body,
+        color: Theme.colors.textMain,
+        lineHeight: 22,
     },
 });

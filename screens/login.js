@@ -52,7 +52,7 @@ export default function LoginScreen({ navigation }) {
 
           <LogoHeader
             title="Welcome Back"
-            subtitle="Sign in to continue your journey"
+            subtitle="Log in to continue your journey"
             style={{ marginTop: Theme.spacing.xl }}
           />
 
@@ -93,7 +93,7 @@ export default function LoginScreen({ navigation }) {
             </View>
 
             <MyButton
-              title="Sign In"
+              title="Log In"
               onPress={handleLogin}
               style={{ marginTop: Theme.spacing.lg }}
             />

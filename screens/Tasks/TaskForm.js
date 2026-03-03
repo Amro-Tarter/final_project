@@ -112,7 +112,7 @@ export default function TaskForm({ navigation, route }) {
                     onChangeText={setDesc}
                     multiline
                     numberOfLines={3}
-                    style={{ height: 80, textAlignVertical: 'top' }}
+
                 />
 
                 <MyDatePicker

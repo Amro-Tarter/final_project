@@ -13,11 +13,38 @@ export default function SignUpScreen({ navigation, route }) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState('');
   const [alertMessage, setAlertMessage] = useState('');
+
+  const validatePassword = (password) => {
+    const minLength = 8;
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasLowercase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+    if (password.length < minLength) {
+      return "Password must be at least 8 characters long.";
+    }
+    if (!hasUppercase) {
+      return "Password must include at least one uppercase letter.";
+    }
+    if (!hasLowercase) {
+      return "Password must include at least one lowercase letter.";
+    }
+    if (!hasNumber) {
+      return "Password must include at least one number.";
+    }
+    if (!hasSpecialChar) {
+      return "Password must include at least one special character (!@#$%^&*).";
+    }
+
+    return null; // valid
+  };
 
   const handleSignUp = async () => {
     if (!email || !password || !fullName) {
@@ -26,9 +53,19 @@ export default function SignUpScreen({ navigation, route }) {
       setAlertVisible(true);
       return;
     }
+
     if (password !== confirmPassword) {
       setAlertTitle("Password Mismatch");
       setAlertMessage("Passwords do not match!");
+      setAlertVisible(true);
+      return;
+    }
+
+    // 🔥 Strong password validation
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setAlertTitle("Weak Password");
+      setAlertMessage(passwordError);
       setAlertVisible(true);
       return;
     }
@@ -92,13 +129,18 @@ export default function SignUpScreen({ navigation, route }) {
               rightIcon={showPass ? EyeOff : Eye}
               onRightIconPress={() => setShowPass(!showPass)}
             />
+            <Text style={styles.passwordHint}>
+              Password must be at least 8 characters and include uppercase, lowercase, number, and special character.
+            </Text>
             <MyInput
               label="Confirm Password"
               placeholder="Repeat your password"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
-              secureTextEntry={!showPass}
+              secureTextEntry={!showConfirmPassword}
               icon={Lock}
+              rightIcon={showConfirmPassword ? EyeOff : Eye}
+              onRightIconPress={() => setShowConfirmPassword(!showConfirmPassword)}
             />
 
             <MyButton
@@ -156,5 +198,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: Theme.spacing.xl
+  },
+
+  passwordHint: {
+    fontSize: 12,
+    color: Theme.colors.textSecondary,
+    marginTop: -8,
+    marginBottom: 12,
+    fontFamily: Theme.typography.body
   },
 });
