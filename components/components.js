@@ -150,7 +150,7 @@ import RNDateTimePicker from '@react-native-community/datetimepicker';
 
 // ... other components
 
-export const MyDatePicker = ({ label, value, onChange, icon: Icon }) => {
+export const MyDatePicker = ({ label, value, onChange, icon: Icon, minimumDate, maximumDate }) => {
   const [show, setShow] = useState(false);
 
   const handleDateChange = (event, selectedDate) => {
@@ -186,6 +186,8 @@ export const MyDatePicker = ({ label, value, onChange, icon: Icon }) => {
           onChange={handleDateChange}
           themeVariant="light"
           accentColor={Theme.colors.primary}
+          minimumDate={minimumDate}
+          maximumDate={maximumDate}
         />
       )}
     </View>

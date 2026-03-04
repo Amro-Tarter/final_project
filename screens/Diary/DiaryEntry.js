@@ -7,13 +7,15 @@ import { useDiary } from '../../hooks/useDiary';
 import { useNotifications } from '../../context/NotificationContext';
 
 export default function DiaryEntry({ navigation, route }) {
-    const { entryId } = route.params;
+    const { entryId, entry: passedEntry } = route.params;
     const { getEntryById, deleteEntry } = useDiary();
     const { showNotification } = useNotifications();
-    const [entry, setEntry] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [entry, setEntry] = useState(passedEntry || null);
+    const [loading, setLoading] = useState(!passedEntry);
 
     useEffect(() => {
+        if (passedEntry) return; // Already have it, no need to fetch
+
         const fetchEntry = async () => {
             try {
                 const data = await getEntryById(entryId);
@@ -25,7 +27,7 @@ export default function DiaryEntry({ navigation, route }) {
             }
         };
         fetchEntry();
-    }, [entryId]);
+    }, [entryId, passedEntry]);
 
     const handleDelete = () => {
         Alert.alert(

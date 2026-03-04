@@ -47,7 +47,11 @@ export default function DiaryForm({ navigation, route }) {
                 await updateEntry(entryToEdit.id, { title, content, mood });
                 showNotification('success', "Entry updated 📔", 1);
             } else {
-                await addEntry({ title, content, mood });
+                const newEntry = { title, content, mood };
+                if (route?.params?.prefilledDate) {
+                    newEntry.date = route.params.prefilledDate;
+                }
+                await addEntry(newEntry);
                 showNotification('success', "Entry saved to your diary 📔", 1);
             }
             navigation.goBack();

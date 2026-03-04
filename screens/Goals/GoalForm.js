@@ -13,7 +13,7 @@ export default function GoalForm({ navigation, route }) {
 
     const [title, setTitle] = useState(goalToEdit?.title || '');
     const [motivation, setMotivation] = useState(goalToEdit?.motivation || '');
-    const [deadline, setDeadline] = useState(goalToEdit?.deadline || '');
+    const [deadline, setDeadline] = useState(goalToEdit?.deadline || route.params?.prefilledDate || '');
 
     const [submitting, setSubmitting] = useState(false);
 

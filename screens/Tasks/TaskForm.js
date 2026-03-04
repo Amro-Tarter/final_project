@@ -17,7 +17,7 @@ export default function TaskForm({ navigation, route }) {
 
     const [title, setTitle] = useState(taskToEdit?.title || '');
     const [desc, setDesc] = useState(taskToEdit?.desc || '');
-    const [dueDate, setDueDate] = useState(taskToEdit?.due || '');
+    const [dueDate, setDueDate] = useState(taskToEdit?.due || route.params?.prefilledDate || '');
     const [isHighPriority, setIsHighPriority] = useState(taskToEdit?.priority === 'High');
 
     // Recurrence State
@@ -120,6 +120,7 @@ export default function TaskForm({ navigation, route }) {
                     value={dueDate}
                     onChange={setDueDate}
                     icon={Calendar}
+                    minimumDate={new Date()}
                 />
 
                 {/* Recurrence Section */}
