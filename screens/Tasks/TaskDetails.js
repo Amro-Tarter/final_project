@@ -97,9 +97,11 @@ export default function TaskDetails({ navigation, route }) {
                     <ArrowLeft size={24} color={Theme.colors.textMain} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Task Details</Text>
-                <TouchableOpacity onPress={() => navigation.navigate('TaskForm', { task: item })}>
-                    <Text style={styles.editText}>Edit</Text>
-                </TouchableOpacity>
+                {!isCompleted && !isOverdue && (
+                    <TouchableOpacity onPress={() => navigation.navigate('TaskForm', { task: item })}>
+                        <Text style={styles.editText}>Edit</Text>
+                    </TouchableOpacity>
+                )}
             </View>
 
             <ScrollView contentContainerStyle={styles.content}>

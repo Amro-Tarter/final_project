@@ -88,6 +88,7 @@ export default function GoalForm({ navigation, route }) {
                     value={deadline}
                     onChange={setDeadline}
                     icon={Calendar}
+                    minimumDate={new Date()}
                 />
 
                 <MyButton

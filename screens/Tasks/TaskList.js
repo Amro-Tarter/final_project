@@ -112,7 +112,7 @@ export default function TaskList({ navigation }) {
                     icon={Search}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
-                    style={{ marginBottom: 0 }}
+
                 />
             </View>
 
