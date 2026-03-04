@@ -30,49 +30,71 @@ export default function TaskList({ navigation }) {
         return matchesFilter && matchesSearch;
     });
 
-    const renderItem = ({ item }) => (
-        <TouchableOpacity
-            style={[
-                styles.card,
-                item.status === 'completed' && styles.cardCompleted
-            ]}
-            onPress={() => navigation.navigate('TaskDetails', { taskId: item.id })}
-        >
-            <TouchableOpacity
-                style={styles.checkButton}
-                onPress={async () => {
-                    await toggleTaskStatus(item);
-                    if (item.status === 'pending') {
-                        // Logic implies it WAS pending, now completed (unless async failed, but we assume success)
-                        // Note: 'item' is stale here, so we use its pre-toggle state
-                        if (item.recurrence?.type && item.recurrence.type !== 'none') {
-                            showNotification('success', "Task completed! Next occurrence scheduled 🗓️", 2);
-                        } else {
-                            showNotification('success', "Task completed! 🎉", 3);
-                        }
-                    } else {
-                        showNotification('warning', "Task marked as pending 📝", 1);
-                    }
-                }}
-            >
-                {item.status === 'completed' ? (
-                    <CheckCircle2 size={24} color={Theme.colors.success} />
-                ) : (
-                    <Circle size={24} color={Theme.colors.textSecondary} />
-                )}
-            </TouchableOpacity>
+    const renderItem = ({ item }) => {
+        const isCompleted = item.status === 'completed';
 
-            <View style={styles.cardContent}>
-                <Text style={[
-                    styles.taskTitle,
-                    item.status === 'completed' && styles.textCompleted
-                ]}>
-                    {item.title}
-                </Text>
-                {item.due && <Text style={styles.taskDue}>Due: {item.due}</Text>}
-            </View>
-        </TouchableOpacity>
-    );
+        let isOverdue = false;
+        if (!isCompleted && item.due) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const dueDate = new Date(item.due);
+            dueDate.setHours(0, 0, 0, 0);
+            if (today > dueDate) {
+                isOverdue = true;
+            }
+        }
+
+        return (
+            <TouchableOpacity
+                style={[
+                    styles.card,
+                    isCompleted && styles.cardCompleted,
+                    isOverdue && { borderColor: Theme.colors.error, borderWidth: 1 }
+                ]}
+                onPress={() => navigation.navigate('TaskDetails', { taskId: item.id })}
+            >
+                <TouchableOpacity
+                    style={styles.checkButton}
+                    onPress={async () => {
+                        await toggleTaskStatus(item);
+                        if (!isCompleted) {
+                            if (item.recurrence?.type && item.recurrence.type !== 'none') {
+                                showNotification('success', "Task completed! Next occurrence scheduled 🗓️", 2);
+                            } else {
+                                showNotification('success', "Task completed! 🎉", 3);
+                            }
+                        } else {
+                            showNotification('warning', "Task marked as pending 📝", 1);
+                        }
+                    }}
+                >
+                    {isCompleted ? (
+                        <CheckCircle2 size={24} color={Theme.colors.success} />
+                    ) : (
+                        <Circle size={24} color={isOverdue ? Theme.colors.error : Theme.colors.textSecondary} />
+                    )}
+                </TouchableOpacity>
+
+                <View style={styles.cardContent}>
+                    <Text style={[
+                        styles.taskTitle,
+                        isCompleted && styles.textCompleted,
+                        isOverdue && { color: Theme.colors.error }
+                    ]}>
+                        {item.title}
+                    </Text>
+                    {item.due && (
+                        <Text style={[
+                            styles.taskDue,
+                            isOverdue && { color: Theme.colors.error, fontFamily: Theme.typography.subHeader }
+                        ]}>
+                            {isOverdue ? `Overdue: ${item.due}` : `Due: ${item.due}`}
+                        </Text>
+                    )}
+                </View>
+            </TouchableOpacity>
+        );
+    };
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>

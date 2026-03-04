@@ -131,6 +131,38 @@ export function useTasks() {
     const toggleTaskStatus = async (task) => {
         if (!user) return;
 
+        // Date calculation helpers
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Normalize to start of day
+
+        let dueDateObj = null;
+        if (task.due) {
+            dueDateObj = new Date(task.due);
+            dueDateObj.setHours(0, 0, 0, 0);
+        }
+
+        const isMarkingCompleted = task.status !== 'completed';
+
+        let completionData = {};
+
+        if (isMarkingCompleted) {
+            completionData.completedAt = serverTimestamp();
+            if (dueDateObj && today > dueDateObj) {
+                // Calculate days late
+                const diffTime = Math.abs(today - dueDateObj);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                completionData.completedLate = true;
+                completionData.lateByDays = diffDays;
+            } else {
+                completionData.completedLate = false;
+                completionData.lateByDays = 0;
+            }
+        } else {
+            // Un-completing
+            completionData.completedLate = false;
+            completionData.lateByDays = 0;
+        }
+
         // Logic for Recurrence
         if (task.status === 'pending' && task.recurrence && typeof task.recurrence === 'object' && task.recurrence.type !== 'none') {
             // It is a recurring task being marked as done
@@ -168,7 +200,8 @@ export function useTasks() {
             // 1. Mark the current task as completed (preserve history) AND LINK the next one
             await updateTask(task.id, {
                 status: 'completed',
-                nextOccurrenceId: newDocRef.id
+                nextOccurrenceId: newDocRef.id,
+                ...completionData
             }, task.goalId);
 
             if (task.goalId) {
@@ -190,7 +223,8 @@ export function useTasks() {
             // Unmark the current task and clear the link
             await updateTask(task.id, {
                 status: 'pending',
-                nextOccurrenceId: null
+                nextOccurrenceId: null,
+                ...completionData
             }, task.goalId);
 
             if (task.goalId) {
@@ -200,7 +234,10 @@ export function useTasks() {
         }
 
         const newStatus = task.status === 'completed' ? 'pending' : 'completed';
-        await updateTask(task.id, { status: newStatus }, task.goalId);
+        await updateTask(task.id, {
+            status: newStatus,
+            ...completionData
+        }, task.goalId);
 
         if (task.goalId) {
             await recalculateGoalProgress(task.goalId);

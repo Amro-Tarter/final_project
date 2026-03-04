@@ -14,6 +14,19 @@ export default function TaskDetails({ navigation, route }) {
     // Find the live task from the hook
     const item = tasks.find(t => t.id === taskId);
 
+    const isCompleted = item?.status === 'completed';
+
+    let isOverdue = false;
+    if (item && !isCompleted && item.due) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const dueDate = new Date(item.due);
+        dueDate.setHours(0, 0, 0, 0);
+        if (today > dueDate) {
+            isOverdue = true;
+        }
+    }
+
     if (!item) {
         return (
             <SafeAreaView style={styles.container}>
@@ -92,8 +105,18 @@ export default function TaskDetails({ navigation, route }) {
             <ScrollView contentContainerStyle={styles.content}>
                 <Text style={styles.title}>{item.title}</Text>
 
-                <View style={styles.statusBadge}>
-                    <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
+                <View style={[
+                    styles.statusBadge,
+                    isOverdue && { backgroundColor: '#FEE2E2' },
+                    isCompleted && { backgroundColor: '#DEF7EC' }
+                ]}>
+                    <Text style={[
+                        styles.statusText,
+                        isOverdue && { color: Theme.colors.error },
+                        isCompleted && { color: Theme.colors.success }
+                    ]}>
+                        {isOverdue ? "OVERDUE" : item.status.toUpperCase()}
+                    </Text>
                 </View>
 
                 {item.desc ? (
@@ -107,13 +130,28 @@ export default function TaskDetails({ navigation, route }) {
 
                 {item.due ? (
                     <View style={styles.row}>
-                        <Calendar size={20} color={Theme.colors.primary} />
+                        <Calendar size={20} color={isOverdue ? Theme.colors.error : Theme.colors.primary} />
                         <View style={styles.rowText}>
                             <Text style={styles.label}>Due Date</Text>
-                            <Text style={styles.value}>{item.due}</Text>
+                            <Text style={[
+                                styles.value,
+                                isOverdue && { color: Theme.colors.error, fontFamily: Theme.typography.subHeader }
+                            ]}>{item.due}</Text>
                         </View>
                     </View>
                 ) : null}
+
+                {isCompleted && item.completedLate && (
+                    <View style={styles.row}>
+                        <Calendar size={20} color={Theme.colors.warning} />
+                        <View style={styles.rowText}>
+                            <Text style={styles.label}>Completed Info</Text>
+                            <Text style={[styles.value, { color: Theme.colors.warning }]}>
+                                {item.lateByDays === 1 ? '1 day late' : `${item.lateByDays} days late`}
+                            </Text>
+                        </View>
+                    </View>
+                )}
 
                 {item.recurrence && item.recurrence.type !== 'none' && (
                     <View style={styles.row}>
