@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme, MyButton, MyInput, MyCheckbox, MyDatePicker, MyTimePicker } from '../../components/components';
 
 import { ArrowLeft, Calendar } from 'lucide-react-native';
 import { useTasks } from '../../hooks/useTasks';
 import { useGoals } from '../../hooks/useGoals';
+import { useNotifications } from '../../context/NotificationContext';
 
 export default function TaskForm({ navigation, route }) {
     // If editing, we passed the full task object
@@ -13,6 +14,7 @@ export default function TaskForm({ navigation, route }) {
     const isEditing = !!taskToEdit;
     const { addTask, updateTask } = useTasks();
     const { goals } = useGoals();
+    const { showNotification } = useNotifications();
     const [submitting, setSubmitting] = useState(false);
 
     const [title, setTitle] = useState(taskToEdit?.title || '');
@@ -35,8 +37,18 @@ export default function TaskForm({ navigation, route }) {
 
     const handleSave = async () => {
         if (!title.trim()) {
-            Alert.alert('Missing Info', 'Please add a task title.');
+            showNotification('warning', 'Please add a task title 📝');
             return;
+        }
+
+        if (dueDate) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const selectedDate = new Date(dueDate);
+            if (selectedDate < today) {
+                showNotification('error', "Tasks belong in the future! 🕰️ Please pick today or a later date.");
+                return;
+            }
         }
 
         setSubmitting(true);
@@ -70,7 +82,7 @@ export default function TaskForm({ navigation, route }) {
             }
             navigation.goBack();
         } catch (error) {
-            Alert.alert("Error", "Could not save task. Please try again.");
+            showNotification('error', 'Could not save task. Please try again. 🛑');
         } finally {
             setSubmitting(false);
         }

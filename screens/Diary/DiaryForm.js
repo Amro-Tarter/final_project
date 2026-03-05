@@ -36,8 +36,23 @@ export default function DiaryForm({ navigation, route }) {
     const { addEntry, updateEntry } = useDiary();
 
     const handleSave = async () => {
-        if (!title.trim() || !content.trim()) {
-            showNotification('warning', "Please write something before saving 🖊️");
+        if (!title.trim()) {
+            showNotification('warning', "Please add a title to your entry 📝");
+            return;
+        }
+        if (!content.trim()) {
+            showNotification('warning', "Your thoughts are valuable! 💭 Please write something before saving.");
+            return;
+        }
+
+        const entryDate = route.params?.prefilledDate ? new Date(route.params.prefilledDate) : new Date();
+        const today = new Date();
+        // Normalize dates to compare only day, month, year
+        const entryDateNormalized = new Date(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
+        const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+        if (entryDateNormalized > todayNormalized) {
+            showNotification('error', "The future hasn't happened yet! 🕊️ Please wait for today to pass before writing this entry.");
             return;
         }
 

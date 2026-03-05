@@ -1,6 +1,12 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { NotificationToast } from '../components/NotificationToast';
 import { getRandomEncouragement } from '../constants/EncouragementLibrary';
+import {
+    registerForPushNotificationsAsync,
+    scheduleFeatureReminder,
+    cancelNotification,
+    scheduleAIRandomizedFeed
+} from '../services/notificationService';
 
 const NotificationContext = createContext();
 
@@ -61,8 +67,29 @@ export const NotificationProvider = ({ children }) => {
         setNotification(prev => ({ ...prev, visible: false }));
     }, []);
 
+    const scheduleSystemNotification = useCallback(async (id, title, body, date, type) => {
+        return await scheduleFeatureReminder(id, title, body, date, type);
+    }, []);
+
+    const cancelSystemNotification = useCallback(async (notificationId) => {
+        await cancelNotification(notificationId);
+    }, []);
+
+    useEffect(() => {
+        const initNotifications = async () => {
+            await registerForPushNotificationsAsync();
+            // Refresh the randomized AI feed whenever the app initializes
+            await scheduleAIRandomizedFeed();
+        };
+        initNotifications();
+    }, []);
+
     return (
-        <NotificationContext.Provider value={{ showNotification }}>
+        <NotificationContext.Provider value={{
+            showNotification,
+            scheduleSystemNotification,
+            cancelSystemNotification
+        }}>
             {children}
             <NotificationToast
                 visible={notification.visible}

@@ -1,14 +1,44 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Theme, MyCheckbox } from '../../components/components';
-import { ArrowLeft } from 'lucide-react-native';
+import { Theme, MyCheckbox, MyButton } from '../../components/components';
+import { ArrowLeft, BellRing } from 'lucide-react-native';
+import { registerForPushNotificationsAsync, scheduleFeatureReminder } from '../../services/notificationService';
+import { useNotifications } from '../../context/NotificationContext';
 
 export default function Settings({ navigation }) {
+    const { showNotification } = useNotifications();
     const [pushEnabled, setPushEnabled] = useState(true);
     const [emailEnabled, setEmailEnabled] = useState(false);
     const [aiEnabled, setAiEnabled] = useState(true);
     const [darkMode, setDarkMode] = useState(false);
+    const [isScheduling, setIsScheduling] = useState(false);
+
+    const handleTestNotification = async () => {
+        setIsScheduling(true);
+        try {
+            const status = await registerForPushNotificationsAsync();
+            if (status !== 'granted') {
+                showNotification('error', 'Notification permissions are required ❌');
+                return;
+            }
+
+            const triggerDate = new Date(Date.now() + 5000);
+            await scheduleFeatureReminder(
+                'test-notif-' + Date.now(),
+                'Test Notification 🚀',
+                'It works! Achievements Ahead is ready to keep you on track.',
+                triggerDate,
+                'test'
+            );
+            showNotification('success', 'Test scheduled! Minimize the app — notification in 5s 🔔');
+        } catch (error) {
+            console.error('Test notification failed:', error);
+            showNotification('error', 'Failed to schedule notification 🚫');
+        } finally {
+            setIsScheduling(false);
+        }
+    };
 
     return (
         <SafeAreaView style={styles.container}>
@@ -50,6 +80,23 @@ export default function Settings({ navigation }) {
                         checked={darkMode}
                         onPress={() => setDarkMode(!darkMode)}
                     />
+                </View>
+
+                <Text style={styles.sectionTitle}>System Verification</Text>
+                <View style={styles.card}>
+                    <Text style={styles.infoText}>
+                        Test if notifications are working on your device.
+                    </Text>
+                    <TouchableOpacity
+                        style={[styles.testButton, isScheduling && { opacity: 0.7 }]}
+                        onPress={handleTestNotification}
+                        disabled={isScheduling}
+                    >
+                        <BellRing size={20} color="#FFF" />
+                        <Text style={styles.testButtonText}>
+                            {isScheduling ? 'Scheduling...' : 'Send Test Notification (5s)'}
+                        </Text>
+                    </TouchableOpacity>
                 </View>
 
                 <Text style={styles.sectionTitle}>Account</Text>
@@ -115,6 +162,27 @@ const styles = StyleSheet.create({
     },
     dangerText: {
         color: Theme.colors.error,
+        fontFamily: Theme.typography.subHeader,
+        fontSize: 16,
+    },
+    infoText: {
+        fontSize: 13,
+        color: Theme.colors.textSecondary,
+        fontFamily: Theme.typography.body,
+        marginBottom: 16,
+        lineHeight: 18,
+    },
+    testButton: {
+        backgroundColor: Theme.colors.primary,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 14,
+        borderRadius: 12,
+        gap: 10,
+    },
+    testButtonText: {
+        color: '#FFF',
         fontFamily: Theme.typography.subHeader,
         fontSize: 16,
     }

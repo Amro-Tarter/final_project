@@ -54,7 +54,7 @@ export default function TaskDetails({ navigation, route }) {
                     text: "Delete",
                     style: "destructive",
                     onPress: async () => {
-                        await deleteTask(item.id);
+                        await deleteTask(item.id, item.goalId, item.notificationId);
                         navigation.goBack();
                     }
                 }

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
-import { MessageCircleHeart, CheckCircle2, Circle, Plus } from 'lucide-react-native';
+import { CheckCircle2, Circle, Plus } from 'lucide-react-native';
 import { Theme } from '../components/components';
 import { useTasks } from '../hooks/useTasks';
 
@@ -23,14 +23,19 @@ export default function HomeScreen({ navigation }) {
     }).start();
   }, []);
 
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
         {/* 1. Warm Greeting (Emotional Orientation) */}
         <Animated.View style={[styles.header, { opacity: fadeAnim }]}>
-          <Text style={styles.greetingText}>Hello, {user?.email?.split('@')[0] || 'Friend'}.</Text>
-          <Text style={styles.subGreeting}>Take a breath. You're doing great.</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <View>
+              <Text style={styles.greetingText}>Hello, {user?.email?.split('@')[0] || 'Friend'}.</Text>
+              <Text style={styles.subGreeting}>Take a breath. You're doing great.</Text>
+            </View>
+          </View>
         </Animated.View>
 
         {/* 2. Today's Journey (Full List) */}

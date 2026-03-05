@@ -26,6 +26,16 @@ export default function GoalForm({ navigation, route }) {
             return;
         }
 
+        if (deadline) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const selectedDate = new Date(deadline);
+            if (selectedDate < today) {
+                showNotification('error', "Your goals are ahead of you! 🎯 Please pick a current or future deadline.");
+                return;
+            }
+        }
+
         setSubmitting(true);
         try {
             const goalData = {
