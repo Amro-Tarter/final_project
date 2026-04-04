@@ -1,37 +1,50 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '../../components/components';
-import { ArrowLeft, Zap, Clock, AlertTriangle, TrendingUp } from 'lucide-react-native';
+import { ArrowLeft, Zap, TrendingUp, AlertTriangle, Book, Sparkles, RefreshCw } from 'lucide-react-native';
+import { useUserProfile } from '../../hooks/useUserProfile';
+import { getAIInsights } from '../../services/aiService';
 
-const MOCK_INSIGHTS = [
-    {
-        id: '1',
-        type: 'positive',
-        title: 'Peak Performance',
-        desc: 'You complete 80% of your tasks between 9 AM and 11 AM.',
-        icon: Zap,
-        color: '#F59E0B' // Amber
-    },
-    {
-        id: '2',
-        type: 'info',
-        title: 'Goal Velocity',
-        desc: 'You are ahead of schedule on "Run a Marathon". Great pace!',
-        icon: TrendingUp,
-        color: Theme.colors.success
-    },
-    {
-        id: '3',
-        type: 'warning',
-        title: 'Possible Burnout?',
-        desc: 'You worked late 4 days this week. Consider a lighter load tomorrow.',
-        icon: AlertTriangle,
-        color: Theme.colors.error
-    },
-];
+const TYPE_CONFIG = {
+    positive: { icon: Zap, color: '#F59E0B' },
+    info: { icon: TrendingUp, color: Theme.colors.success },
+    warning: { icon: AlertTriangle, color: Theme.colors.error },
+};
 
 export default function AIInsights({ navigation }) {
+    const { profile, loading: profileLoading, refreshProfile } = useUserProfile();
+    const [insights, setInsights] = useState(null);
+    const [aiLoading, setAiLoading] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const fetchInsights = async (currentProfile) => {
+        if (!currentProfile) return;
+        setAiLoading(true);
+        try {
+            const data = await getAIInsights(currentProfile);
+            setInsights(data);
+        } catch (e) {
+            console.error('Failed to get insights:', e);
+        } finally {
+            setAiLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (profile) {
+            fetchInsights(profile);
+        }
+    }, [profile]);
+
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        await refreshProfile();
+        setRefreshing(false);
+    };
+
+    const isLoading = profileLoading || aiLoading;
+
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
@@ -39,41 +52,80 @@ export default function AIInsights({ navigation }) {
                     <ArrowLeft size={24} color={Theme.colors.textMain} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>AI Insights</Text>
-                <View style={{ width: 24 }} />
+                <TouchableOpacity onPress={() => fetchInsights(profile)} style={{ padding: 8 }} disabled={isLoading}>
+                    <RefreshCw size={20} color={isLoading ? Theme.colors.border : Theme.colors.primary} />
+                </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
-                <Text style={styles.subtitle}>Here is what I noticed about your productivity patterns this week.</Text>
-
-                {MOCK_INSIGHTS.map((item) => (
-                    <View key={item.id} style={styles.card}>
-                        <View style={[styles.iconContainer, { backgroundColor: item.color + '15' }]}>
-                            <item.icon size={24} color={item.color} />
-                        </View>
-                        <View style={styles.cardText}>
-                            <Text style={styles.cardTitle}>{item.title}</Text>
-                            <Text style={styles.cardDesc}>{item.desc}</Text>
-                        </View>
+            <ScrollView
+                contentContainerStyle={styles.content}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+            >
+                {isLoading ? (
+                    <View style={styles.loadingContainer}>
+                        <Sparkles size={32} color={Theme.colors.primary} />
+                        <Text style={styles.loadingText}>Analyzing your journey...</Text>
+                        <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginTop: 16 }} />
                     </View>
-                ))}
+                ) : !insights ? (
+                    <View style={styles.loadingContainer}>
+                        <Text style={styles.loadingText}>Could not load insights. Pull to refresh.</Text>
+                    </View>
+                ) : (
+                    <>
+                        <Text style={styles.subtitle}>
+                            Here is what I noticed about your patterns, {profile?.userName}.
+                        </Text>
 
-                <View style={styles.suggestionBox}>
-                    <Text style={styles.suggestionTitle}>Suggestion for Tomorrow</Text>
-                    <Text style={styles.suggestionText}>
-                        "Try tackling your creative tasks first thing in the morning when your energy is highest."
-                    </Text>
-                </View>
+                        {/* Insight Cards */}
+                        {insights.insights?.map((item, index) => {
+                            const config = TYPE_CONFIG[item.type] || TYPE_CONFIG.info;
+                            const IconComponent = config.icon;
+                            return (
+                                <View key={index} style={styles.card}>
+                                    <View style={[styles.iconContainer, { backgroundColor: config.color + '20' }]}>
+                                        <IconComponent size={24} color={config.color} />
+                                    </View>
+                                    <View style={styles.cardText}>
+                                        <Text style={styles.cardTitle}>{item.title}</Text>
+                                        <Text style={styles.cardDesc}>{item.desc}</Text>
+                                    </View>
+                                </View>
+                            );
+                        })}
 
+                        {/* Daily Topic */}
+                        {insights.dailyTopic && (
+                            <View style={styles.topicBox}>
+                                <View style={styles.topicHeader}>
+                                    <Book size={20} color={Theme.colors.primary} />
+                                    <Text style={styles.topicLabel}>Today's Growth Topic</Text>
+                                </View>
+                                <Text style={styles.topicTitle}>{insights.dailyTopic.title}</Text>
+                                <Text style={styles.topicDesc}>{insights.dailyTopic.desc}</Text>
+                                <Text style={styles.topicWhy}>
+                                    <Text style={{ fontFamily: Theme.typography.subHeader }}>Why it matters: </Text>
+                                    {insights.dailyTopic.why}
+                                </Text>
+                            </View>
+                        )}
+
+                        {/* Daily Advice */}
+                        {insights.dailyAdvice && (
+                            <View style={styles.suggestionBox}>
+                                <Text style={styles.suggestionTitle}>Today's Advice for You</Text>
+                                <Text style={styles.suggestionText}>"{insights.dailyAdvice}"</Text>
+                            </View>
+                        )}
+                    </>
+                )}
             </ScrollView>
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Theme.colors.background,
-    },
+    container: { flex: 1, backgroundColor: Theme.colors.background },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -81,17 +133,25 @@ const styles = StyleSheet.create({
         paddingHorizontal: Theme.spacing.lg,
         paddingVertical: Theme.spacing.md,
     },
-    backButton: {
-        padding: 8,
-        marginLeft: -8,
-    },
+    backButton: { padding: 8, marginLeft: -8 },
     headerTitle: {
         fontSize: 18,
         fontFamily: Theme.typography.subHeader,
         color: Theme.colors.textMain,
     },
-    content: {
-        padding: Theme.spacing.lg,
+    content: { padding: Theme.spacing.lg, paddingBottom: 40 },
+    loadingContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingTop: 80,
+        gap: 12,
+    },
+    loadingText: {
+        fontFamily: Theme.typography.body,
+        color: Theme.colors.textSecondary,
+        fontSize: 16,
+        textAlign: 'center',
     },
     subtitle: {
         fontSize: 16,
@@ -118,9 +178,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         marginRight: 16,
     },
-    cardText: {
-        flex: 1,
-    },
+    cardText: { flex: 1 },
     cardTitle: {
         fontSize: 16,
         fontFamily: Theme.typography.subHeader,
@@ -133,26 +191,69 @@ const styles = StyleSheet.create({
         color: Theme.colors.textSecondary,
         lineHeight: 20,
     },
+    topicBox: {
+        marginTop: 8,
+        marginBottom: 16,
+        backgroundColor: '#FFF7ED',
+        padding: 20,
+        borderRadius: Theme.radius,
+        borderWidth: 1,
+        borderColor: '#FED7AA',
+    },
+    topicHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 12,
+    },
+    topicLabel: {
+        fontSize: 12,
+        fontFamily: Theme.typography.subHeader,
+        color: Theme.colors.primary,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    topicTitle: {
+        fontSize: 18,
+        fontFamily: Theme.typography.header,
+        color: Theme.colors.textMain,
+        marginBottom: 8,
+    },
+    topicDesc: {
+        fontSize: 14,
+        fontFamily: Theme.typography.body,
+        color: Theme.colors.textSecondary,
+        lineHeight: 20,
+        marginBottom: 12,
+    },
+    topicWhy: {
+        fontSize: 13,
+        fontFamily: Theme.typography.body,
+        color: Theme.colors.textSecondary,
+        lineHeight: 18,
+        fontStyle: 'italic',
+    },
     suggestionBox: {
-        marginTop: 24,
+        marginTop: 8,
         backgroundColor: '#EEF2FF',
         padding: 24,
         borderRadius: Theme.radius,
         alignItems: 'center',
     },
     suggestionTitle: {
-        fontSize: 14,
+        fontSize: 12,
         fontFamily: Theme.typography.subHeader,
         color: Theme.colors.primary,
-        marginBottom: 8,
+        marginBottom: 12,
         textTransform: 'uppercase',
         letterSpacing: 1,
     },
     suggestionText: {
-        fontSize: 18,
+        fontSize: 17,
         fontFamily: Theme.typography.header,
         color: Theme.colors.textMain,
         textAlign: 'center',
         fontStyle: 'italic',
+        lineHeight: 26,
     },
 });
