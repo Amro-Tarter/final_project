@@ -86,8 +86,12 @@ export default function GoalForm({ navigation, route }) {
                         style={styles.aiButton}
                         onPress={() => {
                             const intentText = `I want to plan a new goal called "${title || 'a new goal'}". Can we discuss it and build a roadmap?`;
-                            const hiddenContext = "The user wants to build a new goal roadmap. Ask them a few questions to deeply understand their intent, then use the create_roadmap tool to generate a full roadmap with tasks, recurrences, and reminders.";
-                            navigation.navigate('AIChat', { initialIntentText: intentText, hiddenContext: hiddenContext });
+                            const hiddenContext = "The user wants to build a new goal roadmap. DO NOT execute any tools yet. Ask them a few questions to deeply understand their intent, and ONLY use the create_roadmap tool after they have answered and explicitly agreed.";
+                            navigation.navigate('AIChat', { 
+                                initialIntentText: intentText, 
+                                hiddenContext: hiddenContext,
+                                isSilent: true 
+                            });
                         }}
                     >
                         <Sparkles size={20} color="#fff" />

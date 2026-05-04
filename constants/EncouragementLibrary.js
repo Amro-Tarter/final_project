@@ -1,37 +1,37 @@
 export const ENCOURAGEMENT_LIBRARY = {
     1: [
-        "Nice step forward 🌱 Every small move matters.",
-        "You showed up today — that’s already progress 🤍",
-        "One step at a time. You're doing it.",
+        "Task completed 🌱 Every small move matters.",
+        "You took action! That’s real progress 🤍",
+        "One task down. You're doing it.",
         "Small wins build big futures. Keep going.",
-        "Gentle progress is still progress 🌿"
+        "That effort counts 🌿"
     ],
     2: [
         "Well done 💚 You’re building momentum.",
-        "That’s another step on your journey ✨ Keep going gently.",
-        "Good job! You're finding your rhythm.",
-        "Steady and sure. I see your effort.",
-        "You're doing good work today."
+        "Another step completed on your journey ✨",
+        "Great rhythm! I see your consistency.",
+        "Steady work. I see your effort.",
+        "You're making good progress today."
     ],
     3: [
         "Great work 🎉 You’re making real progress.",
-        "This is consistency — and it matters a lot 🌿",
-        "Look at you go! Solid effort.",
+        "This is consistency — and it leads to results 🌿",
+        "Solid effort on this one!",
         "You are capable of hard things. Well done.",
-        "Your future self thanks you for this."
+        "Your future self thanks you for this action."
     ],
     4: [
         "Amazing effort 💪 You’ve come a long way.",
-        "You should be proud of this progress 🌟",
-        "This is huge! Take a moment to smile.",
+        "You should be proud of this milestone 🌟",
+        "This is huge! Take a moment to celebrate.",
         "Incredible dedication. You're shining.",
-        "Big moves! You're really engaging with your life."
+        "Big move! You're really taking control."
     ],
     5: [
         "This is a big achievement 🏆 Truly well done.",
-        "You reached something meaningful today ✨ Take a moment to appreciate it 🤍",
+        "A major step forward ✨ Take a moment to appreciate it 🤍",
         "Outstanding! This is a major milestone.",
-        "Celebrate yourself! You did something great.",
+        "Celebrate this win! You did something great.",
         "A mountaintop moment. Breathe it in."
     ]
 };

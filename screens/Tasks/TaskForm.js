@@ -119,9 +119,14 @@ export default function TaskForm({ navigation, route }) {
                     <TouchableOpacity 
                         style={styles.aiButton}
                         onPress={() => {
+                            const goalTitle = goals.find(g => g.id === selectedGoalId)?.title;
                             const intentText = `I want to plan a new task called "${title || 'a new task'}". Can we discuss it and break it down?`;
-                            const hiddenContext = "The user wants to plan a new task. Guide them and help them break it down, then use the create_task or create_roadmap tool to add it.";
-                            navigation.navigate('AIChat', { initialIntentText: intentText, hiddenContext: hiddenContext });
+                            const hiddenContext = `The user wants to plan a new task. ${goalTitle ? `This task is linked to the goal: "${goalTitle}".` : ""} DO NOT execute any tools yet. Guide them and help them break it down, and ONLY use the create_task or create_roadmap tool after they have explicitly agreed. ${goalTitle ? `When calling the tool, set the targetGoal field to "${goalTitle}".` : ""}`;
+                            navigation.navigate('AIChat', { 
+                                initialIntentText: intentText, 
+                                hiddenContext: hiddenContext,
+                                isSilent: true
+                            });
                         }}
                     >
                         <Sparkles size={20} color="#fff" />

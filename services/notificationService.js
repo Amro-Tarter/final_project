@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { getRandomEncouragement } from '../constants/EncouragementLibrary';
+import { getRandomMotivation } from '../constants/MotivationalLibrary';
 
 // Configure how notifications are handled when the app is foregrounded
 Notifications.setNotificationHandler({
@@ -101,9 +102,8 @@ export async function scheduleAIRandomizedFeed(workflow = {}) {
         const futureHours = Math.floor(Math.random() * 48) + 1;
         const triggerDate = new Date(now.getTime() + futureHours * 60 * 60 * 1000);
 
-        // Get a random message
-        const degree = Math.floor(Math.random() * 3) + 1; // Gentle to moderate encouragement
-        let message = getRandomEncouragement(degree);
+        // Get a random generic motivational message (Honest & Offline-safe)
+        let message = getRandomMotivation();
 
         // Modify based on support preference
         if (workflow.isToughLove) {

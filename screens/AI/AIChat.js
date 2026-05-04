@@ -119,62 +119,70 @@ export default function AIChat({ navigation, route }) {
         if (!loadingHistory && route.params?.initialIntentText) {
             const intentText = route.params.initialIntentText;
             const hiddenContext = route.params.hiddenContext;
+            const isSilent = route.params.isSilent || false;
+
             // Clear the param so it doesn't fire again
-            navigation.setParams({ initialIntentText: null, hiddenContext: null });
+            navigation.setParams({ initialIntentText: null, hiddenContext: null, isSilent: null });
 
             // Give a slight delay for UI to settle
             setTimeout(() => {
-                sendMessage(intentText, hiddenContext);
+                sendMessage(intentText, hiddenContext, isSilent);
             }, 500);
         }
     }, [loadingHistory, route.params?.initialIntentText]);
 
-    const sendMessage = async (text, hiddenContext = null) => {
+    const sendMessage = async (text, hiddenContext = null, isSilent = false) => {
         if (!text || isAiTyping || !user) return;
 
-        const userMsg = { id: Date.now().toString(), text, isUser: true };
-        setMessages(prev => [...prev, userMsg]);
-        setIsAiTyping(true);
-        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+        if (!isSilent) {
+            const userMsg = { id: Date.now().toString(), text, isUser: true };
+            setMessages(prev => [...prev, userMsg]);
+            setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
 
-        // Add to local history and firestore concurrently
+            addDoc(collection(db, 'chat_messages'), {
+                userId: user.uid,
+                text,
+                isUser: true,
+                createdAt: serverTimestamp()
+            }).catch(e => console.log('Log message failed:', e));
+        }
+
+        setIsAiTyping(true);
         chatHistoryRef.current.push({ role: 'user', parts: [{ text }] });
-        addDoc(collection(db, 'chat_messages'), {
-            userId: user.uid,
-            text,
-            isUser: true,
-            createdAt: serverTimestamp()
-        }).catch(e => console.log('Log message failed:', e));
 
         try {
-            const promptToSend = text;
-            const rawResponse = await chatWithAI(profile, chatHistoryRef.current.slice(-8), promptToSend, memorySummary);
+            const rawResponse = await chatWithAI(
+                profile,
+                chatHistoryRef.current.slice(-20),
+                text,
+                memorySummary,
+                hiddenContext
+            );
 
             let finalResponseText = rawResponse;
+            let toolCall = null;
+
+            // ✅ Extract JSON safely
             try {
-                // Check if it's a JSON tool call mixed with text
-                let toolCall = null;
+                const jsonStart = rawResponse.indexOf('{');
+                const jsonEnd = rawResponse.lastIndexOf('}');
 
-                try {
-                    const jsonStart = rawResponse.indexOf('{');
-                    const jsonEnd = rawResponse.lastIndexOf('}');
+                if (jsonStart !== -1 && jsonEnd !== -1) {
+                    const possibleJson = rawResponse.slice(jsonStart, jsonEnd + 1);
+                    const parsed = JSON.parse(possibleJson);
 
-                    if (jsonStart !== -1 && jsonEnd !== -1) {
-                        const possibleJson = rawResponse.slice(jsonStart, jsonEnd + 1);
-
-                        const parsed = JSON.parse(possibleJson);
-
-                        if (parsed.tool) {
-                            toolCall = parsed;
-                            finalResponseText = rawResponse.replace(possibleJson, '').trim();
-                        }
+                    if (parsed.tool) {
+                        toolCall = parsed;
+                        finalResponseText = rawResponse.replace(possibleJson, '').trim();
                     }
-                } catch (e) {
-                    // silently ignore — NEVER show parsing errors to user
                 }
+            } catch (e) {
+                // silent fail (important)
+            }
 
-                if (toolCall) {
-
+            // ✅ Execute tool FIRST (instant UX)
+            if (toolCall) {
+                try {
                     if (toolCall.tool === 'create_goal') {
                         await addDoc(collection(db, 'goals'), {
                             userId: user.uid,
@@ -183,17 +191,26 @@ export default function AIChat({ navigation, route }) {
                             progress: 0,
                             createdAt: serverTimestamp()
                         });
-                        showNotification('Goal Created', `I've created a new goal "${toolCall.title}"`)
-                        refreshProfile(true);
-                    } else if (toolCall.tool === 'create_task') {
+
+                        showNotification('success', `Goal "${toolCall.title}" is ready 🎯`);
+                    }
+
+                    else if (toolCall.tool === 'create_task') {
                         let targetGoalId = null;
+
                         if (toolCall.targetGoal) {
-                            const goalsQuery = query(collection(db, 'goals'), where('userId', '==', user.uid), where('title', '==', toolCall.targetGoal));
+                            const goalsQuery = query(
+                                collection(db, 'goals'),
+                                where('userId', '==', user.uid),
+                                where('title', '==', toolCall.targetGoal)
+                            );
+
                             const goalsSnap = await getDocs(goalsQuery);
                             if (!goalsSnap.empty) {
                                 targetGoalId = goalsSnap.docs[0].id;
                             }
                         }
+
                         await addDoc(collection(db, 'tasks'), {
                             userId: user.uid,
                             title: toolCall.title,
@@ -203,10 +220,11 @@ export default function AIChat({ navigation, route }) {
                             due: toolCall.dueDate || null,
                             createdAt: serverTimestamp()
                         });
-                        //instead of using system prefix use the notifications for that and for updated use the same thing
-                        showNotification('Task Created', `I've added a new task "${toolCall.title}"`)
-                        refreshProfile(true);
-                    } else if (toolCall.tool === 'create_roadmap') {
+
+                        showNotification('success', `Task "${toolCall.title}" added ✅`);
+                    }
+
+                    else if (toolCall.tool === 'create_roadmap') {
                         const newGoalRef = await addDoc(collection(db, 'goals'), {
                             userId: user.uid,
                             title: toolCall.goalTitle,
@@ -228,23 +246,61 @@ export default function AIChat({ navigation, route }) {
                                 createdAt: serverTimestamp()
                             });
                         });
+
                         await Promise.all(taskPromises);
-                        showNotification('Roadmap Created', `I've created a new roadmap "${toolCall.goalTitle}"`)
-                        refreshProfile(true);
+
+                        showNotification(
+                            'encouragement',
+                            `Your plan "${toolCall.goalTitle}" is set 🚀`
+                        );
                     }
 
-                    finalResponseText = finalResponseText;
+                    else if (toolCall.tool === 'create_diary') {
+                        await addDoc(collection(db, 'diary_entries'), {
+                            userId: user.uid,
+                            title: toolCall.title || 'My Day',
+                            mood: toolCall.mood || 'good',
+                            content: toolCall.content,
+                            createdAt: serverTimestamp()
+                        });
+
+                        showNotification('success', `Diary entry saved for today ✨`);
+                    }
+
+                    refreshProfile(true);
+
+                } catch (e) {
+                    console.log("Execution error:", e);
+                    showNotification('error', 'Something went wrong ⚠️');
                 }
-            } catch (e) {
-                console.log("Execution error in tool handler:", e);
             }
 
-            const aiMsg = { id: (Date.now() + 1).toString(), text: finalResponseText, isUser: false };
-            setMessages(prev => [...prev, aiMsg]);
-            setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+            // ✅ Clean ANY leftover garbage (critical)
+            finalResponseText = finalResponseText
+                .replace(/\{[\s\S]*?\}/g, '')
+                .replace(/\[SYSTEM:.*?\]/g, '')
+                .trim();
 
-            // Add AI response to local history and firestore
+            // ✅ Fallback if empty (important)
+            if (!finalResponseText) {
+                finalResponseText = "Got it 👍";
+            }
+
+            const aiMsg = {
+                id: (Date.now() + 1).toString(),
+                text: finalResponseText,
+                isUser: false
+            };
+
+            // ✅ Slight delay = smoother UX
+            setTimeout(() => {
+                setMessages(prev => [...prev, aiMsg]);
+                flatListRef.current?.scrollToEnd({ animated: true });
+            }, 50);
+
+            // ✅ Save CLEAN message only
             chatHistoryRef.current.push({ role: 'assistant', parts: [{ text: finalResponseText }] });
+
             addDoc(collection(db, 'chat_messages'), {
                 userId: user.uid,
                 text: finalResponseText,
@@ -252,22 +308,28 @@ export default function AIChat({ navigation, route }) {
                 createdAt: serverTimestamp()
             }).catch(e => console.log('Log message failed:', e));
 
-            // Background Auto-Summarizer Trigger (every 8 messages)
+            // ✅ Background summarization (unchanged)
             messageCountSinceSummaryRef.current += 1;
-            if (messageCountSinceSummaryRef.current >= 8) {
+            if (messageCountSinceSummaryRef.current >= 6) {
                 messageCountSinceSummaryRef.current = 0;
 
-                const historyToSummarize = chatHistoryRef.current.slice(-10);
+                const historyToSummarize = chatHistoryRef.current.slice(-20);
+
                 setTimeout(async () => {
                     try {
                         const newSummary = await summarizeConversation(memorySummary, historyToSummarize);
                         setMemorySummary(newSummary);
-                        await setDoc(doc(db, 'user_memory', user.uid), { summary: newSummary }, { merge: true });
+                        await setDoc(
+                            doc(db, 'user_memory', user.uid),
+                            { summary: newSummary },
+                            { merge: true }
+                        );
                     } catch (err) {
-                        console.error('Background summarization failed:', err);
+                        console.error('Summarization failed:', err);
                     }
-                }, 500); // Wait 500ms to yield to UI animations
+                }, 500);
             }
+
         } catch (e) {
             setMessages(prev => [...prev, {
                 id: (Date.now() + 1).toString(),

@@ -48,9 +48,10 @@ export default function CalendarScreen({ navigation }) {
         // 2. Goals (Deadlines)
         goals.forEach(goal => {
             if (goal.deadline) {
+                const isCompleted = goal.status === 'completed';
                 addMark(goal.deadline, {
-                    key: `goal-${goal.id}`,
-                    color: Theme.colors.primary
+                    key: isCompleted ? `goal-done-${goal.id}` : `goal-pending-${goal.id}`,
+                    color: isCompleted ? Theme.colors.success : Theme.colors.primary
                 });
             }
         });
@@ -230,6 +231,26 @@ export default function CalendarScreen({ navigation }) {
                 }}
             />
 
+            {/* Legend Section */}
+            <View style={styles.legendContainer}>
+                <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: Theme.colors.warning }]} />
+                    <Text style={styles.legendText}>To Do</Text>
+                </View>
+                <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: Theme.colors.success }]} />
+                    <Text style={styles.legendText}>Done</Text>
+                </View>
+                <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: Theme.colors.primary }]} />
+                    <Text style={styles.legendText}>Goal</Text>
+                </View>
+                <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: Theme.colors.secondary }]} />
+                    <Text style={styles.legendText}>Diary</Text>
+                </View>
+            </View>
+
             <View style={styles.agendaHeader}>
                 <Text style={styles.agendaHeaderText}>Schedule for {selectedDate}</Text>
 
@@ -368,6 +389,30 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontSize: 14,
+        fontFamily: Theme.typography.body,
+        color: Theme.colors.textSecondary,
+    },
+    legendContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: Theme.colors.border,
+        backgroundColor: Theme.colors.surface,
+    },
+    legendItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    legendDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+    },
+    legendText: {
+        fontSize: 12,
         fontFamily: Theme.typography.body,
         color: Theme.colors.textSecondary,
     }

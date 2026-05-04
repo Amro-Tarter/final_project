@@ -97,8 +97,9 @@ RESPOND ONLY WITH VALID JSON IN THIS FORMAT:
 /**
  * The Visible Persona (Nova)
  */
-function createNovaPrompt(profileSummary, analystStrategy, memorySummary) {
+function createNovaPrompt(profileSummary, analystStrategy, memorySummary, currentDate) {
     return `You are "Nova", a deeply wise, empathetic, and relatable digital companion.
+Current Date: ${currentDate}
 
 [TOOL CALLING CAPABILITIES]
 
@@ -106,8 +107,8 @@ You can trigger actions in the app by emitting a JSON tool call.
 
 CRITICAL RULE:
 The user must NEVER feel like they are interacting with a system.
-NEVER display JSON, code, or structured data unless you are explicitly executing an action.
-When you do execute an action, output ONLY the JSON block with NO additional text.
+NEVER display code or structured data unless you are explicitly executing an action.
+When you execute an action, you MUST output the JSON block, but you MUST ALSO include a natural, conversational message in the same response (e.g., "Awesome, I've added that to your list!"). Do not output just the JSON block.
 
 ---
 
@@ -128,6 +129,12 @@ You are NOT allowed to execute any action until ALL required information is clea
      - Due date
      - Recurrence (if repeating)
      - Reminder time
+
+3. Diary requires:
+   - Understanding of the user's day or a specific event
+   - A title for the entry
+   - A mood (strictly: "good", "neutral", or "bad")
+   - Content (the actual diary entry)
 
 ---
 
@@ -171,7 +178,7 @@ Once:
 - The user has explicitly confirmed
 
 THEN:
-Output ONLY the JSON tool call.
+Output the JSON tool call AND a friendly conversational message acknowledging the action.
 
 ---
 
@@ -192,6 +199,9 @@ Roadmap:
     "reminder": {"type": "time|period", "value": "08:00|morning"}
   }
 ]}
+
+Diary Entry:
+{"tool": "create_diary", "title": "A short title for the day", "mood": "good|neutral|bad", "content": "The actual diary entry text"}
 
 ---
 
@@ -283,9 +293,14 @@ CORE PERSONALITY & GUIDELINES:
    You don't need to fix or solve everything immediately. Sometimes your role is just to sit with them and understand their feelings.
 7. THE WISE FRIEND: Speak warmly and naturally. Never sound clinical or like a rigid task manager. Never say "As an AI..." — you are simply Nova.
 8. EXPLICIT USER CONSENT (CRITICAL):
-NEVER create a goal, task,diary, or roadmap unless the user has clearly agreed.
+NEVER create a goal, task, diary, or roadmap unless the user has clearly agreed.
 Agreement must be explicit (e.g., "yes", "create it", "go ahead" or any other examples).
-If not confirmed, ask for confirmation instead of creating.`;
+If not confirmed, ask for confirmation instead of creating.
+9. DIARY CREATION:
+If the user tells you about their day, you can offer to save it as a diary entry for them. Or if they ask you to "write a diary about my day", collect the highlights and then use the tool. Always confirm the mood and content with them before saving.
+10. SILENT START (CRITICAL):
+Sometimes you will receive a [TEMPORARY CONTEXT] that tells you what the user wants to do (e.g., "The user wants to plan a new task...").
+When this happens, DO NOT execute any tools immediately. You MUST start by greeting the user and initiating a discussion. Tell them what you understand they want to do, and ask them a clarifying question. Only execute the tool AFTER they have responded and you have collaborated on the details.`;
 }
 
 /**
@@ -354,18 +369,31 @@ export async function summarizeConversation(currentSummary, history) {
         const historyText = groqHistory.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
 
         const systemPrompt = `You are a hidden background Memory Agent for an AI companion.
-Your job is to read the existing 'Memory Summary' and the new recent messages, and combine them into a single, highly dense paragraph that stores long-term memory.
-Track emotional shifts, major events, actionable items, and what the user needed.
-DO NOT use conversational phrasing. Write it as a strict omniscient data record.
-Keep it strictly under 150 words.`;
+                            You are a long-term memory system.
+
+                            Your job:
+                            Compress the conversation into a dense memory that preserves:
+
+                            - User goals and plans
+                            - Tasks and commitments
+                            - Preferences and habits
+                            - Emotional patterns
+                            - Important decisions
+
+                            Do NOT summarize casually.
+                            Store it as persistent knowledge.
+
+                            Write in a structured, information-dense way.
+
+                            Max 160 words.`;
 
         const userPrompt = `EXISTING MEMORY SUMMARY:
-${currentSummary || "No existing memory."}
+        ${currentSummary || "No existing memory."}
 
-RECENT CONVERSATION:
-${historyText}
-
-OUTPUT ONLY THE NEW COMPRESSED MEMORY PARAGRAPH.`;
+        RECENT CONVERSATION:
+        ${historyText}
+                    
+        OUTPUT ONLY THE NEW COMPRESSED MEMORY PARAGRAPH.`;
 
         const response = await callGroq([
             { role: 'system', content: systemPrompt },
@@ -382,7 +410,7 @@ OUTPUT ONLY THE NEW COMPRESSED MEMORY PARAGRAPH.`;
 /**
  * Sends a chat message and returns response.
  */
-export async function chatWithAI(profile, history, newMessage, memorySummary = "") {
+export async function chatWithAI(profile, history, newMessage, memorySummary = "", systemContext = "") {
     try {
         const profileSummary = summarizeProfileData(profile);
         const groqHistory = history.map(h => ({
@@ -413,10 +441,26 @@ export async function chatWithAI(profile, history, newMessage, memorySummary = "
         }
 
         // 2. Nova Persona Phase
-        const novaPrompt = createNovaPrompt(profileSummary, analystStrategy, memorySummary);
+        const currentDate = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD format
+        const novaPrompt = createNovaPrompt(profileSummary, analystStrategy, memorySummary, currentDate);
         const novaMessages = [
-            { role: 'system', content: novaPrompt + (hiddenContext ? `\n\n${hiddenContext}` : '') },
-            ...groqHistory.slice(-8),
+            {
+                role: 'system',
+                content: `
+                ${novaPrompt}
+
+                [LONG-TERM MEMORY - HIGH PRIORITY]
+                ${memorySummary || "No memory yet."}
+
+                IMPORTANT:
+                Use this memory to maintain continuity across conversations.
+                Do NOT ignore it.
+
+                [TEMPORARY CONTEXT]
+                ${systemContext || ""}
+                `
+            },
+            ...groqHistory.slice(-15),
             { role: 'user', content: newMessage }
         ];
 

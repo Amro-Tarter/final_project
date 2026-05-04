@@ -2,16 +2,16 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme, MyButton } from '../../components/components';
-import { ArrowLeft, MapPin, CheckCircle2, Circle } from 'lucide-react-native';
+import { ArrowLeft, MapPin, CheckCircle2, Circle, Sparkles } from 'lucide-react-native';
 import { useGoals } from '../../hooks/useGoals';
-import { useTasks, deleteTask } from '../../hooks/useTasks';
+import { useTasks } from '../../hooks/useTasks';
 import { useNotifications } from '../../context/NotificationContext';
 
 export default function GoalDetails({ navigation, route }) {
     const goalId = route?.params?.goalId;
 
     const { goals, updateGoal, deleteGoal } = useGoals();
-    const { tasks } = useTasks();
+    const { tasks, deleteTask } = useTasks();
     const { showNotification } = useNotifications();
 
 
@@ -174,8 +174,24 @@ export default function GoalDetails({ navigation, route }) {
 
                 <View style={{ height: 20 }} />
 
+                <TouchableOpacity 
+                    style={styles.aiButton}
+                    onPress={() => {
+                        const intentText = `I want to plan the roadmap for my goal: "${goal.title}". Can we break it down into milestones?`;
+                        const hiddenContext = `The user wants to expand the roadmap for their existing goal "${goal.title}". DO NOT execute any tools yet. Analyze their progress and discuss adding 3-5 structured milestones (tasks) to help them finish. ONLY use the create_roadmap tool after they explicitly agree. When you use the create_roadmap tool, use the goal name "${goal.title}".`;
+                        navigation.navigate('AIChat', { 
+                            initialIntentText: intentText, 
+                            hiddenContext: hiddenContext,
+                            isSilent: true 
+                        });
+                    }}
+                >
+                    <Sparkles size={20} color="#fff" />
+                    <Text style={styles.aiButtonText}>✨ Plan Roadmap with Nova</Text>
+                </TouchableOpacity>
+
                 <MyButton
-                    title="Add Milestone"
+                    title="Add Milestone Manually"
                     type="secondary"
                     onPress={() => navigation.navigate('TaskForm', { prefilledGoalId: goal.id })}
                 />
@@ -279,5 +295,20 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontFamily: Theme.typography.header,
         color: Theme.colors.textMain
-    }
+    },
+    aiButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Theme.colors.primary,
+        padding: 14,
+        borderRadius: 12,
+        marginBottom: 10,
+        gap: 8,
+    },
+    aiButtonText: {
+        color: '#fff',
+        fontFamily: Theme.typography.subHeader,
+        fontSize: 16,
+    },
 });
