@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme, MyButton } from '../../components/components';
 import { ArrowLeft, MapPin, CheckCircle2, Circle } from 'lucide-react-native';
 import { useGoals } from '../../hooks/useGoals';
-import { useTasks } from '../../hooks/useTasks';
+import { useTasks, deleteTask } from '../../hooks/useTasks';
 import { useNotifications } from '../../context/NotificationContext';
 
 export default function GoalDetails({ navigation, route }) {
@@ -14,12 +14,12 @@ export default function GoalDetails({ navigation, route }) {
     const { tasks } = useTasks();
     const { showNotification } = useNotifications();
 
-    
+
     // Get tasks associated with this goal
     const goalTasks = tasks.filter(t => t.goalId === goalId);
 
     const hasTasks = goalTasks.length > 0;
-    const allTasksCompleted =hasTasks && goalTasks.every(t => t.status === 'completed');
+    const allTasksCompleted = hasTasks && goalTasks.every(t => t.status === 'completed');
     const goal = goals.find(g => g.id === goalId);
 
     if (!goal) {
@@ -60,15 +60,28 @@ export default function GoalDetails({ navigation, route }) {
     const handleDelete = () => {
         Alert.alert(
             "Delete Goal",
-            "Are you sure you want to delete this goal? Tasks attached to it will not be deleted, but they will be unlinked from this goal.",
+            "Are you sure you want to delete this goal? All tasks linked to this goal will also be deleted. ",
             [
                 { text: "Cancel", style: "cancel" },
                 {
                     text: "Delete",
                     style: "destructive",
                     onPress: async () => {
-                        await deleteGoal(goal.id);
-                        navigation.goBack();
+                        try {
+                            // 1. Delete all related tasks
+                            const deleteTaskPromises = goalTasks.map(task => deleteTask(task.id));
+                            await Promise.all(deleteTaskPromises);
+
+                            // 2. Delete the goal
+                            await deleteGoal(goal.id);
+
+                            // 3. Notify user
+                            showNotification('warning', `Goal "${goal.title}" and its tasks deleted 🗑️`);
+
+                            navigation.goBack();
+                        } catch (e) {
+                            showNotification('error', 'Failed to delete goal properly ⚠️');
+                        }
                     }
                 }
             ]

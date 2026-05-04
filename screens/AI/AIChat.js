@@ -12,6 +12,7 @@ import { chatWithAI, summarizeConversation } from '../../services/aiService';
 import { useAuth } from '../../context/AuthContext';
 import { collection, query, where, orderBy, limit, getDocs, addDoc, serverTimestamp, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
+import { useNotifications } from '../../context/NotificationContext';
 
 const INITIAL_MESSAGE = (name) => ({
     id: 'initial_msg',
@@ -22,7 +23,7 @@ const INITIAL_MESSAGE = (name) => ({
 export default function AIChat({ navigation, route }) {
     const { user } = useAuth();
     const { profile, loading: profileLoading, refreshProfile } = useUserProfile();
-
+    const { showNotification } = useNotifications();
     // Silently synchronize AI profile when navigating to this tab
     useFocusEffect(
         useCallback(() => {
@@ -43,7 +44,7 @@ export default function AIChat({ navigation, route }) {
     // Load initial history from Firestore
     useEffect(() => {
         if (!user || profileLoading || !profile) return;
-        
+
         const loadHistory = async () => {
             try {
                 const q = query(
@@ -52,7 +53,7 @@ export default function AIChat({ navigation, route }) {
                     orderBy('createdAt', 'desc'),
                     limit(50)
                 );
-                
+
                 // Fetch long-term memory summary concurrently
                 const [snapshot, memDoc] = await Promise.all([
                     getDocs(q),
@@ -62,7 +63,7 @@ export default function AIChat({ navigation, route }) {
                 if (memDoc.exists()) {
                     setMemorySummary(memDoc.data().summary || "");
                 }
-                
+
                 if (snapshot.empty) {
                     const initial = INITIAL_MESSAGE(profile.userName);
                     setMessages([initial]);
@@ -120,7 +121,7 @@ export default function AIChat({ navigation, route }) {
             const hiddenContext = route.params.hiddenContext;
             // Clear the param so it doesn't fire again
             navigation.setParams({ initialIntentText: null, hiddenContext: null });
-            
+
             // Give a slight delay for UI to settle
             setTimeout(() => {
                 sendMessage(intentText, hiddenContext);
@@ -146,27 +147,34 @@ export default function AIChat({ navigation, route }) {
         }).catch(e => console.log('Log message failed:', e));
 
         try {
-            const promptToSend = hiddenContext ? `[SYSTEM: ${hiddenContext}]\n${text}` : text;
+            const promptToSend = text;
             const rawResponse = await chatWithAI(profile, chatHistoryRef.current.slice(-8), promptToSend, memorySummary);
 
             let finalResponseText = rawResponse;
             try {
                 // Check if it's a JSON tool call mixed with text
                 let toolCall = null;
-                const match = rawResponse.match(/\{[\s\S]*"tool"[\s\S]*\}/);
-                
-                if (match) {
-                    try {
-                        toolCall = JSON.parse(match[0]);
-                        // Remove the raw JSON block from the user-facing text
-                        finalResponseText = rawResponse.replace(match[0], '').trim();
-                    } catch (e) {
-                        console.log("Found JSON-like block but parsing failed", e);
+
+                try {
+                    const jsonStart = rawResponse.indexOf('{');
+                    const jsonEnd = rawResponse.lastIndexOf('}');
+
+                    if (jsonStart !== -1 && jsonEnd !== -1) {
+                        const possibleJson = rawResponse.slice(jsonStart, jsonEnd + 1);
+
+                        const parsed = JSON.parse(possibleJson);
+
+                        if (parsed.tool) {
+                            toolCall = parsed;
+                            finalResponseText = rawResponse.replace(possibleJson, '').trim();
+                        }
                     }
+                } catch (e) {
+                    // silently ignore — NEVER show parsing errors to user
                 }
 
                 if (toolCall) {
-                    let systemPrefix = '';
+
                     if (toolCall.tool === 'create_goal') {
                         await addDoc(collection(db, 'goals'), {
                             userId: user.uid,
@@ -175,8 +183,8 @@ export default function AIChat({ navigation, route }) {
                             progress: 0,
                             createdAt: serverTimestamp()
                         });
-                        systemPrefix = `*(System: I've created the goal "${toolCall.title}")*\n\n`;
-                        refreshProfile(true); 
+                        showNotification('Goal Created', `I've created a new goal "${toolCall.title}"`)
+                        refreshProfile(true);
                     } else if (toolCall.tool === 'create_task') {
                         let targetGoalId = null;
                         if (toolCall.targetGoal) {
@@ -195,10 +203,8 @@ export default function AIChat({ navigation, route }) {
                             due: toolCall.dueDate || null,
                             createdAt: serverTimestamp()
                         });
-                        
-                        systemPrefix = targetGoalId 
-                            ? `*(System: I've added task "${toolCall.title}" under "${toolCall.targetGoal}")*\n\n`
-                            : `*(System: I've created the task "${toolCall.title}")*\n\n`;
+                        //instead of using system prefix use the notifications for that and for updated use the same thing
+                        showNotification('Task Created', `I've added a new task "${toolCall.title}"`)
                         refreshProfile(true);
                     } else if (toolCall.tool === 'create_roadmap') {
                         const newGoalRef = await addDoc(collection(db, 'goals'), {
@@ -208,7 +214,7 @@ export default function AIChat({ navigation, route }) {
                             progress: 0,
                             createdAt: serverTimestamp()
                         });
-                        
+
                         const taskPromises = (toolCall.tasks || []).map(task => {
                             return addDoc(collection(db, 'tasks'), {
                                 userId: user.uid,
@@ -223,12 +229,11 @@ export default function AIChat({ navigation, route }) {
                             });
                         });
                         await Promise.all(taskPromises);
-                        
-                        systemPrefix = `*(System: I've created the roadmap "${toolCall.goalTitle}" with ${toolCall.tasks?.length || 0} tasks)*\n\n`;
+                        showNotification('Roadmap Created', `I've created a new roadmap "${toolCall.goalTitle}"`)
                         refreshProfile(true);
                     }
-                    
-                    finalResponseText = systemPrefix + finalResponseText;
+
+                    finalResponseText = finalResponseText;
                 }
             } catch (e) {
                 console.log("Execution error in tool handler:", e);
@@ -246,21 +251,21 @@ export default function AIChat({ navigation, route }) {
                 isUser: false,
                 createdAt: serverTimestamp()
             }).catch(e => console.log('Log message failed:', e));
-            
+
             // Background Auto-Summarizer Trigger (every 8 messages)
             messageCountSinceSummaryRef.current += 1;
             if (messageCountSinceSummaryRef.current >= 8) {
                 messageCountSinceSummaryRef.current = 0;
-                
+
                 const historyToSummarize = chatHistoryRef.current.slice(-10);
                 setTimeout(async () => {
-                   try {
-                       const newSummary = await summarizeConversation(memorySummary, historyToSummarize);
-                       setMemorySummary(newSummary);
-                       await setDoc(doc(db, 'user_memory', user.uid), { summary: newSummary }, { merge: true });
-                   } catch(err) {
-                       console.error('Background summarization failed:', err);
-                   }
+                    try {
+                        const newSummary = await summarizeConversation(memorySummary, historyToSummarize);
+                        setMemorySummary(newSummary);
+                        await setDoc(doc(db, 'user_memory', user.uid), { summary: newSummary }, { merge: true });
+                    } catch (err) {
+                        console.error('Background summarization failed:', err);
+                    }
                 }, 500); // Wait 500ms to yield to UI animations
             }
         } catch (e) {
@@ -348,7 +353,7 @@ export default function AIChat({ navigation, route }) {
                 )}
 
                 {showScrollDown && (
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={styles.scrollDownButton}
                         onPress={() => flatListRef.current?.scrollToEnd({ animated: true })}
                     >
@@ -357,23 +362,23 @@ export default function AIChat({ navigation, route }) {
                 )}
 
                 <View style={styles.inputArea}>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Ask anything..."
-                                placeholderTextColor={Theme.colors.textSecondary}
-                                value={inputText}
-                                onChangeText={setInputText}
-                                multiline
-                                onSubmitEditing={handleSend}
-                            />
-                            <TouchableOpacity
-                                style={[styles.sendButton, (!inputText.trim() || isAiTyping) && styles.sendButtonDisabled]}
-                                onPress={handleSend}
-                                disabled={!inputText.trim() || isAiTyping}
-                            >
-                                <Send size={20} color="#fff" />
-                            </TouchableOpacity>
-                        </View>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Ask anything..."
+                        placeholderTextColor={Theme.colors.textSecondary}
+                        value={inputText}
+                        onChangeText={setInputText}
+                        multiline
+                        onSubmitEditing={handleSend}
+                    />
+                    <TouchableOpacity
+                        style={[styles.sendButton, (!inputText.trim() || isAiTyping) && styles.sendButtonDisabled]}
+                        onPress={handleSend}
+                        disabled={!inputText.trim() || isAiTyping}
+                    >
+                        <Send size={20} color="#fff" />
+                    </TouchableOpacity>
+                </View>
             </KeyboardAvoidingView>
         </SafeAreaView>
     );
