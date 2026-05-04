@@ -83,7 +83,7 @@ export async function cancelNotification(notificationId) {
  * Randomly schedules AI encouragement messages for the next 48 hours
  * This is called whenever the app is opened to "refill" the queue.
  */
-export async function scheduleAIRandomizedFeed() {
+export async function scheduleAIRandomizedFeed(workflow = {}) {
     // 1. Clear existing AI notifications to prevent duplicates/clutter
     const scheduledList = await Notifications.getAllScheduledNotificationsAsync();
     for (const notification of scheduledList) {
@@ -101,18 +101,32 @@ export async function scheduleAIRandomizedFeed() {
         const futureHours = Math.floor(Math.random() * 48) + 1;
         const triggerDate = new Date(now.getTime() + futureHours * 60 * 60 * 1000);
 
-        // Ensure it's in a "socially acceptable" window (8 AM to 9 PM)
-        const hour = triggerDate.getHours();
-        if (hour < 8) triggerDate.setHours(8 + Math.floor(Math.random() * 3));
-        if (hour > 21) triggerDate.setHours(9 + Math.floor(Math.random() * 3)); // Morning of next day basically
-
         // Get a random message
         const degree = Math.floor(Math.random() * 3) + 1; // Gentle to moderate encouragement
-        const message = getRandomEncouragement(degree);
+        let message = getRandomEncouragement(degree);
+
+        // Modify based on support preference
+        if (workflow.isToughLove) {
+            message = `🔥 Move! ${message}`;
+        } else if (workflow.isEmpathetic) {
+            message = `💙 ${message} Take it slow.`;
+        }
+
+        // Adjust hours based on execution time
+        const hour = triggerDate.getHours();
+        if (workflow.dailyExecutionTime?.includes('Early Morning')) {
+            if (hour > 10 && hour < 14) triggerDate.setHours(7 + Math.floor(Math.random() * 2)); // Shift late morning to early
+        } else if (workflow.dailyExecutionTime?.includes('Late Night')) {
+            if (hour < 16) triggerDate.setHours(20 + Math.floor(Math.random() * 3)); // Shift day to night
+        } else {
+            // Default bounds (8 AM to 9 PM)
+            if (hour < 8) triggerDate.setHours(8 + Math.floor(Math.random() * 3));
+            if (hour > 21) triggerDate.setHours(9 + Math.floor(Math.random() * 3)); 
+        }
 
         await Notifications.scheduleNotificationAsync({
             content: {
-                title: "Achievements Ahead ✨",
+                title: "Nova ✨",
                 body: message,
                 data: { type: 'ai_encouragement' },
             },

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme, MyButton, MyInput, MyCheckbox, MyDatePicker, MyTimePicker } from '../../components/components';
 
-import { ArrowLeft, Calendar } from 'lucide-react-native';
+import { ArrowLeft, Calendar, Sparkles } from 'lucide-react-native';
 import { useTasks } from '../../hooks/useTasks';
 import { useGoals } from '../../hooks/useGoals';
 import { useNotifications } from '../../context/NotificationContext';
@@ -38,6 +38,11 @@ export default function TaskForm({ navigation, route }) {
     const handleSave = async () => {
         if (!title.trim()) {
             showNotification('warning', 'Please add a task title 📝');
+            return;
+        }
+
+        if (!dueDate) {
+            showNotification('warning', "Please set a due date ⏳");
             return;
         }
 
@@ -110,6 +115,19 @@ export default function TaskForm({ navigation, route }) {
             </View>
 
             <ScrollView contentContainerStyle={styles.content}>
+                {!isEditing && (
+                    <TouchableOpacity 
+                        style={styles.aiButton}
+                        onPress={() => {
+                            const intentText = `I want to plan a new task called "${title || 'a new task'}". Can we discuss it and break it down?`;
+                            const hiddenContext = "The user wants to plan a new task. Guide them and help them break it down, then use the create_task or create_roadmap tool to add it.";
+                            navigation.navigate('AIChat', { initialIntentText: intentText, hiddenContext: hiddenContext });
+                        }}
+                    >
+                        <Sparkles size={20} color="#fff" />
+                        <Text style={styles.aiButtonText}>Plan Task with Nova</Text>
+                    </TouchableOpacity>
+                )}
                 <MyInput
                     label="Task Title"
                     placeholder="What needs to be done?"
@@ -241,6 +259,21 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: Theme.spacing.lg,
+    },
+    aiButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Theme.colors.primary,
+        padding: 14,
+        borderRadius: 12,
+        marginBottom: 20,
+        gap: 8,
+    },
+    aiButtonText: {
+        color: '#fff',
+        fontFamily: Theme.typography.subHeader,
+        fontSize: 16,
     },
     sectionLabel: {
         fontSize: 14,

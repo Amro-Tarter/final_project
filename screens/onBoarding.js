@@ -13,67 +13,48 @@ import { useAuth } from "../context/AuthContext";
 
 const QUESTIONS = [
   {
-    key: "identity_vision",
-    title: "If you had a 'perfect' productive day tomorrow, how would you feel at the end of it?",
-    subtitle: "Focusing on the feeling helps us set the right pace for you.",
+    key: "coreProblem",
+    title: "If you had to describe what your typical weekday feels like right now, what would you say?",
+    subtitle: "There's no wrong answer, and this helps us calibrate the app.",
     type: "single",
     options: [
-      "Peaceful and calm—I finally have things under control.",
-      "Energized and proud—I smashed my big targets!",
-      "Relieved—I finally stopped putting things off.",
-      "Connected—I did my work and still had time for loved ones."
+      "A blur. I'm constantly moving but getting nowhere.",
+      "A rollercoaster. Some days I'm on fire, others I do nothing.",
+      "A puzzle. I'm always trying to fit more pieces into 24 hours."
     ],
   },
   {
-    key: "locus_of_control",
-    title: "When things don't go as planned, what is your first thought?",
-    subtitle: "This helps us tailor your daily encouragement.",
+    key: "supportPreference",
+    title: "When you get completely stuck, what helps you the most?",
+    subtitle: "We all need different kinds of help when facing a wall.",
     type: "single",
     options: [
-      " 'I need a better plan next time' (I'm in the driver's seat)",
-      " 'Life just got in the way again' (The world is moving too fast)",
-      " 'I'm just not disciplined enough' (I'm my own worst critic)",
-      " 'I'll just try harder tomorrow' (I'm ready to keep going)"
+      "Someone telling me to stop whining and just figure it out.",
+      "Someone reminding me how far I've already come.",
+      "Someone just handing me the instruction manual."
     ],
   },
   {
-    key: "future_self_identity",
-    title: "When you imagine yourself a year from now, what feels most important?",
-    subtitle: "Think about the version of you that you’d feel proud of.",
+    key: "overdueProtocol",
+    title: "You find an old, unfinished to-do list. How do you react?",
+    subtitle: "This sets how the app handles your overdue tasks.",
     type: "single",
     options: [
-      "Being more consistent and reliable",
-      "Feeling calmer and less stressed",
-      "Making real progress toward my goals",
-      "Understanding myself better",
-      "I’m still figuring that out"
-    ]
-  },
-  {
-    key: "cbt_friction",
-    title: "What usually 'steals' your focus during the day?",
-    subtitle: "We all have focus-thieves; let's find yours. Select all that apply.",
-    type: "multi",
-    options: [
-      "The 'I'll do it later' voice (Procrastination)",
-      "Feeling overwhelmed by a giant to-do list (Analysis Paralysis)",
-      "Wait, what was I doing? (Distractions & Notifications)",
-      "Thinking it has to be 100% perfect or it's a failure (Perfectionism)",
-      "Simply feeling too tired to start (Energy management)"
+      "I feel guilty and rewrite it right away.",
+      "I toss it out. Fresh start today.",
+      "I wonder why I avoided it."
     ],
   },
   {
-    key: "motivation_fuel",
-    title: "What helps you keep going when motivation drops?",
-    subtitle: "Different people need different kinds of fuel.",
-    type: "multi",
+    key: "dailyExecutionTime",
+    title: "When are you most likely to vanish into 'the zone' and get focused work done?",
+    subtitle: "When is your peak focus time?",
+    type: "single",
     options: [
-      "Encouraging words and reminders",
-      "Seeing clear progress and numbers",
-      "Small wins and quick feedback",
-      "Understanding the deeper reason behind the goal",
-      "Reminders of *why* I started this journey in the first place"
-    ]
+      "Before the world wakes up (Early Morning)",
+      "Right in the middle of the chaos (Mid-day)",
+      "When everyone else goes to sleep (Late Night)"
+    ],
   },
 ];
 
@@ -83,11 +64,10 @@ export default function OnboardingScreen({ navigation }) {
   const [step, setStep] = useState(0);
 
   const [answers, setAnswers] = useState({
-    identity_vision: null,
-    locus_of_control: null,
-    future_self_identity: null,
-    cbt_friction: [],
-    motivation_fuel: [],
+    coreProblem: null,
+    supportPreference: null,
+    overdueProtocol: null,
+    dailyExecutionTime: null,
   });
 
   const current = QUESTIONS[step];

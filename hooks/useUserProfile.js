@@ -13,9 +13,9 @@ export function useUserProfile() {
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    const buildProfile = useCallback(async () => {
+    const buildProfile = useCallback(async (silent = false) => {
         if (!user) return;
-        setLoading(true);
+        if (!silent) setLoading(true);
 
         try {
             // --- 1. Fetch raw data from Firestore ---
@@ -99,7 +99,7 @@ export function useUserProfile() {
             const builtProfile = {
                 // Identity
                 userEmail: user.email,
-                userName: user.displayName || user.email?.split('@')[0] || 'Friend',
+                userName: user.fullName || user.displayName || user.email?.split('@')[0] || 'Friend',
 
                 // Psychological profile (from onboarding)
                 psychology: onboardingAnswers ? {
@@ -132,10 +132,18 @@ export function useUserProfile() {
                     active: activeGoals.length,
                     completed: completedGoals.length,
                     avgProgress: avgGoalProgress,
-                    activeList: activeGoals.slice(0, 5).map(g => ({
-                        title: g.title,
-                        progress: Math.round((g.progress || 0) * 100),
-                    })),
+                    activeList: activeGoals.slice(0, 5).map(g => {
+                        const relatedTasks = pendingTasks
+                            .filter(t => t.goalId === g.id)
+                            .slice(0, 3)
+                            .map(t => t.title);
+                            
+                        return {
+                            title: g.title,
+                            progress: Math.round((g.progress || 0) * 100),
+                            tasksLeft: relatedTasks.length > 0 ? relatedTasks : ['None attached']
+                        };
+                    }),
                 },
 
                 // PUBLIC diary stats (can be referenced)

@@ -1,30 +1,41 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
     View, Text, StyleSheet, FlatList, TextInput,
     TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '../../components/components';
-import { ArrowLeft, Send, Sparkles, BarChart2 } from 'lucide-react-native';
+import { ArrowLeft, Send, Sparkles, BarChart2, ArrowDown } from 'lucide-react-native';
 import { useUserProfile } from '../../hooks/useUserProfile';
-import { chatWithAI } from '../../services/aiService';
+import { chatWithAI, summarizeConversation } from '../../services/aiService';
 import { useAuth } from '../../context/AuthContext';
-import { collection, query, where, orderBy, limit, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, getDocs, addDoc, serverTimestamp, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 
 const INITIAL_MESSAGE = (name) => ({
     id: 'initial_msg',
-    text: `Hello, ${name || 'Friend'}! 👋 I'm Khaled, your personal companion. I've been looking at your progress and I'm here to help you grow. What's on your mind today?`,
+    text: `Hello, ${name || 'Friend'}! 👋 I'm Nova, your personal companion. I've been looking at your progress and I'm here to help you grow. What's on your mind today?`,
     isUser: false,
 });
 
-export default function AIChat({ navigation }) {
+export default function AIChat({ navigation, route }) {
     const { user } = useAuth();
-    const { profile, loading: profileLoading } = useUserProfile();
+    const { profile, loading: profileLoading, refreshProfile } = useUserProfile();
+
+    // Silently synchronize AI profile when navigating to this tab
+    useFocusEffect(
+        useCallback(() => {
+            refreshProfile(true);
+        }, [refreshProfile])
+    );
     const [messages, setMessages] = useState([]);
     const [loadingHistory, setLoadingHistory] = useState(true);
     const [inputText, setInputText] = useState('');
     const [isAiTyping, setIsAiTyping] = useState(false);
+    const [memorySummary, setMemorySummary] = useState('');
+    const [showScrollDown, setShowScrollDown] = useState(false);
+    const messageCountSinceSummaryRef = useRef(0);
     // Chat history format for AI context
     const chatHistoryRef = useRef([]);
     const flatListRef = useRef(null);
@@ -41,7 +52,16 @@ export default function AIChat({ navigation }) {
                     orderBy('createdAt', 'desc'),
                     limit(50)
                 );
-                const snapshot = await getDocs(q);
+                
+                // Fetch long-term memory summary concurrently
+                const [snapshot, memDoc] = await Promise.all([
+                    getDocs(q),
+                    getDoc(doc(db, 'user_memory', user.uid))
+                ]);
+
+                if (memDoc.exists()) {
+                    setMemorySummary(memDoc.data().summary || "");
+                }
                 
                 if (snapshot.empty) {
                     const initial = INITIAL_MESSAGE(profile.userName);
@@ -93,13 +113,26 @@ export default function AIChat({ navigation }) {
         }
     }, [loadingHistory, messages.length === 0]);
 
-    const handleSend = async () => {
-        const text = inputText.trim();
+    // Handle initial intent from route params
+    useEffect(() => {
+        if (!loadingHistory && route.params?.initialIntentText) {
+            const intentText = route.params.initialIntentText;
+            const hiddenContext = route.params.hiddenContext;
+            // Clear the param so it doesn't fire again
+            navigation.setParams({ initialIntentText: null, hiddenContext: null });
+            
+            // Give a slight delay for UI to settle
+            setTimeout(() => {
+                sendMessage(intentText, hiddenContext);
+            }, 500);
+        }
+    }, [loadingHistory, route.params?.initialIntentText]);
+
+    const sendMessage = async (text, hiddenContext = null) => {
         if (!text || isAiTyping || !user) return;
 
         const userMsg = { id: Date.now().toString(), text, isUser: true };
         setMessages(prev => [...prev, userMsg]);
-        setInputText('');
         setIsAiTyping(true);
         setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
 
@@ -113,20 +146,123 @@ export default function AIChat({ navigation }) {
         }).catch(e => console.log('Log message failed:', e));
 
         try {
-            const response = await chatWithAI(profile, chatHistoryRef.current.slice(0, -1), text);
+            const promptToSend = hiddenContext ? `[SYSTEM: ${hiddenContext}]\n${text}` : text;
+            const rawResponse = await chatWithAI(profile, chatHistoryRef.current.slice(-8), promptToSend, memorySummary);
 
-            const aiMsg = { id: (Date.now() + 1).toString(), text: response, isUser: false };
+            let finalResponseText = rawResponse;
+            try {
+                // Check if it's a JSON tool call mixed with text
+                let toolCall = null;
+                const match = rawResponse.match(/\{[\s\S]*"tool"[\s\S]*\}/);
+                
+                if (match) {
+                    try {
+                        toolCall = JSON.parse(match[0]);
+                        // Remove the raw JSON block from the user-facing text
+                        finalResponseText = rawResponse.replace(match[0], '').trim();
+                    } catch (e) {
+                        console.log("Found JSON-like block but parsing failed", e);
+                    }
+                }
+
+                if (toolCall) {
+                    let systemPrefix = '';
+                    if (toolCall.tool === 'create_goal') {
+                        await addDoc(collection(db, 'goals'), {
+                            userId: user.uid,
+                            title: toolCall.title,
+                            status: 'active',
+                            progress: 0,
+                            createdAt: serverTimestamp()
+                        });
+                        systemPrefix = `*(System: I've created the goal "${toolCall.title}")*\n\n`;
+                        refreshProfile(true); 
+                    } else if (toolCall.tool === 'create_task') {
+                        let targetGoalId = null;
+                        if (toolCall.targetGoal) {
+                            const goalsQuery = query(collection(db, 'goals'), where('userId', '==', user.uid), where('title', '==', toolCall.targetGoal));
+                            const goalsSnap = await getDocs(goalsQuery);
+                            if (!goalsSnap.empty) {
+                                targetGoalId = goalsSnap.docs[0].id;
+                            }
+                        }
+                        await addDoc(collection(db, 'tasks'), {
+                            userId: user.uid,
+                            title: toolCall.title,
+                            goalId: targetGoalId,
+                            status: 'pending',
+                            priority: 'Normal',
+                            due: toolCall.dueDate || null,
+                            createdAt: serverTimestamp()
+                        });
+                        
+                        systemPrefix = targetGoalId 
+                            ? `*(System: I've added task "${toolCall.title}" under "${toolCall.targetGoal}")*\n\n`
+                            : `*(System: I've created the task "${toolCall.title}")*\n\n`;
+                        refreshProfile(true);
+                    } else if (toolCall.tool === 'create_roadmap') {
+                        const newGoalRef = await addDoc(collection(db, 'goals'), {
+                            userId: user.uid,
+                            title: toolCall.goalTitle,
+                            status: 'active',
+                            progress: 0,
+                            createdAt: serverTimestamp()
+                        });
+                        
+                        const taskPromises = (toolCall.tasks || []).map(task => {
+                            return addDoc(collection(db, 'tasks'), {
+                                userId: user.uid,
+                                title: task.title,
+                                goalId: newGoalRef.id,
+                                status: 'pending',
+                                priority: 'Normal',
+                                due: task.dueDate || null,
+                                recurrence: task.recurrence || null,
+                                reminder: task.reminder || null,
+                                createdAt: serverTimestamp()
+                            });
+                        });
+                        await Promise.all(taskPromises);
+                        
+                        systemPrefix = `*(System: I've created the roadmap "${toolCall.goalTitle}" with ${toolCall.tasks?.length || 0} tasks)*\n\n`;
+                        refreshProfile(true);
+                    }
+                    
+                    finalResponseText = systemPrefix + finalResponseText;
+                }
+            } catch (e) {
+                console.log("Execution error in tool handler:", e);
+            }
+
+            const aiMsg = { id: (Date.now() + 1).toString(), text: finalResponseText, isUser: false };
             setMessages(prev => [...prev, aiMsg]);
             setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
 
             // Add AI response to local history and firestore
-            chatHistoryRef.current.push({ role: 'assistant', parts: [{ text: response }] });
+            chatHistoryRef.current.push({ role: 'assistant', parts: [{ text: finalResponseText }] });
             addDoc(collection(db, 'chat_messages'), {
                 userId: user.uid,
-                text: response,
+                text: finalResponseText,
                 isUser: false,
                 createdAt: serverTimestamp()
             }).catch(e => console.log('Log message failed:', e));
+            
+            // Background Auto-Summarizer Trigger (every 8 messages)
+            messageCountSinceSummaryRef.current += 1;
+            if (messageCountSinceSummaryRef.current >= 8) {
+                messageCountSinceSummaryRef.current = 0;
+                
+                const historyToSummarize = chatHistoryRef.current.slice(-10);
+                setTimeout(async () => {
+                   try {
+                       const newSummary = await summarizeConversation(memorySummary, historyToSummarize);
+                       setMemorySummary(newSummary);
+                       await setDoc(doc(db, 'user_memory', user.uid), { summary: newSummary }, { merge: true });
+                   } catch(err) {
+                       console.error('Background summarization failed:', err);
+                   }
+                }, 500); // Wait 500ms to yield to UI animations
+            }
         } catch (e) {
             setMessages(prev => [...prev, {
                 id: (Date.now() + 1).toString(),
@@ -135,6 +271,14 @@ export default function AIChat({ navigation }) {
             }]);
         } finally {
             setIsAiTyping(false);
+        }
+    };
+
+    const handleSend = () => {
+        const text = inputText.trim();
+        if (text) {
+            setInputText('');
+            sendMessage(text);
         }
     };
 
@@ -158,7 +302,7 @@ export default function AIChat({ navigation }) {
                     <ArrowLeft size={24} color={Theme.colors.textMain} />
                 </TouchableOpacity>
                 <View style={styles.headerCenter}>
-                    <Text style={styles.headerTitle}>Khaled — AI Companion</Text>
+                    <Text style={styles.headerTitle}>Nova — AI Companion</Text>
                     <View style={styles.onlineDot} />
                 </View>
                 <TouchableOpacity onPress={() => navigation.navigate('AIInsights')} style={{ padding: 8 }}>
@@ -171,32 +315,48 @@ export default function AIChat({ navigation }) {
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
             >
-                {profileLoading || loadingHistory ? (
-                    <View style={styles.loadingWrap}>
-                        <Sparkles size={32} color={Theme.colors.primary} />
-                        <Text style={styles.loadingText}>Reading your journey...</Text>
-                        <ActivityIndicator color={Theme.colors.primary} style={{ marginTop: 12 }} />
-                    </View>
-                ) : (
-                    <>
-                        <FlatList
-                            ref={flatListRef}
-                            data={messages}
-                            renderItem={renderItem}
-                            keyExtractor={item => item.id}
-                            contentContainerStyle={styles.chatContent}
-                            onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
-                            keyboardShouldPersistTaps="handled"
-                        />
-
-                        {isAiTyping && (
-                            <View style={styles.typingIndicator}>
-                                <Sparkles size={14} color={Theme.colors.primary} />
-                                <Text style={styles.typingText}>Khaled is thinking...</Text>
+                <FlatList
+                    ref={flatListRef}
+                    data={messages}
+                    renderItem={renderItem}
+                    keyExtractor={item => item.id}
+                    contentContainerStyle={styles.chatContent}
+                    onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={true}
+                    scrollEventThrottle={16}
+                    onScroll={(e) => {
+                        const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+                        const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 100;
+                        setShowScrollDown(!isCloseToBottom && messages.length > 0);
+                    }}
+                    ListHeaderComponent={
+                        (profileLoading || loadingHistory) ? (
+                            <View style={{ paddingVertical: 20 }}>
+                                <ActivityIndicator color={Theme.colors.primary} />
+                                <Text style={{ textAlign: 'center', color: Theme.colors.textSecondary, marginTop: 8, fontSize: 13, fontFamily: Theme.typography.body }}>Reading your journey...</Text>
                             </View>
-                        )}
+                        ) : null
+                    }
+                />
 
-                        <View style={styles.inputArea}>
+                {isAiTyping && (
+                    <View style={styles.typingIndicator}>
+                        <Sparkles size={14} color={Theme.colors.primary} />
+                        <Text style={styles.typingText}>Nova is thinking...</Text>
+                    </View>
+                )}
+
+                {showScrollDown && (
+                    <TouchableOpacity 
+                        style={styles.scrollDownButton}
+                        onPress={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                    >
+                        <ArrowDown size={24} color="#fff" />
+                    </TouchableOpacity>
+                )}
+
+                <View style={styles.inputArea}>
                             <TextInput
                                 style={styles.input}
                                 placeholder="Ask anything..."
@@ -214,8 +374,6 @@ export default function AIChat({ navigation }) {
                                 <Send size={20} color="#fff" />
                             </TouchableOpacity>
                         </View>
-                    </>
-                )}
             </KeyboardAvoidingView>
         </SafeAreaView>
     );
@@ -335,4 +493,20 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     sendButtonDisabled: { backgroundColor: Theme.colors.border },
+    scrollDownButton: {
+        position: 'absolute',
+        bottom: 90,
+        right: 20,
+        backgroundColor: Theme.colors.primary,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        alignItems: 'center',
+        justifyContent: 'center',
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+    },
 });

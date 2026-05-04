@@ -15,12 +15,14 @@ import {
 import { db } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
+import { useWorkflow } from './useWorkflow';
 
 export function useTasks() {
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
     const { user } = useAuth();
     const { scheduleSystemNotification, cancelSystemNotification } = useNotifications();
+    const { isAutoReschedule } = useWorkflow();
 
     useEffect(() => {
         if (!user) {
@@ -50,6 +52,32 @@ export function useTasks() {
 
         return () => unsubscribe();
     }, [user]);
+
+    // Auto-reschedule protocol implementation
+    useEffect(() => {
+        if (!isAutoReschedule || tasks.length === 0 || loading) return;
+        
+        const todayStr = new Date().toISOString().split('T')[0];
+        const todayDate = new Date();
+        todayDate.setHours(0, 0, 0, 0);
+
+        tasks.forEach(async (task) => {
+            if (task.status === 'pending' && task.due) {
+                const dueDateObj = new Date(task.due);
+                dueDateObj.setHours(0, 0, 0, 0);
+                
+                if (dueDateObj < todayDate) {
+                    // Task is overdue, automatically bump to today. No guilt!
+                    try {
+                        const taskRef = doc(db, 'tasks', task.id);
+                        await updateDoc(taskRef, { due: todayStr });
+                    } catch (err) {
+                        console.error('Failed to auto-reschedule task:', err);
+                    }
+                }
+            }
+        });
+    }, [tasks, isAutoReschedule, loading]);
 
     const addTask = async (taskData) => {
         if (!user) return;

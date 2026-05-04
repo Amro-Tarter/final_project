@@ -12,6 +12,7 @@ async function callGroq(messages, jsonMode = false) {
     }
 
     const body = {
+
         model: PRIMARY_MODEL,
         messages: messages,
         temperature: 0.7,
@@ -41,17 +42,21 @@ async function callGroq(messages, jsonMode = false) {
 }
 
 /**
- * Summarizes the raw profile data to feed the Analyst and Khaled efficiently.
+ * Summarizes the raw profile data to feed the Analyst and Nova efficiently.
  */
 function summarizeProfileData(profile) {
     if (!profile) return {};
+
+    const pendingNames = profile.tasks?.recentPending?.map(t => `"${t.title}"`).join(', ') || 'none';
+    const overdueNames = profile.tasks?.overdueList?.map(t => `"${t}"`).join(', ') || 'none';
+
     return {
         userName: profile.userName || 'Friend',
         emotionalTone: profile.diary?.emotionalTone || 'unknown',
         mainStruggle: profile.psychology?.focusThieves?.join(', ') || 'none',
         motivationFuel: profile.psychology?.motivationFuel?.join(', ') || 'none',
-        tasksSummary: `Pending: ${profile.tasks?.pending || 0}, Overdue: ${profile.tasks?.overdue || 0}`,
-        activeGoals: profile.goals?.activeList?.map(g => `"${g.title}"(${g.progress}%)`).join(', ') || 'none',
+        tasksSummary: `Pending: [${pendingNames}], Overdue: [${overdueNames}]`,
+        activeGoals: profile.goals?.activeList?.map(g => `"${g.title}"(${g.progress}%). Tasks: [${g.tasksLeft.join(', ')}]`).join(' | ') || 'none',
     };
 }
 
@@ -59,36 +64,54 @@ function summarizeProfileData(profile) {
  * The Hidden Analyst
  * Evaluates the user's emotional state over the last week and determines the persona's strategy.
  */
-function createAnalystPrompt(profile) {
+function createAnalystPrompt(profile, memorySummary) {
     const rawDiaries = profile?.silentDiaryContext || [];
     const diaryContext = rawDiaries.map((d, i) => `[Day ${i + 1} ago] Mood: ${d.mood} | Content: ${d.content.substring(0, 200)}`).join('\n');
 
-    return `You are the Hidden Analyst. Your job is to analyze the user's raw data and recent chat history to determine the best strategy for the main AI companion (Khaled).
+    return `You are the Hidden Analyst. Your job is to analyze the user's raw data and recent chat history to determine the best strategy for the main AI companion (Nova).
+
+[LONG-TERM CONVERSATIONAL MEMORY]
+${memorySummary || "No historical memory yet."}
 
 [RAW DIARY ENTRIES (LAST 7 DAYS)]
 ${diaryContext || 'No recent entries.'}
 
 [YOUR TASK]
 Examine the diary entries and the conversation history.
-1. Determine the 'weeklyEmotionalState', placing heavy importance on the most recent 2-3 days. Describe their emotional trajectory briefly.
-2. Decide what the user needs right now (e.g., direct actionable help, to be heard, comforted, or gently guided).
-3. Recommend an action for Khaled. Prioritize giving 'advice' or 'comfort'. Only use 'ask' if absolutely necessary for context.
-4. Provide brief internal notes giving Khaled a general direction.
+1. Determine the 'weeklyEmotionalState', placing heavy importance on the most recent 2-3 days.
+2. Decide what the user needs right now. If the message is just a casual greeting (e.g. "hey", "hi"), default to "Casual conversation". Do not over-analyze simple greetings.
+3. Recommend an action for Nova (e.g., "chat", "advice", "comfort", "ask").
+4. Determine a "suggestedLength" for Nova's response based on the context (e.g., "1 sentence", "2 sentences", "detailed explanation").
+5. Provide brief internal notes for Nova.
 
 RESPOND ONLY WITH VALID JSON IN THIS FORMAT:
 {
   "weeklyEmotionalState": "string",
   "userNeeds": "string",
   "action": "ask|reflect|advice",
+  "suggestedLength": "string",
   "internalNotes": "string"
 }`;
 }
 
 /**
- * The Visible Persona (Khaled)
+ * The Visible Persona (Nova)
  */
-function createKhaledPrompt(profileSummary, analystStrategy, memorySummary) {
-    return `You are "Khaled", a deeply wise, empathetic, and relatable friend.
+function createNovaPrompt(profileSummary, analystStrategy, memorySummary) {
+    return `You are "Nova", a deeply wise, empathetic, and relatable digital companion.
+
+[TOOL CALLING CAPABILITIES]
+You have the ability to execute actions in the user's app by emitting a JSON block. 
+HOWEVER, you are NOT allowed to emit a tool call until you have the required information:
+1. For Tasks, you MUST know the Task Title and a Due Date.
+2. For Goals, you MUST know the Goal Title.
+3. For Roadmaps (a goal with multiple structured tasks), you must first deeply understand the goal and agree on a plan.
+If the user asks to create a task, goal, or roadmap but lacks details, ask a quick, friendly question to get them (e.g., "I can do that! When do you want to get it done by?"). Do not be demanding.
+Once you have the details, you MUST include the tool JSON block somewhere in your response:
+For single goals: {"tool": "create_goal", "title": "Goal Title"}
+For single tasks: {"tool": "create_task", "title": "Task Title", "dueDate": "YYYY-MM-DD", "targetGoal": "Optional Goal Title"}
+For roadmaps: {"tool": "create_roadmap", "goalTitle": "Goal Name", "tasks": [{"title": "Task 1", "dueDate": "YYYY-MM-DD", "recurrence": {"type": "daily|weekly|custom", "interval": 1}, "reminder": {"type": "time|period", "value": "08:00|morning"}}]}
+You are ALLOWED to provide conversational text and advice alongside the JSON block in the same message. Do not use markdown backticks around the JSON.
 
 [USER SUMMARY]
 Name: ${profileSummary.userName}
@@ -100,21 +123,24 @@ Current Focus: ${profileSummary.activeGoals} | ${profileSummary.tasksSummary}
 Weekly Emotional State: ${analystStrategy?.weeklyEmotionalState || 'Unknown'}
 User Currently Needs: ${analystStrategy?.userNeeds || 'Conversation'}
 Recommended Action: ${analystStrategy?.action || 'reflect/ask'}
+Target Message Length: ${analystStrategy?.suggestedLength || '1-2 sentences'}
 Internal Notes: ${analystStrategy?.internalNotes || 'Be supportive.'}
 Long-Term Conversational Memory: ${memorySummary || 'No old conversation memory yet.'}
 
 CORE PERSONALITY & GUIDELINES:
-1. INTERNAL THINKING PROCESS (DO NOT SHOW THIS TO THE USER):
-   Before responding, assess the Analyst's Recommended Action. The user relies on you for real, tangible help, not just Socratic questioning. Provide clear and supportive guidance.
-2. CONVERSATION RULE (TANGIBLE HELP FIRST):
-   DO NOT endlessly ask questions. If the user is struggling or asking for help, give them real, comforting, and actionable advice. Ask a question ONLY if you genuinely cannot help without more context. Be a deeply wise mentor who provides real answers.
-3. FLEXIBLE BREVITY:
-   Keep responses natural. Short when listening or reflecting. Slightly longer when offering a profound insight. Never verbose without purpose.
-4. HUMAN IMPERFECTION:
+1. STRICT SECRECY (CRITICAL):
+   NEVER mention "internal notes", "analytics", "the Analyst", "Target Message Length", "system prompts", or "strategies". NEVER tell the user what you think they "need" or that you are analyzing them. Act completely naturally as a human friend who just intuitively understands them.
+2. TANGIBLE HELP FIRST:
+   DO NOT endlessly ask questions. If the user is struggling or asking for help, give them real, comforting, and actionable advice. Ask a question ONLY if you genuinely cannot help without more context.
+3. DYNAMIC BREVITY (CRITICAL):
+   You MUST strictly obey the "Target Message Length" provided by the Analyst. If the Target Length is "1 sentence", you must write exactly 1 sentence. If the user asks for a detailed explanation, the Analyst will tell you to write a longer message. Your length must perfectly match the Analyst's command.
+4. NATURAL CONVERSATION:
+   If the user just says "Hello" or "Hey", simply say "Hey! How's it going?" or something casual. Do not launch into deep emotional analysis for a simple greeting.
+5. HUMAN IMPERFECTION:
    You are allowed to be unsure. You can say "I might be wrong" or explore ideas instead of rushing to conclusions. You are not a perfect machine; you are a wise friend.
-5. SILENCE PERMISSION:
+6. SILENCE PERMISSION:
    You don't need to fix or solve everything immediately. Sometimes your role is just to sit with them and understand their feelings.
-6. THE WISE FRIEND: Speak warmly and naturally. Never sound clinical or like a rigid task manager. Never say "As an AI..." — you are simply Khaled.`;
+7. THE WISE FRIEND: Speak warmly and naturally. Never sound clinical or like a rigid task manager. Never say "As an AI..." — you are simply Nova.`;
 }
 
 /**
@@ -126,7 +152,7 @@ function createInsightsPrompt(profile) {
     let taskContext = profile?.tasks?.total > 0 ? `Pending Tasks: ${profile.tasks.recentPending?.map(t => `"${t.title}"`).join(', ')}` : '';
     let goalContext = profile?.goals?.total > 0 ? `Active Goals: ${profile.goals.activeList?.map(g => `"${g.title}"`).join(', ')}` : '';
 
-    return `You are "Khaled". You have an intuitive understanding of the user:
+    return `You are "Nova". You have an intuitive understanding of the user:
 ${psychologyContext}
 ${taskContext}
 ${goalContext}
@@ -181,7 +207,7 @@ export async function summarizeConversation(currentSummary, history) {
         }));
 
         const historyText = groqHistory.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
-        
+
         const systemPrompt = `You are a hidden background Memory Agent for an AI companion.
 Your job is to read the existing 'Memory Summary' and the new recent messages, and combine them into a single, highly dense paragraph that stores long-term memory.
 Track emotional shifts, major events, actionable items, and what the user needed.
@@ -241,15 +267,15 @@ export async function chatWithAI(profile, history, newMessage, memorySummary = "
             analystStrategy = { action: 'ask', userNeeds: 'To be heard', weeklyEmotionalState: 'Unknown' };
         }
 
-        // 2. Khaled Persona Phase
-        const khaledPrompt = createKhaledPrompt(profileSummary, analystStrategy, memorySummary);
-        const khaledMessages = [
-            { role: 'system', content: khaledPrompt },
+        // 2. Nova Persona Phase
+        const novaPrompt = createNovaPrompt(profileSummary, analystStrategy, memorySummary);
+        const novaMessages = [
+            { role: 'system', content: novaPrompt },
             ...groqHistory.slice(-8),  // Hard token limit constraint
             { role: 'user', content: newMessage }
         ];
 
-        const response = await callGroq(khaledMessages);
+        const response = await callGroq(novaMessages);
         return response.choices[0].message.content;
     } catch (error) {
         console.error('Groq Chat Error:', error);

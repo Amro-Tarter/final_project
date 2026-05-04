@@ -7,6 +7,7 @@ import {
     cancelNotification,
     scheduleAIRandomizedFeed
 } from '../services/notificationService';
+import { useWorkflow } from '../hooks/useWorkflow';
 
 const NotificationContext = createContext();
 
@@ -24,6 +25,8 @@ export const NotificationProvider = ({ children }) => {
         type: 'success',
         message: '',
     });
+
+    const workflow = useWorkflow();
 
     const [timerId, setTimerId] = useState(null);
 
@@ -78,11 +81,11 @@ export const NotificationProvider = ({ children }) => {
     useEffect(() => {
         const initNotifications = async () => {
             await registerForPushNotificationsAsync();
-            // Refresh the randomized AI feed whenever the app initializes
-            await scheduleAIRandomizedFeed();
+            // Refresh the randomized AI feed whenever the app initializes or time preferences change
+            await scheduleAIRandomizedFeed(workflow);
         };
         initNotifications();
-    }, []);
+    }, [workflow.dailyExecutionTime, workflow.isToughLove, workflow.isEmpathetic]);
 
     return (
         <NotificationContext.Provider value={{
