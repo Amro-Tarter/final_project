@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme, MyButton } from '../../components/components';
-import { ArrowLeft, Calendar, Flag, RotateCw } from 'lucide-react-native';
+import { ArrowLeft, Bell, Calendar, Flag, RotateCw } from 'lucide-react-native';
 import { useTasks } from '../../hooks/useTasks';
 import { useNotifications } from '../../context/NotificationContext';
 
@@ -90,6 +90,29 @@ export default function TaskDetails({ navigation, route }) {
         }
     };
 
+    const getReminderText = () => {
+        if (!item.reminder || item.reminder.type === 'none') {
+            return 'No reminder set';
+        }
+
+        const duePrefix = item.due ? `On ${item.due}` : 'Reminder';
+
+        if (item.reminder.type === 'time' && item.reminder.value) {
+            return `${duePrefix} at ${item.reminder.value}`;
+        }
+
+        if (item.reminder.type === 'period') {
+            if (item.reminder.value === 'morning') {
+                return `${duePrefix} in the morning`;
+            }
+            if (item.reminder.value === 'evening') {
+                return `${duePrefix} in the evening`;
+            }
+        }
+
+        return 'No reminder set';
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
@@ -168,6 +191,14 @@ export default function TaskDetails({ navigation, route }) {
                         </View>
                     </View>
                 )}
+
+                <View style={styles.row}>
+                    <Bell size={20} color={item.reminder && item.reminder.type !== 'none' ? Theme.colors.primary : Theme.colors.textSecondary} />
+                    <View style={styles.rowText}>
+                        <Text style={styles.label}>Reminder</Text>
+                        <Text style={styles.value}>{getReminderText()}</Text>
+                    </View>
+                </View>
 
                 <View style={styles.row}>
                     <Flag size={20} color={item.priority === 'High' ? Theme.colors.error : Theme.colors.textSecondary} />

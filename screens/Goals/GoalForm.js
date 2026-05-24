@@ -25,7 +25,7 @@ export default function GoalForm({ navigation, route }) {
             showNotification('warning', "Please add a goal title 🎯");
             return;
         }
-        
+
         if (!deadline) {
             showNotification('warning', "Please set a target deadline 🎯");
             return;
@@ -82,15 +82,17 @@ export default function GoalForm({ navigation, route }) {
 
             <ScrollView contentContainerStyle={styles.content}>
                 {!isEditing && (
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={styles.aiButton}
                         onPress={() => {
-                            const intentText = `I want to plan a new goal called "${title || 'a new goal'}". Can we discuss it and build a roadmap?`;
+                            const intentText = title?.trim()
+                                ? `I want help planning a goal called "${title}".`
+                                : `I want help planning a new goal.`;
                             const hiddenContext = "The user wants to build a new goal roadmap. DO NOT execute any tools yet. Ask them a few questions to deeply understand their intent, and ONLY use the create_roadmap tool after they have answered and explicitly agreed.";
-                            navigation.navigate('AIChat', { 
-                                initialIntentText: intentText, 
+                            navigation.navigate('AIChat', {
+                                initialIntentText: intentText,
                                 hiddenContext: hiddenContext,
-                                isSilent: true 
+                                isSilent: true
                             });
                         }}
                     >

@@ -29,7 +29,7 @@ export default function CalendarScreen({ navigation }) {
                 marks[dateStr] = { dots: [] };
             }
             // Avoid duplicate colors on the same day if desired, or just push
-            if (!marks[dateStr].dots.find(d => d.key === dot.key)) {
+           if (!marks[dateStr].dots.find(d => d.type === dot.type)) {
                 marks[dateStr].dots.push(dot);
             }
         };
@@ -37,10 +37,10 @@ export default function CalendarScreen({ navigation }) {
         // 1. Tasks
         tasks.forEach(task => {
             if (task.due) {
-                const isCompleted = task.status === 'completed';
                 addMark(task.due, {
-                    key: isCompleted ? `task-done-${task.id}` : `task-pending-${task.id}`,
-                    color: isCompleted ? Theme.colors.success : Theme.colors.warning
+                    key: 'task',
+                    type: 'task',
+                    color: Theme.colors.success
                 });
             }
         });
@@ -48,11 +48,11 @@ export default function CalendarScreen({ navigation }) {
         // 2. Goals (Deadlines)
         goals.forEach(goal => {
             if (goal.deadline) {
-                const isCompleted = goal.status === 'completed';
-                addMark(goal.deadline, {
-                    key: isCompleted ? `goal-done-${goal.id}` : `goal-pending-${goal.id}`,
-                    color: isCompleted ? Theme.colors.success : Theme.colors.primary
-                });
+            addMark(goal.deadline, {
+            key: 'goal',
+            type: 'goal',
+            color: Theme.colors.primary
+            });
             }
         });
 
@@ -230,27 +230,7 @@ export default function CalendarScreen({ navigation }) {
                     textDayHeaderFontFamily: Theme.typography.subHeader,
                 }}
             />
-
-            {/* Legend Section */}
-            <View style={styles.legendContainer}>
-                <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: Theme.colors.warning }]} />
-                    <Text style={styles.legendText}>To Do</Text>
-                </View>
-                <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: Theme.colors.success }]} />
-                    <Text style={styles.legendText}>Done</Text>
-                </View>
-                <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: Theme.colors.primary }]} />
-                    <Text style={styles.legendText}>Goal</Text>
-                </View>
-                <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: Theme.colors.secondary }]} />
-                    <Text style={styles.legendText}>Diary</Text>
-                </View>
-            </View>
-
+            
             <View style={styles.agendaHeader}>
                 <Text style={styles.agendaHeaderText}>Schedule for {selectedDate}</Text>
 

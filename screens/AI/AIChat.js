@@ -13,6 +13,8 @@ import { useAuth } from '../../context/AuthContext';
 import { collection, query, where, orderBy, limit, getDocs, addDoc, serverTimestamp, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useNotifications } from '../../context/NotificationContext';
+import { extractIntent } from '../../services/intentParser';
+import { useTasks } from '../../hooks/useTasks';
 
 const INITIAL_MESSAGE = (name) => ({
     id: 'initial_msg',
@@ -20,10 +22,41 @@ const INITIAL_MESSAGE = (name) => ({
     isUser: false,
 });
 
+const isSimpleGreeting = (message) => {
+    const normalized = (message || '').trim().toLowerCase().replace(/[!?.\s]+$/g, '');
+    return /^(hi|hey|hello|yo|sup|heyy|hii|good morning|good afternoon|good evening)$/.test(normalized);
+};
+
+const isCreationRequest = (message) => {
+    const normalized = (message || '').toLowerCase();
+    const actionWords = /\b(create|add|make|build|plan|schedule|set|save|write)\b/;
+    const targetWords = /\b(task|goal|roadmap|road map|reminder|diary|journal)\b/;
+    return actionWords.test(normalized) && targetWords.test(normalized);
+};
+
+const getCreationContext = (message) => {
+    const normalized = (message || '').toLowerCase();
+
+    if (/\b(diary|journal)\b/.test(normalized)) {
+        return 'The user is creating a diary entry. Stay in diary creation mode until the entry is saved or the user cancels. Gather the title, mood, and content, then confirm before saving.';
+    }
+
+    if (/\b(goal|goals)\b/.test(normalized)) {
+        return 'The user is creating a goal. Stay in goal creation mode until the goal is saved or the user cancels. Gather the goal title and confirm before saving.';
+    }
+
+    if (/\b(roadmap|road map)\b/.test(normalized)) {
+        return 'The user is creating a roadmap. Stay in roadmap creation mode until the roadmap is saved or the user cancels. Gather the goal, task list, due dates, recurrence choices, and reminder choices, then confirm before saving.';
+    }
+
+    return 'The user is creating a task. Stay in task creation mode until the task is saved or the user cancels. Gather the title, due date, recurrence choice, and reminder choice, then confirm before saving.';
+};
+
 export default function AIChat({ navigation, route }) {
     const { user } = useAuth();
     const { profile, loading: profileLoading, refreshProfile } = useUserProfile();
     const { showNotification } = useNotifications();
+    const { addTask } = useTasks();
     // Silently synchronize AI profile when navigating to this tab
     useFocusEffect(
         useCallback(() => {
@@ -39,8 +72,8 @@ export default function AIChat({ navigation, route }) {
     const messageCountSinceSummaryRef = useRef(0);
     // Chat history format for AI context
     const chatHistoryRef = useRef([]);
+    const activePlanningContextRef = useRef('');
     const flatListRef = useRef(null);
-
     // Load initial history from Firestore
     useEffect(() => {
         if (!user || profileLoading || !profile) return;
@@ -131,8 +164,148 @@ export default function AIChat({ navigation, route }) {
         }
     }, [loadingHistory, route.params?.initialIntentText]);
 
+
+    const normalizeReminder = (reminder) => {
+        if (!reminder || reminder.type === 'none' || !reminder.value) return null;
+        return {
+            type: reminder.type,
+            value: reminder.value
+        };
+    };
+
+    const normalizeRecurrence = (recurrence) => {
+        if (!recurrence || recurrence.type === 'none') return null;
+        return {
+            type: recurrence.type,
+            interval: Number(recurrence.interval) || 1
+        };
+    };
+
+    const buildTaskPayload = (taskData, goalId = null) => ({
+        title: (taskData.title || '').trim(),
+        desc: taskData.desc || taskData.description || '',
+        due: taskData.dueDate || taskData.due || '',
+        priority: taskData.priority || 'Normal',
+        status: 'pending',
+        recurrence: normalizeRecurrence(taskData.recurrence),
+        reminder: normalizeReminder(taskData.reminder),
+        goalId
+    });
+
+    const hasCompleteTaskDetails = (taskData) => {
+        if (!taskData?.title || !taskData?.dueDate) return false;
+        if (taskData.recurrence && !taskData.recurrence.type) return false;
+        if (taskData.reminder && !taskData.reminder.type) return false;
+
+        return !taskData.reminder || taskData.reminder.type === 'none' || !!taskData.reminder.value;
+    };
+
+    const executeToolCall = async (toolCall) => {
+        console.log('[AI_DEBUG][AIChat:executeToolCall:start]', toolCall);
+
+        if (toolCall.action === 'create_goal') {
+
+            await addDoc(collection(db, 'goals'), {
+                userId: user.uid,
+                title: toolCall.data.title,
+                status: 'active',
+                progress: 0,
+                createdAt: serverTimestamp()
+            });
+
+            showNotification('success', `Goal "${toolCall.data.title}" is ready 🎯`);
+        }
+
+        else if (toolCall.action === 'create_task') {
+            console.log('[AI_DEBUG][AIChat:create_task:data]', toolCall.data);
+
+            if (!hasCompleteTaskDetails(toolCall.data)) {
+                console.error('[AI_DEBUG][AIChat:create_task:incomplete]', toolCall.data);
+                throw new Error('Incomplete task requirements');
+            }
+
+            let targetGoalId = null;
+
+            if (toolCall.targetGoal) {
+
+                const goalsQuery = query(
+                    collection(db, 'goals'),
+                    where('userId', '==', user.uid),
+                    where('title', '==', toolCall.targetGoal)
+                );
+
+                const goalsSnap = await getDocs(goalsQuery);
+
+                if (!goalsSnap.empty) {
+                    targetGoalId = goalsSnap.docs[0].id;
+                }
+            }
+
+            const taskPayload = buildTaskPayload(toolCall.data, targetGoalId);
+            console.log('[AI_DEBUG][AIChat:create_task:payload]', taskPayload);
+            await addTask(taskPayload);
+            console.log('[AI_DEBUG][AIChat:create_task:saved]');
+
+            showNotification('success', `Task "${toolCall.data.title}" added ✅`);
+        }
+
+        else if (toolCall.action === 'create_roadmap') {
+
+            if (!toolCall.goalTitle || !Array.isArray(toolCall.tasks) || toolCall.tasks.length === 0) {
+                throw new Error('Incomplete roadmap requirements');
+            }
+
+            const incompleteTask = (toolCall.tasks || []).find(task => !hasCompleteTaskDetails(task));
+            if (incompleteTask) {
+                throw new Error('Incomplete roadmap task requirements');
+            }
+
+            const newGoalRef = await addDoc(collection(db, 'goals'), {
+                userId: user.uid,
+                title: toolCall.goalTitle,
+                status: 'active',
+                progress: 0,
+                createdAt: serverTimestamp()
+            });
+
+            const taskPromises = (toolCall.tasks || []).map(task =>
+                addTask(buildTaskPayload(task, newGoalRef.id))
+            );
+
+            await Promise.all(taskPromises);
+
+            showNotification(
+                'encouragement',
+                `Your plan "${toolCall.goalTitle}" is set 🚀`
+            );
+        }
+
+        else if (toolCall.action === 'create_diary') {
+
+            await addDoc(collection(db, 'diary_entries'), {
+                userId: user.uid,
+                title: toolCall.data.title || 'My Day',
+                mood: toolCall.mood || 'good',
+                content: toolCall.content,
+                createdAt: serverTimestamp()
+            });
+
+            showNotification('success', `Diary entry saved ✨`);
+        }
+
+        refreshProfile(true);
+    };
+
     const sendMessage = async (text, hiddenContext = null, isSilent = false) => {
         if (!text || isAiTyping || !user) return;
+        console.log('[AI_DEBUG][AIChat:sendMessage:start]', {
+            text,
+            isSilent,
+            hasHiddenContext: !!hiddenContext,
+            hasUser: !!user,
+            isAiTyping,
+            activePlanningContext: activePlanningContextRef.current
+        });
 
         if (!isSilent) {
             const userMsg = { id: Date.now().toString(), text, isUser: true };
@@ -148,137 +321,110 @@ export default function AIChat({ navigation, route }) {
         }
 
         setIsAiTyping(true);
-        chatHistoryRef.current.push({ role: 'user', parts: [{ text }] });
+        const hadPlanningContext = !!activePlanningContextRef.current;
+        const startsCreationFlow = !hiddenContext && isCreationRequest(text) && !hadPlanningContext;
+        const isRegularGreeting = isSimpleGreeting(text) && !hiddenContext;
+        if (isRegularGreeting) {
+            activePlanningContextRef.current = '';
+        }
+
+        if (hiddenContext) {
+            activePlanningContextRef.current = hiddenContext;
+        } else if (isCreationRequest(text)) {
+            activePlanningContextRef.current = getCreationContext(text);
+        }
+
+        const isFreshPlanningStart = !!hiddenContext;
+        const shouldUsePlanningContext = !isRegularGreeting && (hiddenContext || activePlanningContextRef.current);
+        const systemContextForRequest = shouldUsePlanningContext ? (hiddenContext || activePlanningContextRef.current) : null;
+        const messageForHistory = { role: 'user', parts: [{ text }] };
+        const requestHistory = isFreshPlanningStart || startsCreationFlow
+            ? [messageForHistory]
+            : [...chatHistoryRef.current, messageForHistory];
+        console.log('[AI_DEBUG][AIChat:sendMessage:mode]', {
+            hadPlanningContext,
+            startsCreationFlow,
+            isRegularGreeting,
+            isFreshPlanningStart,
+            shouldUsePlanningContext,
+            hasSystemContextForRequest: !!systemContextForRequest,
+            requestHistoryCount: requestHistory.length
+        });
+
+        if (!isSilent) {
+            chatHistoryRef.current.push(messageForHistory);
+        }
 
         try {
             const rawResponse = await chatWithAI(
                 profile,
-                chatHistoryRef.current.slice(-20),
+                requestHistory.slice(-20),
                 text,
                 memorySummary,
-                hiddenContext
+                systemContextForRequest
             );
+            console.log('[AI_DEBUG][AIChat:sendMessage:rawResponse]', {
+                type: typeof rawResponse,
+                length: rawResponse?.length || 0,
+                preview: typeof rawResponse === 'string' ? rawResponse.slice(0, 240) : rawResponse
+            });
 
             let finalResponseText = rawResponse;
-            let toolCall = null;
+            const intent = extractIntent(rawResponse);
+            console.log('[AI_DEBUG][AIChat:sendMessage:intent]', intent);
 
-            // ✅ Extract JSON safely
-            try {
-                const jsonStart = rawResponse.indexOf('{');
-                const jsonEnd = rawResponse.lastIndexOf('}');
-
-                if (jsonStart !== -1 && jsonEnd !== -1) {
-                    const possibleJson = rawResponse.slice(jsonStart, jsonEnd + 1);
-                    const parsed = JSON.parse(possibleJson);
-
-                    if (parsed.tool) {
-                        toolCall = parsed;
-                        finalResponseText = rawResponse.replace(possibleJson, '').trim();
-                    }
-                }
-            } catch (e) {
-                // silent fail (important)
-            }
-
-            // ✅ Execute tool FIRST (instant UX)
-            if (toolCall) {
+            if (intent && !isFreshPlanningStart && (systemContextForRequest || isCreationRequest(text))) {
+                // Nova's prompt ensures she only emits JSON AFTER the user has already confirmed.
+                // So we execute immediately — no second confirmation needed.
                 try {
-                    if (toolCall.tool === 'create_goal') {
-                        await addDoc(collection(db, 'goals'), {
-                            userId: user.uid,
-                            title: toolCall.title,
-                            status: 'active',
-                            progress: 0,
-                            createdAt: serverTimestamp()
-                        });
-
-                        showNotification('success', `Goal "${toolCall.title}" is ready 🎯`);
+                    await executeToolCall(intent);
+                    if (['create_task', 'create_roadmap', 'create_goal', 'create_diary'].includes(intent.action)) {
+                        activePlanningContextRef.current = '';
                     }
-
-                    else if (toolCall.tool === 'create_task') {
-                        let targetGoalId = null;
-
-                        if (toolCall.targetGoal) {
-                            const goalsQuery = query(
-                                collection(db, 'goals'),
-                                where('userId', '==', user.uid),
-                                where('title', '==', toolCall.targetGoal)
-                            );
-
-                            const goalsSnap = await getDocs(goalsQuery);
-                            if (!goalsSnap.empty) {
-                                targetGoalId = goalsSnap.docs[0].id;
-                            }
-                        }
-
-                        await addDoc(collection(db, 'tasks'), {
-                            userId: user.uid,
-                            title: toolCall.title,
-                            goalId: targetGoalId,
-                            status: 'pending',
-                            priority: 'Normal',
-                            due: toolCall.dueDate || null,
-                            createdAt: serverTimestamp()
-                        });
-
-                        showNotification('success', `Task "${toolCall.title}" added ✅`);
-                    }
-
-                    else if (toolCall.tool === 'create_roadmap') {
-                        const newGoalRef = await addDoc(collection(db, 'goals'), {
-                            userId: user.uid,
-                            title: toolCall.goalTitle,
-                            status: 'active',
-                            progress: 0,
-                            createdAt: serverTimestamp()
-                        });
-
-                        const taskPromises = (toolCall.tasks || []).map(task => {
-                            return addDoc(collection(db, 'tasks'), {
-                                userId: user.uid,
-                                title: task.title,
-                                goalId: newGoalRef.id,
-                                status: 'pending',
-                                priority: 'Normal',
-                                due: task.dueDate || null,
-                                recurrence: task.recurrence || null,
-                                reminder: task.reminder || null,
-                                createdAt: serverTimestamp()
-                            });
-                        });
-
-                        await Promise.all(taskPromises);
-
-                        showNotification(
-                            'encouragement',
-                            `Your plan "${toolCall.goalTitle}" is set 🚀`
-                        );
-                    }
-
-                    else if (toolCall.tool === 'create_diary') {
-                        await addDoc(collection(db, 'diary_entries'), {
-                            userId: user.uid,
-                            title: toolCall.title || 'My Day',
-                            mood: toolCall.mood || 'good',
-                            content: toolCall.content,
-                            createdAt: serverTimestamp()
-                        });
-
-                        showNotification('success', `Diary entry saved for today ✨`);
-                    }
-
-                    refreshProfile(true);
-
                 } catch (e) {
-                    console.log("Execution error:", e);
-                    showNotification('error', 'Something went wrong ⚠️');
+                    console.warn('[AI_DEBUG][AIChat:executeToolCall:error]', {
+                        message: e?.message,
+                        stack: e?.stack,
+                        intent
+                    });
+                    showNotification('error', 'Something went wrong while creating that ⚠️');
+                }
+
+                // Strip the JSON block from the raw response to show only conversational text
+                let cleanedText = rawResponse.replace(/\{[\s\S]*\}/g, '').trim();
+
+                // If Nova included a friendly message alongside the JSON, use it.
+                // Otherwise, provide a context-appropriate confirmation.
+                if (cleanedText) {
+                    finalResponseText = cleanedText;
+                } else {
+                    if (intent.action === 'create_diary') {
+                        finalResponseText = "Your diary entry has been saved ✨";
+                    } else if (intent.action === 'create_goal') {
+                        finalResponseText = `Your goal "${intent.data?.title}" is all set! Let's make it happen 🎯`;
+                    } else if (intent.action === 'create_task') {
+                        finalResponseText = `Done! I've added "${intent.data?.title}" to your tasks ✅`;
+                    } else if (intent.action === 'create_roadmap') {
+                        finalResponseText = `Your "${intent.goalTitle}" roadmap is ready to go 🚀`;
+                    } else {
+                        finalResponseText = "All set! 👍";
+                    }
                 }
             }
 
-            // ✅ Clean ANY leftover garbage (critical)
+            if (intent && isFreshPlanningStart) {
+                finalResponseText = "Of course. What task are you thinking about today?";
+            }
+
             finalResponseText = finalResponseText
-                .replace(/\{[\s\S]*?\}/g, '')
-                .replace(/\[SYSTEM:.*?\]/g, '')
+                .replace(/\[action:.*?\]/g, '')
+                .replace(/\[title:.*?\]/g, '')
+                .replace(/\[due:.*?\]/g, '')
+                .replace(/\[reminder:.*?\]/g, '')
+                .replace(/\[recurrence:.*?\]/g, '')
+                .replace(/\[goal:.*?\]/g, '')
+                .replace(/\[goalTitle:.*?\]/g, '')
+                .replace(/\[mood:.*?\]/g, '')
                 .trim();
 
             // ✅ Fallback if empty (important)
@@ -331,6 +477,10 @@ export default function AIChat({ navigation, route }) {
             }
 
         } catch (e) {
+            console.error('[AI_DEBUG][AIChat:sendMessage:error]', {
+                message: e?.message,
+                stack: e?.stack
+            });
             setMessages(prev => [...prev, {
                 id: (Date.now() + 1).toString(),
                 text: "I'm having a moment of pause. Try again in a bit 🌟",

@@ -25,20 +25,12 @@ const firebaseConfig = {
   appId: FIREBASE_APP_ID
 };
 
-// 1. App Init
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+const appAlreadyInitialized = getApps().length > 0;
+const app = appAlreadyInitialized ? getApp() : initializeApp(firebaseConfig);
 
-// 2. Auth Init - The "Singleton" Pattern
 let auth;
-if (getApps().length > 0) {
-  try {
-    auth = getAuth(app); // Try to get existing
-  } catch (e) {
-    // This is where we force AsyncStorage
-    auth = initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage),
-    });
-  }
+if (appAlreadyInitialized) {
+  auth = getAuth(app);
 } else {
   auth = initializeAuth(app, {
     persistence: getReactNativePersistence(ReactNativeAsyncStorage),
