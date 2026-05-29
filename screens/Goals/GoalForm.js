@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Theme, MyButton, MyInput, MyCheckbox, MyDatePicker } from '../../components/components';
+import { Theme, NovaButton, MyButton, MyInput, MyCheckbox, MyDatePicker } from '../../components/components';
 
 import { ArrowLeft, Calendar, Sparkles } from 'lucide-react-native';
 import { useNotifications } from '../../context/NotificationContext';
@@ -68,6 +68,23 @@ export default function GoalForm({ navigation, route }) {
         }
     };
 
+    const handleNovaRoadmap = () => {
+
+        const intentText =
+            title?.trim()
+                ? `I want help planning a roadmap for a goal called "${title}".`
+                : `I want help planning a new goal and roadmap.`;
+
+        const hiddenContext =
+            "The user is starting a brand-new goal planning session. Ignore previous goal conversations. DO NOT create any roadmap or goal yet. Help them clarify what they want to achieve, why it matters, obstacles, timeline and milestones. Ask thoughtful planning questions. Only use create_goal or create_roadmap after the user explicitly agrees.";
+
+        navigation.navigate('AIChat', {
+            freshChat: true,
+            planningType: 'roadmap',
+
+        });
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
@@ -82,23 +99,10 @@ export default function GoalForm({ navigation, route }) {
 
             <ScrollView contentContainerStyle={styles.content}>
                 {!isEditing && (
-                    <TouchableOpacity
-                        style={styles.aiButton}
-                        onPress={() => {
-                            const intentText = title?.trim()
-                                ? `I want help planning a goal called "${title}".`
-                                : `I want help planning a new goal.`;
-                            const hiddenContext = "The user wants to build a new goal roadmap. DO NOT execute any tools yet. Ask them a few questions to deeply understand their intent, and ONLY use the create_roadmap tool after they have answered and explicitly agreed.";
-                            navigation.navigate('AIChat', {
-                                initialIntentText: intentText,
-                                hiddenContext: hiddenContext,
-                                isSilent: true
-                            });
-                        }}
-                    >
-                        <Sparkles size={20} color="#fff" />
-                        <Text style={styles.aiButtonText}>Plan Roadmap with Nova</Text>
-                    </TouchableOpacity>
+                    <NovaButton
+                        title="Plan Roadmap with Nova"
+                        onPress={handleNovaRoadmap}
+                    />
                 )}
                 <MyInput
                     label="Goal Title"

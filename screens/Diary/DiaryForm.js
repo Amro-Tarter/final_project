@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Theme, MyButton, MyInput } from '../../components/components';
-import { ArrowLeft, Smile, Meh, Frown } from 'lucide-react-native';
-import { useNotifications } from '../../context/NotificationContext';
+import { Theme, NovaButton, MyButton, MyInput } from '../../components/components';
+import { ArrowLeft, Smile, Meh, Frown, Sparkles } from 'lucide-react-native'; import { useNotifications } from '../../context/NotificationContext';
 import { useDiary } from '../../hooks/useDiary';
 
 const DiaryInput = ({ label, placeholder, value, onChangeText }) => (
@@ -23,6 +22,7 @@ const DiaryInput = ({ label, placeholder, value, onChangeText }) => (
         </View>
     </View>
 );
+
 
 export default function DiaryForm({ navigation, route }) {
     const entryToEdit = route?.params?.entryToEdit;
@@ -77,6 +77,22 @@ export default function DiaryForm({ navigation, route }) {
         }
     };
 
+    const handleNovaDiary = () => {
+
+        const intentText =
+            title?.trim()
+                ? `I want help writing a diary entry called "${title}".`
+                : `I want help writing a diary entry.`;
+
+        const hiddenContext =
+            "The user is starting a brand-new diary writing session. DO NOT save anything yet. Help them reflect naturally. Ask thoughtful questions about their day, emotions and experiences. Only create a diary entry after the user explicitly agrees.";
+
+        navigation.navigate('AIChat', {
+            freshChat: true,
+            planningType: 'diary',
+
+        });
+    };
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
@@ -90,6 +106,13 @@ export default function DiaryForm({ navigation, route }) {
             <ScrollView
                 style={{ flex: 1 }}
                 contentContainerStyle={styles.content}>
+
+                {!entryToEdit && (
+                    <NovaButton
+                        title="Write With Nova"
+                        onPress={handleNovaDiary}
+                    />
+                )}
 
                 <Text style={styles.label}>How are you feeling?</Text>
                 <View style={styles.moodSelector}>

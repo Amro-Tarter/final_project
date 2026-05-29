@@ -52,17 +52,137 @@ const getCreationContext = (message) => {
     return 'The user is creating a task. Stay in task creation mode until the task is saved or the user cancels. Gather the title, due date, recurrence choice, and reminder choice, then confirm before saving.';
 };
 
+const mayContainActionIntent = (message) => {
+    const text = (message || '').toLowerCase();
+
+    const patterns = [
+
+        // English goals
+        /\bi want to\b/,
+        /\bi need to\b/,
+        /\bi would like to\b/,
+        /\bi'd like to\b/,
+        /\bi plan to\b/,
+        /\bi'm planning to\b/,
+        /\bmy goal is\b/,
+        /\bi hope to\b/,
+        /\bi dream of\b/,
+        /\bi wish to\b/,
+        /\bi'm trying to\b/,
+        /\bi am trying to\b/,
+
+        // English tasks / habits
+        /\bevery day\b/,
+        /\bdaily\b/,
+        /\bweekly\b/,
+        /\bmonthly\b/,
+        /\beach day\b/,
+        /\beach week\b/,
+        /\bremind me\b/,
+        /\bremember to\b/,
+        /\bi should\b/,
+        /\bi must\b/,
+        /\bi have to\b/,
+        /\bhabit\b/,
+
+        // Planning
+        /\broadmap\b/,
+        /\bplan\b/,
+        /\bmilestone\b/,
+        /\bobjective\b/,
+        /\btarget\b/,
+        /\bdeadline\b/,
+
+        // Arabic
+        /أريد/,
+        /اريد/,
+        /أحتاج/,
+        /احتاج/,
+        /هدفي/,
+        /هدفي هو/,
+        /أخطط/,
+        /اخطط/,
+        /كل يوم/,
+        /يومياً/,
+        /يوميًا/,
+        /أذكرني/,
+        /ذكرني/,
+
+        // Hebrew
+        /אני רוצה/,
+        /אני צריך/,
+        /אני צריכה/,
+        /המטרה שלי/,
+        /היעד שלי/,
+        /אני מתכנן/,
+        /אני מתכננת/,
+        /כל יום/,
+        /כל שבוע/,
+        /תזכיר לי/,
+
+        // Generic future intent
+        /\btomorrow\b/,
+        /\bnext week\b/,
+        /\bnext month\b/,
+        /\bnext year\b/
+    ];
+
+    return patterns.some(pattern => pattern.test(text));
+};
+
 export default function AIChat({ navigation, route }) {
     const { user } = useAuth();
     const { profile, loading: profileLoading, refreshProfile } = useUserProfile();
     const { showNotification } = useNotifications();
     const { addTask } = useTasks();
+    const isFreshPlanningChat = route.params?.freshChat;
+    const planningType = route.params?.planningType;
+    console.log('freshChat=', route.params?.freshChat);
+    console.log('planningType=', route.params?.planningType);
     // Silently synchronize AI profile when navigating to this tab
     useFocusEffect(
         useCallback(() => {
             refreshProfile(true);
         }, [refreshProfile])
     );
+
+
+    useEffect(() => {
+
+        if (!isFreshPlanningChat) return;
+
+        const starterMessages = {
+            task: "let's create a new task.",
+            goal: "let's create a new goal.",
+            roadmap: "let's create a new roadmap.",
+            diary: "let's create a new diary."
+        };
+
+        const starterText =
+            starterMessages[planningType] ||
+            "I need some help.";
+
+        setMessages([
+            {
+                id: 'planning_start',
+                text: starterText,
+                isUser: true
+            }
+        ]);
+
+        chatHistoryRef.current = [
+            {
+                role: 'user',
+                parts: [{ text: starterText }]
+            }
+        ];
+
+        setLoadingHistory(false);
+
+        sendMessage(starterText, null, true);
+
+    }, []);
+
     const [messages, setMessages] = useState([]);
     const [loadingHistory, setLoadingHistory] = useState(true);
     const [inputText, setInputText] = useState('');
@@ -76,6 +196,10 @@ export default function AIChat({ navigation, route }) {
     const flatListRef = useRef(null);
     // Load initial history from Firestore
     useEffect(() => {
+        if (isFreshPlanningChat) {
+            setLoadingHistory(false);
+            return;
+        }
         if (!user || profileLoading || !profile) return;
 
         const loadHistory = async () => {
@@ -146,23 +270,6 @@ export default function AIChat({ navigation, route }) {
             }, 200);
         }
     }, [loadingHistory, messages.length === 0]);
-
-    // Handle initial intent from route params
-    useEffect(() => {
-        if (!loadingHistory && route.params?.initialIntentText) {
-            const intentText = route.params.initialIntentText;
-            const hiddenContext = route.params.hiddenContext;
-            const isSilent = route.params.isSilent || false;
-
-            // Clear the param so it doesn't fire again
-            navigation.setParams({ initialIntentText: null, hiddenContext: null, isSilent: null });
-
-            // Give a slight delay for UI to settle
-            setTimeout(() => {
-                sendMessage(intentText, hiddenContext, isSilent);
-            }, 500);
-        }
-    }, [loadingHistory, route.params?.initialIntentText]);
 
 
     const normalizeReminder = (reminder) => {
@@ -330,7 +437,10 @@ export default function AIChat({ navigation, route }) {
 
         if (hiddenContext) {
             activePlanningContextRef.current = hiddenContext;
-        } else if (isCreationRequest(text)) {
+        } else if (
+            isCreationRequest(text) ||
+            mayContainActionIntent(text)
+        ) {
             activePlanningContextRef.current = getCreationContext(text);
         }
 
@@ -358,7 +468,7 @@ export default function AIChat({ navigation, route }) {
         try {
             const rawResponse = await chatWithAI(
                 profile,
-                requestHistory.slice(-20),
+                requestHistory.slice(-25),
                 text,
                 memorySummary,
                 systemContextForRequest
@@ -410,10 +520,6 @@ export default function AIChat({ navigation, route }) {
                         finalResponseText = "All set! 👍";
                     }
                 }
-            }
-
-            if (intent && isFreshPlanningStart) {
-                finalResponseText = "Of course. What task are you thinking about today?";
             }
 
             finalResponseText = finalResponseText

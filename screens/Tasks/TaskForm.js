@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Theme, MyButton, MyInput, MyCheckbox, MyDatePicker, MyTimePicker } from '../../components/components';
+import { Theme, NovaButton, MyButton, MyInput, MyCheckbox, MyDatePicker, MyTimePicker } from '../../components/components';
 
 import { ArrowLeft, Calendar, Sparkles } from 'lucide-react-native';
 import { useTasks } from '../../hooks/useTasks';
@@ -112,6 +112,22 @@ export default function TaskForm({ navigation, route }) {
         </TouchableOpacity>
     );
 
+    const handleNovaTask = () => {
+
+        const intentText =
+            title?.trim()
+                ? `I want help planning a task called "${title}".`
+                : `I want help planning a new task.`;
+
+        const hiddenContext =
+            "The user is starting a brand-new task planning session. Ignore previous task conversations. DO NOT create any task yet. Help them define the task, due date, recurrence and reminder. Ask any missing questions naturally. Only use create_task after the user explicitly agrees.";
+
+        navigation.push('AIChat', {
+            freshChat: true,
+            planningType: 'task',
+
+        });
+    };
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
@@ -126,24 +142,10 @@ export default function TaskForm({ navigation, route }) {
 
             <ScrollView contentContainerStyle={styles.content}>
                 {!isEditing && (
-                    <TouchableOpacity
-                        style={styles.aiButton}
-                        onPress={() => {
-                            const goalTitle = goals.find(g => g.id === selectedGoalId)?.title;
-                            const intentText = title?.trim()
-                                ? `I want help planning a task called "${title}".`
-                                : `I want help planning a new task.`;
-                            const hiddenContext = `The user is starting a brand-new task planning session. Ignore any previous task, roadmap, or confirmation details from older conversations. ${goalTitle ? `This task is linked to the goal: "${goalTitle}".` : ""} DO NOT execute any tools yet. Start with one warm, natural question like a thoughtful friend, not a form. Ask what task they are thinking about today, then gently gather the title, due date, recurrence choice, and reminder choice over the conversation. ONLY use the create_task or create_roadmap tool after all details are known and the user explicitly agrees. ${goalTitle ? `When calling the tool, set the targetGoal field to "${goalTitle}".` : ""}`;
-                            navigation.navigate('AIChat', {
-                                initialIntentText: intentText,
-                                hiddenContext: hiddenContext,
-                                isSilent: true
-                            });
-                        }}
-                    >
-                        <Sparkles size={20} color="#fff" />
-                        <Text style={styles.aiButtonText}>Plan Task with Nova</Text>
-                    </TouchableOpacity>
+                    <NovaButton
+                        title="Plan Task with Nova"
+                        onPress={handleNovaTask}
+                    />
                 )}
                 <MyInput
                     label="Task Title"

@@ -267,6 +267,20 @@ export const MyCustomAlert = ({ visible, title, message, onClose }) => (
   </Modal>
 );
 
+export const NovaButton = ({ title, onPress, style }) => (
+  <TouchableOpacity
+    style={[styles.novaButton, style]}
+    onPress={onPress}
+    activeOpacity={0.9}
+  >
+    <Sparkles size={20} color="#fff" />
+    <Text style={styles.novaButtonText}>
+      {title}
+    </Text>
+    <ChevronRight size={18} color="#fff" />
+  </TouchableOpacity>
+);
+
 // --- STYLES ---
 
 const styles = StyleSheet.create({
@@ -473,5 +487,29 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     paddingBottom: 0,
     minHeight: 80,
+  },
+
+  novaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+
+    backgroundColor: Theme.colors.primary,
+
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+
+    borderRadius: Theme.radius,
+
+    width: '100%',
+
+    ...Theme.shadows.glow,
+  },
+
+  novaButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: Theme.typography.subHeader,
   },
 });
