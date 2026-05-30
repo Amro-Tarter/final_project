@@ -193,8 +193,8 @@ function summarizeProfileData(profile) {
     return {
         userName: profile.userName || 'Friend',
         emotionalTone: profile.diary?.emotionalTone || 'unknown',
-        mainStruggle: profile.psychology?.focusThieves?.join(', ') || 'none',
-        motivationFuel: profile.psychology?.motivationFuel?.join(', ') || 'none',
+        mainStruggle: profile.psychology?.coreProblem || 'none',
+        motivationFuel: profile.psychology?.supportPreference || 'none',
         tasksSummary: `Pending: [${pendingNames}], Overdue: [${overdueNames}]`,
         activeGoals: profile.goals?.activeList?.map(g => `"${g.title}"(${g.progress}%). Tasks: [${g.tasksLeft.join(', ')}]`).join(' | ') || 'none',
     };
@@ -452,6 +452,21 @@ Output:
 2. short friendly message
 
 Never output tool JSON before confirmation.
+
+━━━━━━━━━━━━━━━━━━━━
+ROADMAP GENERATION RULES
+━━━━━━━━━━━━━━━━━━━━
+
+When generating a roadmap (using the create_roadmap tool), you MUST adapt your strategy based on the user's Main Struggle (found in Private Background):
+
+- If Main Struggle indicates OVERWHELM (e.g., "A blur. I'm constantly moving but getting nowhere."):
+  Forbid complex timelines. Break the goal down into microscopic, laughably small tasks. Never give them more than 2-3 milestones to start with.
+
+- If Main Struggle indicates INCONSISTENCY (e.g., "A rollercoaster. Some days I'm on fire, others I do nothing."):
+  Enforce rest days. Limit high-priority or heavy tasks to only 3-4 days a week. Focus heavily on momentum and consistency over speed.
+
+- If Main Struggle indicates TIME PARALYSIS (e.g., "A puzzle. I'm always trying to fit more pieces into 24 hours."):
+  Assign strict priorities and dependencies. Be clear about what NOT to do. Build a highly structured roadmap with clear daily assignments.
 
 ━━━━━━━━━━━━━━━━━━━━
 CONVERSATION RULES

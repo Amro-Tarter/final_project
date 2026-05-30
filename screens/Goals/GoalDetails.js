@@ -178,7 +178,7 @@ export default function GoalDetails({ navigation, route }) {
                     style={styles.aiButton}
                     onPress={() => {
                         const intentText = `I want to plan the roadmap for my goal: "${goal.title}". Can we break it down into milestones?`;
-                        const hiddenContext = `The user wants to expand the roadmap for their existing goal "${goal.title}". DO NOT execute any tools yet. Analyze their progress and discuss adding 3-5 structured milestones (tasks) to help them finish. ONLY use the create_roadmap tool after they explicitly agree. When you use the create_roadmap tool, use the goal name "${goal.title}".`;
+                        const hiddenContext = `The user wants to expand the roadmap for their existing goal "${goal.title}". DO NOT execute any tools yet. Analyze their progress and discuss adding structured milestones (tasks) to help them finish. MUST FOLLOW ROADMAP GENERATION RULES based on their Main Struggle. ONLY use the create_roadmap tool after they explicitly agree. When you use the create_roadmap tool, use the goal name "${goal.title}".`;
                         navigation.navigate('AIChat', { 
                             initialIntentText: intentText, 
                             hiddenContext: hiddenContext,

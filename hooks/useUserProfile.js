@@ -103,11 +103,10 @@ export function useUserProfile() {
 
                 // Psychological profile (from onboarding)
                 psychology: onboardingAnswers ? {
-                    identityVision: onboardingAnswers.identity_vision,
-                    locusOfControl: onboardingAnswers.locus_of_control,
-                    futureSelfIdentity: onboardingAnswers.future_self_identity,
-                    focusThieves: onboardingAnswers.cbt_friction || [],
-                    motivationFuel: onboardingAnswers.motivation_fuel || [],
+                    coreProblem: onboardingAnswers.coreProblem,
+                    supportPreference: onboardingAnswers.supportPreference,
+                    overdueProtocol: onboardingAnswers.overdueProtocol,
+                    dailyExecutionTime: onboardingAnswers.dailyExecutionTime,
                 } : null,
 
                 // Task behavior
