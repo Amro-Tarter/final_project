@@ -125,16 +125,16 @@ export default function OnboardingScreen({ navigation }) {
       <SafeAreaView style={styles.container}>
         <View style={styles.contentContainer}>
           <LogoHeader
-            title="Welcome to Achievements Ahead"
-            subtitle="Let's build your personalized path to success."
+            title="Welcome, Traveler"
+            subtitle="Let's map a journey that fits your pace."
             style={{ marginTop: Theme.spacing.xxl }}
           />
           <View style={styles.welcomeBox}>
             <Text style={styles.welcomeText}>
-              To give you the best experience, we’re going to ask a few quick questions about your goals and habits.
+              A few gentle questions help Nova understand how you move through your days.
             </Text>
             <Text style={styles.welcomeText}>
-              This helps us tailor the app specifically for you.
+              Your answers shape reminders, support style, and how we handle overdue steps.
             </Text>
           </View>
           <View style={{ flex: 1 }} />
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
   },
   optionBtnSelected: {
     borderColor: Theme.colors.primary,
-    backgroundColor: "#EFF6FF"
+    backgroundColor: Theme.colors.primaryLightAlt
   },
   nextBtn: {
     marginTop: Theme.spacing.xl

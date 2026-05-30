@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View } from 'react-native';
+import { View, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as SplashScreen from 'expo-splash-screen';
@@ -25,10 +25,10 @@ import OnboardingScreen from './screens/onBoarding';
 const Stack = createNativeStackNavigator();
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Home, CheckSquare, Target, Book, User, MessageCircleHeart, Calendar as CalendarIcon } from 'lucide-react-native';
+import { Compass, Map, Route, BookHeart, UserCircle } from 'lucide-react-native';
 import { Theme } from './components/components';
+import { JourneyCopy } from './constants/JourneyCopy';
 
-// Tabs
 const Tab = createBottomTabNavigator();
 
 function MainTabs() {
@@ -39,17 +39,22 @@ function MainTabs() {
         tabBarStyle: {
           backgroundColor: Theme.colors.surface,
           borderTopColor: Theme.colors.border,
-          height: 80,
-          paddingBottom: 8,
-          paddingTop: 8,
+          borderTopWidth: 1,
+          height: Platform.OS === 'ios' ? 88 : 72,
+          paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+          paddingTop: 10,
           elevation: 0,
-          shadowOpacity: 0,
+          shadowColor: '#64748B',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.06,
+          shadowRadius: 12,
         },
         tabBarActiveTintColor: Theme.colors.primary,
         tabBarInactiveTintColor: Theme.colors.textSecondary,
         tabBarLabelStyle: {
           fontFamily: Theme.typography.body,
-          fontSize: 10,
+          fontSize: 11,
+          marginTop: 2,
         },
       }}
     >
@@ -57,56 +62,40 @@ function MainTabs() {
         name="HomeTab"
         component={HomeScreen}
         options={{
-          tabBarLabel: 'Home',
-          tabBarIcon: ({ color }) => <Home size={24} color={color} />,
-        }}
-      />
-      <Tab.Screen
-        name="CalendarTab"
-        component={require('./screens/Calendar/CalendarScreen').default}
-        options={{
-          tabBarLabel: 'Calendar',
-          tabBarIcon: ({ color }) => <CalendarIcon size={24} color={color} />,
-        }}
-      />
-      <Tab.Screen
-        name="TasksTab"
-        component={require('./screens/Tasks/TaskList').default}
-        options={{
-          tabBarLabel: 'Tasks',
-          tabBarIcon: ({ color }) => <CheckSquare size={24} color={color} />,
-        }}
-      />
-      <Tab.Screen
-        name="AITab"
-        component={require('./screens/AI/AIChat').default}
-        options={{
-          tabBarLabel: 'Companion',
-          tabBarIcon: ({ color }) => <MessageCircleHeart size={24} color={color} />,
+          tabBarLabel: JourneyCopy.tabs.companion,
+          tabBarIcon: ({ color }) => <Compass size={22} color={color} />,
         }}
       />
       <Tab.Screen
         name="GoalsTab"
         component={require('./screens/Goals/GoalList').default}
         options={{
-          tabBarLabel: 'Goals',
-          tabBarIcon: ({ color }) => <Target size={24} color={color} />,
+          tabBarLabel: JourneyCopy.tabs.journey,
+          tabBarIcon: ({ color }) => <Map size={22} color={color} />,
         }}
       />
       <Tab.Screen
-        name="DiaryTab"
-        component={require('./screens/Diary/DiaryTimeline').default}
+        name="PlanTab"
+        component={require('./screens/Plan/PlanScreen').default}
         options={{
-          tabBarLabel: 'Diary',
-          tabBarIcon: ({ color }) => <Book size={24} color={color} />,
+          tabBarLabel: JourneyCopy.tabs.plan,
+          tabBarIcon: ({ color }) => <Route size={22} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="ReflectTab"
+        component={require('./screens/Reflect/ReflectScreen').default}
+        options={{
+          tabBarLabel: JourneyCopy.tabs.reflect,
+          tabBarIcon: ({ color }) => <BookHeart size={22} color={color} />,
         }}
       />
       <Tab.Screen
         name="ProfileTab"
         component={require('./screens/Profile/Profile').default}
         options={{
-          tabBarLabel: 'Profile',
-          tabBarIcon: ({ color }) => <User size={24} color={color} />,
+          tabBarLabel: JourneyCopy.tabs.me,
+          tabBarIcon: ({ color }) => <UserCircle size={22} color={color} />,
         }}
       />
     </Tab.Navigator>
@@ -121,10 +110,8 @@ function RootNavigator() {
       {user ? (
         user.onboardingComplete ? (
           <>
-            {/* Main Tab Navigator */}
             <Stack.Screen name="MainTabs" component={MainTabs} />
 
-            {/* Details & Forms (Sitting on top of tabs) */}
             <Stack.Screen name="TaskDetails" component={require('./screens/Tasks/TaskDetails').default} />
             <Stack.Screen name="TaskForm" component={require('./screens/Tasks/TaskForm').default} />
 
@@ -139,6 +126,7 @@ function RootNavigator() {
 
             <Stack.Screen name="Settings" component={require('./screens/Profile/Settings').default} />
             <Stack.Screen name="AnalyticsDashboard" component={require('./screens/Analytics/AnalyticsDashboard').default} />
+            <Stack.Screen name="CelebrationWall" component={require('./screens/Celebration/CelebrationWall').default} />
           </>
         ) : (
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
@@ -155,7 +143,6 @@ function RootNavigator() {
   );
 }
 
-// Keep the startup splash screen visible until we are ready
 SplashScreen.preventAutoHideAsync();
 
 export default function App() {
@@ -168,7 +155,6 @@ export default function App() {
 
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded) {
-      // This tells the splash screen to go away so the app can be seen
       await SplashScreen.hideAsync();
     }
   }, [fontsLoaded]);

@@ -132,8 +132,8 @@ export default function TaskDetails({ navigation, route }) {
 
                 <View style={[
                     styles.statusBadge,
-                    isOverdue && { backgroundColor: '#FEE2E2' },
-                    isCompleted && { backgroundColor: '#DEF7EC' }
+                    isOverdue && { backgroundColor: Theme.colors.errorLight },
+                    isCompleted && { backgroundColor: Theme.colors.successLight }
                 ]}>
                     <Text style={[
                         styles.statusText,
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     },
     statusBadge: {
         alignSelf: 'flex-start',
-        backgroundColor: '#EEF2FF',
+        backgroundColor: Theme.colors.primaryLight,
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 8,

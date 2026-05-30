@@ -10,7 +10,7 @@ export default function WelcomeScreen({ navigation }) {
             <View style={styles.contentContainer}>
                 <LogoHeader
                     title="Achievements Ahead"
-                    subtitle="Your journey to a better you starts here."
+                    subtitle="Your personal growth companion. Discover the path forward."
                     style={{ marginTop: Theme.spacing.xxl }}
                 />
 
@@ -24,8 +24,8 @@ export default function WelcomeScreen({ navigation }) {
                         <Text style={styles.featureText}>Track Your Progress</Text>
                     </View>
                     <View style={styles.featureRow}>
-                        <Heart size={28} color={Theme.colors.danger} />
-                        <Text style={styles.featureText}>Build Healthy Habits</Text>
+                        <Heart size={28} color={Theme.colors.secondary} />
+                        <Text style={styles.featureText}>Reflect & Grow</Text>
                     </View>
                 </View>
 

@@ -51,7 +51,7 @@ export default function AIInsights({ navigation }) {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <ArrowLeft size={24} color={Theme.colors.textMain} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>AI Insights</Text>
+                <Text style={styles.headerTitle}>Journey Insights</Text>
                 <TouchableOpacity onPress={() => fetchInsights(profile)} style={{ padding: 8 }} disabled={isLoading}>
                     <RefreshCw size={20} color={isLoading ? Theme.colors.border : Theme.colors.primary} />
                 </TouchableOpacity>
@@ -194,11 +194,11 @@ const styles = StyleSheet.create({
     topicBox: {
         marginTop: 8,
         marginBottom: 16,
-        backgroundColor: '#FFF7ED',
+        backgroundColor: Theme.colors.warningLight,
         padding: 20,
         borderRadius: Theme.radius,
         borderWidth: 1,
-        borderColor: '#FED7AA',
+        borderColor: Theme.colors.warningBorder,
     },
     topicHeader: {
         flexDirection: 'row',
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     },
     suggestionBox: {
         marginTop: 8,
-        backgroundColor: '#EEF2FF',
+        backgroundColor: Theme.colors.primaryLight,
         padding: 24,
         borderRadius: Theme.radius,
         alignItems: 'center',

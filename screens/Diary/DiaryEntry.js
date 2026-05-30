@@ -103,7 +103,7 @@ export default function DiaryEntry({ navigation, route }) {
             </View>
 
             <ScrollView contentContainerStyle={styles.content}>
-                <View style={[styles.moodBadge, { backgroundColor: entry.mood === 'bad' ? '#FEF2F2' : entry.mood === 'good' ? '#F0FDF4' : '#F1F5F9' }]}>
+                <View style={[styles.moodBadge, { backgroundColor: entry.mood === 'bad' ? Theme.colors.errorLight : entry.mood === 'good' ? Theme.colors.successLight : Theme.colors.background }]}>
                     {entry.mood === 'good' && <Smile size={20} color={Theme.colors.success} />}
                     {entry.mood === 'neutral' && <Meh size={20} color={Theme.colors.textSecondary} />}
                     {entry.mood === 'bad' && <Frown size={20} color={Theme.colors.error} />}
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     moodBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F0FDF4', // Light green
+        backgroundColor: Theme.colors.successLight,
         alignSelf: 'flex-start',
         paddingHorizontal: 12,
         paddingVertical: 6,

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Theme, MyCheckbox, MyButton } from '../../components/components';
+import { Theme, MyCheckbox } from '../../components/components';
 import { ArrowLeft, BellRing } from 'lucide-react-native';
 import { registerForPushNotificationsAsync, scheduleFeatureReminder } from '../../services/notificationService';
 import { useNotifications } from '../../context/NotificationContext';

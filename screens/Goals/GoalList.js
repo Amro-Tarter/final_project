@@ -1,38 +1,45 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '../../components/components';
-import { Plus, Target, ChevronRight } from 'lucide-react-native';
+import { Plus, Map } from 'lucide-react-native';
 import { useGoals } from '../../hooks/useGoals';
+import { useTasks } from '../../hooks/useTasks';
+import { DestinationCard } from '../../components/ui/JourneyCards';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { JourneyCopy } from '../../constants/JourneyCopy';
+import { getCurrentPitStop, getGoalTasks } from '../../utils/journeyHelpers';
 
 export default function GoalList({ navigation }) {
     const { goals, loading } = useGoals();
-    const renderItem = ({ item }) => (
-        <TouchableOpacity
-            style={styles.card}
-            onPress={() => navigation.navigate('GoalDetails', { goalId: item.id })}
-        >
-            <View style={styles.cardHeader}>
-                <View style={styles.iconContainer}>
-                    <Target size={20} color={Theme.colors.primary} />
-                </View>
-                <ChevronRight size={20} color={Theme.colors.textSecondary} />
-            </View>
+    const { tasks } = useTasks();
 
-            <Text style={styles.goalTitle}>{item.title}</Text>
-            <Text style={styles.deadline}>By {item.deadline}</Text>
-
-            <View style={styles.progressContainer}>
-                <View style={[styles.progressBar, { width: `${(item.progress || 0) * 100}%` }]} />
-            </View>
-            <Text style={styles.progressText}>{Math.round((item.progress || 0) * 100)}% Complete</Text>
-        </TouchableOpacity>
+    const activeGoals = useMemo(
+        () => goals.filter(g => g.status !== 'completed'),
+        [goals]
     );
+
+    const renderItem = ({ item }) => {
+        const pitStop = getCurrentPitStop(tasks, item.id);
+        const remaining = getGoalTasks(tasks, item.id).filter(t => t.status === 'pending').length;
+
+        return (
+            <DestinationCard
+                goal={item}
+                pitStop={pitStop?.title}
+                remainingStops={remaining}
+                onPress={() => navigation.navigate('GoalDetails', { goalId: item.id })}
+            />
+        );
+    };
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>My Goals</Text>
+                <View>
+                    <Text style={styles.headerTitle}>Your Journey</Text>
+                    <Text style={styles.headerSub}>Destinations you're heading toward</Text>
+                </View>
                 <TouchableOpacity
                     style={styles.addButton}
                     onPress={() => navigation.navigate('GoalForm')}
@@ -42,21 +49,23 @@ export default function GoalList({ navigation }) {
             </View>
 
             <FlatList
-                data={goals}
+                data={activeGoals}
                 renderItem={renderItem}
                 keyExtractor={item => item.id}
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
-                    <View style={{ marginTop: 40, alignItems: 'center' }}>
-                        {loading ? (
-                            <ActivityIndicator size="large" color={Theme.colors.primary} />
-                        ) : (
-                            <Text style={{ fontFamily: Theme.typography.body, color: Theme.colors.textSecondary }}>
-                                You have no goals yet. Create one!
-                            </Text>
-                        )}
-                    </View>
+                    loading ? (
+                        <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginTop: 60 }} />
+                    ) : (
+                        <EmptyState
+                            title={JourneyCopy.empty.goals.title}
+                            subtitle={JourneyCopy.empty.goals.subtitle}
+                            cta={JourneyCopy.empty.goals.cta}
+                            onPress={() => navigation.navigate('GoalForm')}
+                            icon={Map}
+                        />
+                    )
                 }
             />
         </SafeAreaView>
@@ -71,65 +80,32 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         paddingHorizontal: Theme.spacing.lg,
         paddingVertical: Theme.spacing.md,
     },
     headerTitle: {
-        fontSize: 24,
+        fontSize: 26,
         fontFamily: Theme.typography.header,
         color: Theme.colors.textMain,
     },
-    listContent: {
-        padding: Theme.spacing.lg,
-    },
-    card: {
-        backgroundColor: Theme.colors.surface,
-        padding: 20,
-        borderRadius: Theme.radius,
-        marginBottom: Theme.spacing.lg,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-        ...Theme.shadows.sm,
-    },
-    cardHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 12,
-    },
-    iconContainer: {
-        backgroundColor: '#EEF2FF',
-        padding: 8,
-        borderRadius: 8,
-    },
-    goalTitle: {
-        fontSize: 18,
-        fontFamily: Theme.typography.subHeader,
-        color: Theme.colors.textMain,
-        marginBottom: 4,
-    },
-    deadline: {
+    headerSub: {
         fontSize: 14,
         fontFamily: Theme.typography.body,
         color: Theme.colors.textSecondary,
-        marginBottom: 16,
+        marginTop: 4,
     },
-    progressContainer: {
-        height: 8,
-        backgroundColor: '#F1F5F9',
-        borderRadius: 4,
-        overflow: 'hidden',
-        marginBottom: 8,
+    addButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: Theme.colors.primaryLight,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    progressBar: {
-        height: '100%',
-        backgroundColor: Theme.colors.success,
-        borderRadius: 4,
+    listContent: {
+        padding: Theme.spacing.lg,
+        paddingTop: 0,
+        flexGrow: 1,
     },
-    progressText: {
-        fontSize: 12,
-        fontFamily: Theme.typography.body,
-        color: Theme.colors.textSecondary,
-        textAlign: 'right'
-    }
 });

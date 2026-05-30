@@ -12,7 +12,7 @@ const DiaryInput = ({ label, placeholder, value, onChangeText }) => (
             <TextInput
                 style={styles.diaryInput}
                 placeholder={placeholder}
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={Theme.colors.placeholder}
                 selectionColor={Theme.colors.primary}
                 value={value}
                 onChangeText={onChangeText}

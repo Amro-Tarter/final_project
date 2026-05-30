@@ -1,154 +1,160 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { useAuth } from '../context/AuthContext';
-import { CheckCircle2, Circle, Plus } from 'lucide-react-native';
 import { Theme } from '../components/components';
 import { useTasks } from '../hooks/useTasks';
+import { useGoals } from '../hooks/useGoals';
+import { useDiary } from '../hooks/useDiary';
+import { useUserProfile } from '../hooks/useUserProfile';
+import { useNotifications } from '../context/NotificationContext';
+import { HeroJourneyCard } from '../components/ui/HeroJourneyCard';
+import { CoPilotCard } from '../components/ui/CoPilotCard';
+import { TaskStepCard } from '../components/ui/TaskStepCard';
+import { MomentumMeter } from '../components/ui/MomentumMeter';
+import { ReflectionPromptCard } from '../components/ui/ReflectionPromptCard';
+import { SectionHeader } from '../components/ui/SegmentTabs';
+import { EmptyState } from '../components/ui/EmptyState';
+import { JourneyCopy } from '../constants/JourneyCopy';
+import {
+    getTimeGreeting,
+    getUserDisplayName,
+    getPrimaryDestination,
+    getCurrentPitStop,
+    getNextSteps,
+    calculateMomentum,
+    getCoPilotMessage,
+} from '../utils/journeyHelpers';
+import { Plus } from 'lucide-react-native';
+import { DailyJourneySnapshot } from '../components/ui/DailyJourneySnapshot';
 
 export default function HomeScreen({ navigation }) {
-  const { user } = useAuth();
-  const { tasks, loading } = useTasks();
-  const [fadeAnim] = useState(new Animated.Value(0));
+    const { user } = useAuth();
+    const { tasks, loading, toggleTaskStatus } = useTasks();
+    const { goals } = useGoals();
+    const { entries } = useDiary();
+    const { profile } = useUserProfile();
+    const { showNotification } = useNotifications();
 
-  // Find the "One Thing" - First pending task, ideally High Priority
-  const focusTask = tasks.find(t => t.status === 'pending' && t.priority === 'High')
-    || tasks.find(t => t.status === 'pending');
+    const displayName = getUserDisplayName(user);
+    const greeting = `${getTimeGreeting()}, ${displayName}`;
+    const destination = useMemo(() => getPrimaryDestination(goals), [goals]);
+    const pitStop = destination ? getCurrentPitStop(tasks, destination.id) : null;
+    const nextSteps = useMemo(() => getNextSteps(tasks, 3), [tasks]);
+    const momentum = useMemo(() => calculateMomentum(tasks), [tasks]);
+    const coPilotMessage = useMemo(
+        () => getCoPilotMessage(profile, tasks, entries),
+        [profile, tasks, entries]
+    );
 
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 1000,
-      useNativeDriver: true,
-    }).start();
-  }, []);
+    const handleToggle = async (task) => {
+        await toggleTaskStatus(task);
+        if (task.status !== 'completed') {
+            try {
+                await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } catch (_) {}
+            showNotification('success', 'Step completed! 🌟', 3);
+        }
+    };
 
-
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
-        {/* 1. Warm Greeting (Emotional Orientation) */}
-        <Animated.View style={[styles.header, { opacity: fadeAnim }]}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <View>
-              <Text style={styles.greetingText}>Hello, {user?.email?.split('@')[0] || 'Friend'}.</Text>
-              <Text style={styles.subGreeting}>Take a breath. You're doing great.</Text>
-            </View>
-          </View>
-        </Animated.View>
-
-        {/* 2. Today's Journey (Full List) */}
-        <View style={styles.listSection}>
-          <Text style={styles.sectionTitle}>Your Journey Today</Text>
-
-          {loading ? (
-            <Text style={styles.subGreeting}>Loading path...</Text>
-          ) : tasks.filter(t => t.status === 'pending').length > 0 ? (
-            <View>
-              {tasks.filter(t => t.status === 'pending').map(task => (
-                <TouchableOpacity
-                  key={task.id}
-                  style={styles.taskCard}
-                  onPress={() => navigation.navigate('TaskDetails', { taskId: task.id })}
-                >
-                  <View style={styles.taskIcon}>
-                    {task.priority === 'High' ? (
-                      <Circle size={24} color={Theme.colors.primary} />
-                    ) : (
-                      <Circle size={24} color={Theme.colors.textSecondary} />
-                    )}
-                  </View>
-                  <View style={styles.taskContent}>
-                    <Text style={styles.taskTitle}>{task.title}</Text>
-                    {task.due && <Text style={styles.taskDue}>{task.due}</Text>}
-                    {task.recurrence?.type !== 'none' && (
-                      <Text style={styles.recurringTag}>↻ Repeats</Text>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={[styles.taskCard, { borderStyle: 'dashed', justifyContent: 'center' }]}
-              onPress={() => navigation.navigate('TaskForm')}
+    return (
+        <SafeAreaView style={styles.container} edges={['top']}>
+            <ScrollView
+                contentContainerStyle={styles.scroll}
+                showsVerticalScrollIndicator={false}
             >
-              <Plus size={24} color={Theme.colors.primary} />
-              <Text style={[styles.taskTitle, { marginLeft: 12, color: Theme.colors.primary }]}>
-                Add a Stop to Your Journey
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
+                {destination ? (
+                    <HeroJourneyCard
+                        greeting={greeting}
+                        destination={destination.title}
+                        progress={destination.progress || 0}
+                        pitStop={pitStop?.title}
+                        nextStep={nextSteps[0]?.title}
+                        onContinue={() => navigation.navigate('GoalDetails', { goalId: destination.id })}
+                    />
+                ) : (
+                    <HeroJourneyCard
+                        empty
+                        onSetDestination={() => navigation.navigate('GoalForm')}
+                    />
+                )}
 
-        <View style={{ flex: 1 }} />
-      </ScrollView>
-    </SafeAreaView>
-  );
+                <DailyJourneySnapshot
+                    destination={destination?.title}
+                    nextStep={nextSteps[0]?.title}
+                    focusTime={user?.onboardingAnswers?.dailyExecutionTime}
+                    onPress={() => nextSteps[0] && navigation.navigate('TaskDetails', { taskId: nextSteps[0].id })}
+                />
+
+                <CoPilotCard
+                    message={coPilotMessage}
+                    onPress={() => navigation.navigate('AIChat')}
+                />
+
+                <View style={styles.section}>
+                    <SectionHeader
+                        title="Today's Next Steps"
+                        action={nextSteps.length > 0 ? 'See all' : undefined}
+                        onAction={() => navigation.navigate('PlanTab')}
+                    />
+                    {loading ? (
+                        <Text style={styles.loadingText}>Loading your path...</Text>
+                    ) : nextSteps.length > 0 ? (
+                        nextSteps.map(task => (
+                            <TaskStepCard
+                                key={task.id}
+                                task={task}
+                                onToggle={() => handleToggle(task)}
+                                onPress={() => navigation.navigate('TaskDetails', { taskId: task.id })}
+                            />
+                        ))
+                    ) : (
+                        <EmptyState
+                            title={JourneyCopy.empty.tasks.title}
+                            subtitle={JourneyCopy.empty.tasks.subtitle}
+                            cta={JourneyCopy.empty.tasks.cta}
+                            onPress={() => navigation.navigate('TaskForm')}
+                            icon={Plus}
+                        />
+                    )}
+                </View>
+
+                <MomentumMeter
+                    level={momentum}
+                    message={
+                        momentum >= 60
+                            ? "You've been moving consistently toward your goals."
+                            : JourneyCopy.home.momentumDefault
+                    }
+                />
+
+                <ReflectionPromptCard
+                    prompt={JourneyCopy.home.reflectionPrompt}
+                    onPress={() => navigation.navigate('DiaryForm')}
+                />
+
+                <View style={{ height: 32 }} />
+            </ScrollView>
+        </SafeAreaView>
+    );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    padding: Theme.spacing.lg,
-    justifyContent: 'center',
-  },
-  header: {
-    marginTop: 40,
-    marginBottom: 48,
-  },
-  greetingText: {
-    fontSize: 32,
-    fontFamily: Theme.typography.header,
-    color: Theme.colors.textMain,
-    marginBottom: 8,
-  },
-  subGreeting: {
-    fontSize: 18,
-    fontFamily: Theme.typography.body,
-    color: Theme.colors.textSecondary,
-  },
-
-  // Task List Styles
-  listSection: {
-    marginBottom: 32,
-  },
-  taskCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.surface,
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    ...Theme.shadows.sm,
-  },
-  taskIcon: {
-    marginRight: 16,
-  },
-  taskContent: {
-    flex: 1,
-  },
-  taskTitle: {
-    fontSize: 16,
-    fontFamily: Theme.typography.body,
-    color: Theme.colors.textMain,
-    marginBottom: 4,
-  },
-  taskDue: {
-    fontSize: 12,
-    color: Theme.colors.textSecondary,
-  },
-  recurringTag: {
-    fontSize: 10,
-    color: Theme.colors.primary,
-    marginTop: 4,
-    fontFamily: Theme.typography.subHeader,
-  },
+    container: {
+        flex: 1,
+        backgroundColor: Theme.colors.background,
+    },
+    scroll: {
+        padding: Theme.spacing.lg,
+        paddingTop: Theme.spacing.md,
+    },
+    section: {
+        marginBottom: 20,
+    },
+    loadingText: {
+        fontFamily: Theme.typography.body,
+        color: Theme.colors.textSecondary,
+        paddingVertical: 12,
+    },
 });

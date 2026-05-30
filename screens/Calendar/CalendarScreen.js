@@ -8,7 +8,7 @@ import { useGoals } from '../../hooks/useGoals';
 import { useDiary } from '../../hooks/useDiary';
 import { CheckCircle2, Circle, Target, BookOpen, Plus } from 'lucide-react-native';
 
-export default function CalendarScreen({ navigation }) {
+export default function CalendarScreen({ navigation, embedded = false }) {
     const { tasks } = useTasks();
     const { goals } = useGoals();
     const { entries: diaries } = useDiary();
@@ -143,17 +143,17 @@ export default function CalendarScreen({ navigation }) {
                     style={styles.agendaCard}
                     onPress={() => navigation.navigate('TaskDetails', { taskId: item.data.id })}
                 >
-                    <View style={[styles.typeStrip, { backgroundColor: Theme.colors.warning }]} />
+                    <View style={[styles.typeStrip, { backgroundColor: Theme.colors.success }]} />
                     <View style={styles.agendaContent}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                             {isCompleted ? (
                                 <CheckCircle2 size={16} color={Theme.colors.success} style={{ marginRight: 8 }} />
                             ) : (
-                                <Circle size={16} color={Theme.colors.warning} style={{ marginRight: 8 }} />
+                                <Circle size={16} color={Theme.colors.success} style={{ marginRight: 8 }} />
                             )}
                             <Text style={styles.agendaTitle}>{item.data.title}</Text>
                         </View>
-                        <Text style={styles.agendaSubtitle}>Task {isCompleted ? '(Completed)' : '(Pending)'}</Text>
+                        <Text style={styles.agendaSubtitle}>Step {isCompleted ? '(Done)' : '(Pending)'}</Text>
                     </View>
                 </TouchableOpacity>
             );
@@ -172,7 +172,7 @@ export default function CalendarScreen({ navigation }) {
                             <Target size={16} color={Theme.colors.primary} style={{ marginRight: 8 }} />
                             <Text style={styles.agendaTitle}>{item.data.title}</Text>
                         </View>
-                        <Text style={styles.agendaSubtitle}>Goal Deadline</Text>
+                        <Text style={styles.agendaSubtitle}>Destination Deadline</Text>
                     </View>
                 </TouchableOpacity>
             );
@@ -191,17 +191,34 @@ export default function CalendarScreen({ navigation }) {
                             <BookOpen size={16} color={Theme.colors.secondary} style={{ marginRight: 8 }} />
                             <Text style={styles.agendaTitle}>{item.data.title || 'Diary Entry'}</Text>
                         </View>
-                        <Text style={styles.agendaSubtitle}>Mood: {item.data.mood}</Text>
+                        <Text style={styles.agendaSubtitle}>Reflection · {item.data.mood}</Text>
                     </View>
                 </TouchableOpacity>
             );
         }
     };
 
-    return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Calendar</Text>
+    const body = (
+        <>
+            {!embedded && (
+                <View style={styles.header}>
+                    <Text style={styles.headerTitle}>Journey Calendar</Text>
+                </View>
+            )}
+
+            <View style={styles.legendContainer}>
+                <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: Theme.colors.success }]} />
+                    <Text style={styles.legendText}>Steps</Text>
+                </View>
+                <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: Theme.colors.primary }]} />
+                    <Text style={styles.legendText}>Destinations</Text>
+                </View>
+                <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: Theme.colors.secondary }]} />
+                    <Text style={styles.legendText}>Reflections</Text>
+                </View>
             </View>
 
             <Calendar
@@ -232,7 +249,7 @@ export default function CalendarScreen({ navigation }) {
             />
             
             <View style={styles.agendaHeader}>
-                <Text style={styles.agendaHeaderText}>Schedule for {selectedDate}</Text>
+                <Text style={styles.agendaHeaderText}>On {selectedDate}</Text>
 
                 <View style={styles.quickAddRow}>
                     {!isPastDate && (
@@ -270,12 +287,22 @@ export default function CalendarScreen({ navigation }) {
             <ScrollView contentContainerStyle={styles.agendaList} showsVerticalScrollIndicator={false}>
                 {agendaItems.length === 0 ? (
                     <View style={styles.emptyState}>
-                        <Text style={styles.emptyText}>Nothing scheduled for this day.</Text>
+                        <Text style={styles.emptyText}>Your road is clear for this day.</Text>
                     </View>
                 ) : (
                     agendaItems.map((item, index) => renderAgendaItem(item, index))
                 )}
             </ScrollView>
+        </>
+    );
+
+    if (embedded) {
+        return <View style={styles.container}>{body}</View>;
+    }
+
+    return (
+        <SafeAreaView style={styles.container} edges={['top']}>
+            {body}
         </SafeAreaView>
     );
 }
@@ -319,7 +346,7 @@ const styles = StyleSheet.create({
     quickAddBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#EEF2FF',
+        backgroundColor: Theme.colors.primaryLight,
         paddingHorizontal: 12,
         paddingVertical: 8,
         borderRadius: 20,
@@ -338,7 +365,7 @@ const styles = StyleSheet.create({
     agendaCard: {
         flexDirection: 'row',
         backgroundColor: Theme.colors.surface,
-        borderRadius: Theme.radius,
+        borderRadius: Theme.radii.lg,
         marginBottom: 12,
         overflow: 'hidden',
         borderWidth: 1,

@@ -1,123 +1,103 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { Theme, MyInput } from '../../components/components';
 import { useTasks } from '../../hooks/useTasks';
 import { useNotifications } from '../../context/NotificationContext';
-import { Plus, CheckCircle2, Circle, Search, Filter } from 'lucide-react-native';
+import { Plus, CheckCircle2, Circle, Search } from 'lucide-react-native';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { JourneyCopy } from '../../constants/JourneyCopy';
+import { filterTasksByPlanTab } from '../../utils/journeyHelpers';
 
-// Mock data for UI development
-const MOCK_TASKS = [
-    { id: '1', title: 'Complete Project Proposal', due: 'Today', status: 'pending' },
-    { id: '2', title: 'Review Design Assets', due: 'Tomorrow', status: 'pending' },
-    { id: '3', title: 'Email Marketing Team', due: 'Yesterday', status: 'completed' },
-    { id: '4', title: 'Update Portfolio', due: 'Next Week', status: 'pending' },
-];
-
-export default function TaskList({ navigation }) {
+export default function TaskList({ navigation, embedded = false }) {
     const { tasks, loading, toggleTaskStatus } = useTasks();
     const { showNotification } = useNotifications();
-    const [filter, setFilter] = useState('All'); // All, Pending, Completed
+    const [filter, setFilter] = useState('Today');
     const [searchQuery, setSearchQuery] = useState('');
 
-    const filteredTasks = tasks.filter(task => {
-        const matchesFilter = filter === 'All'
-            ? true
-            : task.status === filter.toLowerCase();
-
-        const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase());
-
-        return matchesFilter && matchesSearch;
-    });
+    const filteredTasks = filterTasksByPlanTab(tasks, filter).filter(task =>
+        task.title.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     const renderItem = ({ item }) => {
         const isCompleted = item.status === 'completed';
-
-        let isOverdue = false;
-        if (!isCompleted && item.due) {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const dueDate = new Date(item.due);
-            dueDate.setHours(0, 0, 0, 0);
-            if (today > dueDate) {
-                isOverdue = true;
-            }
-        }
+        const passedDate = !isCompleted && item.due && item.due < new Date().toISOString().split('T')[0];
 
         return (
             <TouchableOpacity
-                style={[
-                    styles.card,
-                    isCompleted && styles.cardCompleted,
-                    isOverdue && { borderColor: Theme.colors.error, borderWidth: 1 }
-                ]}
+                style={[styles.card, isCompleted && styles.cardCompleted]}
                 onPress={() => navigation.navigate('TaskDetails', { taskId: item.id })}
+                activeOpacity={0.85}
             >
                 <TouchableOpacity
                     style={styles.checkButton}
                     onPress={async () => {
                         await toggleTaskStatus(item);
                         if (!isCompleted) {
+                            try {
+                                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            } catch (_) {}
                             if (item.recurrence?.type && item.recurrence.type !== 'none') {
-                                showNotification('success', "Task completed! Next occurrence scheduled 🗓️", 2);
+                                showNotification('success', 'Step done! Next one scheduled 🗓️', 2);
                             } else {
-                                showNotification('success', "Task completed! 🎉", 3);
+                                showNotification('success', 'Step completed! 🌟', 3);
                             }
                         } else {
-                            showNotification('warning', "Task marked as pending 📝", 1);
+                            showNotification('warning', 'Step marked as pending', 1);
                         }
                     }}
                 >
                     {isCompleted ? (
                         <CheckCircle2 size={24} color={Theme.colors.success} />
                     ) : (
-                        <Circle size={24} color={isOverdue ? Theme.colors.error : Theme.colors.textSecondary} />
+                        <Circle size={24} color={Theme.colors.primary} />
                     )}
                 </TouchableOpacity>
 
                 <View style={styles.cardContent}>
-                    <Text style={[
-                        styles.taskTitle,
-                        isCompleted && styles.textCompleted,
-                        isOverdue && { color: Theme.colors.error }
-                    ]}>
+                    <Text style={[styles.taskTitle, isCompleted && styles.textCompleted]}>
                         {item.title}
                     </Text>
-                    {item.due && (
-                        <Text style={[
-                            styles.taskDue,
-                            isOverdue && { color: Theme.colors.error, fontFamily: Theme.typography.subHeader }
-                        ]}>
-                            {isOverdue ? `Overdue: ${item.due}` : `Due: ${item.due}`}
-                        </Text>
-                    )}
+                    <View style={styles.metaRow}>
+                        {item.due && (
+                            <Text style={styles.taskDue}>
+                                {passedDate ? `Passed: ${item.due}` : item.due}
+                            </Text>
+                        )}
+                        {item.priority === 'High' && (
+                            <View style={styles.focusBadge}>
+                                <Text style={styles.focusText}>Focus</Text>
+                            </View>
+                        )}
+                    </View>
                 </View>
             </TouchableOpacity>
         );
     };
 
-    return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>My Tasks</Text>
-                {/* Placeholder for future sort/filter modal */}
-                <TouchableOpacity>
-                    <Filter size={24} color={Theme.colors.primary} />
-                </TouchableOpacity>
-            </View>
+    const content = (
+        <>
+            {!embedded && (
+                <View style={styles.header}>
+                    <View>
+                        <Text style={styles.headerTitle}>Plan</Text>
+                        <Text style={styles.headerSub}>Your next steps</Text>
+                    </View>
+                </View>
+            )}
 
             <View style={styles.searchSection}>
                 <MyInput
-                    placeholder="Search tasks..."
+                    placeholder="Search steps..."
                     icon={Search}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
-
                 />
             </View>
 
             <View style={styles.tabs}>
-                {['All', 'Pending', 'Completed'].map(tab => (
+                {['Today', 'Upcoming', 'Completed'].map(tab => (
                     <TouchableOpacity
                         key={tab}
                         style={[styles.tab, filter === tab && styles.tabActive]}
@@ -137,21 +117,32 @@ export default function TaskList({ navigation }) {
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
-                    <View style={styles.emptyState}>
-                        <Text style={styles.emptyText}>
-                            {loading ? "Loading tasks..." : "No tasks found. Add one!"}
-                        </Text>
-                    </View>
+                    <EmptyState
+                        title={JourneyCopy.empty.tasks.title}
+                        subtitle={loading ? 'Loading...' : JourneyCopy.empty.tasks.subtitle}
+                        cta={!loading ? JourneyCopy.empty.tasks.cta : undefined}
+                        onPress={() => navigation.navigate('TaskForm')}
+                        icon={Plus}
+                    />
                 }
             />
 
-            {/* Floating Action Button */}
             <TouchableOpacity
                 style={styles.fab}
                 onPress={() => navigation.navigate('TaskForm')}
             >
-                <Plus size={32} color="#fff" />
+                <Plus size={28} color="#fff" />
             </TouchableOpacity>
+        </>
+    );
+
+    if (embedded) {
+        return <View style={styles.embedded}>{content}</View>;
+    }
+
+    return (
+        <SafeAreaView style={styles.container} edges={['top']}>
+            {content}
         </SafeAreaView>
     );
 }
@@ -161,29 +152,35 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Theme.colors.background,
     },
+    embedded: {
+        flex: 1,
+    },
     header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
         paddingHorizontal: Theme.spacing.lg,
         paddingVertical: Theme.spacing.md,
     },
     headerTitle: {
-        fontSize: 24,
+        fontSize: 26,
         fontFamily: Theme.typography.header,
         color: Theme.colors.textMain,
     },
+    headerSub: {
+        fontSize: 14,
+        fontFamily: Theme.typography.body,
+        color: Theme.colors.textSecondary,
+        marginTop: 4,
+    },
     searchSection: {
         paddingHorizontal: Theme.spacing.lg,
-        marginBottom: Theme.spacing.md,
+        marginBottom: Theme.spacing.sm,
     },
     tabs: {
         flexDirection: 'row',
         paddingHorizontal: Theme.spacing.lg,
         marginBottom: Theme.spacing.md,
+        gap: 8,
     },
     tab: {
-        marginRight: 10,
         paddingVertical: 8,
         paddingHorizontal: 16,
         borderRadius: 20,
@@ -198,38 +195,39 @@ const styles = StyleSheet.create({
     tabText: {
         fontFamily: Theme.typography.subHeader,
         color: Theme.colors.textSecondary,
-        fontSize: 14,
+        fontSize: 13,
     },
     tabTextActive: {
         color: '#fff',
     },
     listContent: {
         padding: Theme.spacing.lg,
-        paddingBottom: 100, // For FAB
+        paddingBottom: 100,
+        flexGrow: 1,
     },
     card: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: Theme.colors.surface,
         padding: 16,
-        borderRadius: Theme.radius,
-        marginBottom: 12,
+        borderRadius: Theme.radii.lg,
+        marginBottom: 10,
         borderWidth: 1,
         borderColor: Theme.colors.border,
         ...Theme.shadows.sm,
     },
     cardCompleted: {
-        opacity: 0.7,
-        backgroundColor: '#F8FAFC',
+        opacity: 0.75,
+        backgroundColor: Theme.colors.background,
     },
     checkButton: {
-        marginRight: 16,
+        marginRight: 14,
     },
     cardContent: {
         flex: 1,
     },
     taskTitle: {
-        fontSize: 16,
+        fontSize: 15,
         fontFamily: Theme.typography.body,
         color: Theme.colors.textMain,
         marginBottom: 4,
@@ -238,18 +236,34 @@ const styles = StyleSheet.create({
         textDecorationLine: 'line-through',
         color: Theme.colors.textSecondary,
     },
+    metaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
     taskDue: {
         fontSize: 12,
         fontFamily: Theme.typography.body,
         color: Theme.colors.textSecondary,
     },
+    focusBadge: {
+        backgroundColor: Theme.colors.primaryLight,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 6,
+    },
+    focusText: {
+        fontSize: 10,
+        fontFamily: Theme.typography.subHeader,
+        color: Theme.colors.primary,
+    },
     fab: {
         position: 'absolute',
-        bottom: 30,
+        bottom: 24,
         right: 20,
-        width: 60,
-        height: 60,
-        borderRadius: 30,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
         backgroundColor: Theme.colors.primary,
         justifyContent: 'center',
         alignItems: 'center',

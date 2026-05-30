@@ -3,19 +3,31 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, Platform
 } from 'react-native';
 import { Sparkles, Check, ChevronRight } from "lucide-react-native";
+import RNDateTimePicker from '@react-native-community/datetimepicker';
 
 
 export const Theme = {
   colors: {
     primary: "#4F46E5", // Indigo 600 - Confident, Calm
+    primaryLight: "#EEF2FF",
+    primaryLightAlt: "#EFF6FF",
     secondary: "#818CF8", // Indigo 400 - Supportive
+    secondaryLight: "#F5F3FF",
     background: "#F8FAFC", // Slate 50 - Clean, airy
     surface: "#FFFFFF", // White - Crisp
     textMain: "#1E293B", // Slate 800 - High contrast, soft black
     textSecondary: "#64748B", // Slate 500 - Readable subtle text
     border: "#E2E8F0", // Slate 200 - Soft borders
+    primaryBorder: "#E0E7FF",
     success: "#10B981", // Emerald 500
+    successLight: "#ECFDF5",
     error: "#EF4444", // Red 500
+    errorLight: "#FEF2F2",
+    warning: "#F59E0B",
+    warningLight: "#FFF7ED",
+    warningBorder: "#FED7AA",
+    warningText: "#C2410C",
+    placeholder: "#94A3B8",
     overlay: "rgba(15, 23, 42, 0.4)", // Slate 900 with opacity
   },
 
@@ -27,7 +39,13 @@ export const Theme = {
   },
 
   spacing: { sm: 8, md: 16, lg: 24, xl: 32, xxl: 48 },
-  radius: 16, // More rounded for friendliness
+  radius: 16,
+  radii: { sm: 12, md: 16, lg: 24, xl: 32 },
+  animation: { fast: 200, normal: 350, slow: 600 },
+  gradients: {
+    hero: ['#4F46E5', '#6366F1', '#818CF8'],
+    copilot: ['#EEF2FF', '#F5F3FF'],
+  },
   shadows: {
     sm: {
       shadowColor: "#64748B",
@@ -49,7 +67,21 @@ export const Theme = {
       shadowOpacity: 0.3,
       shadowRadius: 10,
       elevation: 8,
-    }
+    },
+    float: {
+      shadowColor: "#64748B",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.08,
+      shadowRadius: 16,
+      elevation: 6,
+    },
+    hero: {
+      shadowColor: "#4F46E5",
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: 0.25,
+      shadowRadius: 20,
+      elevation: 12,
+    },
   }
 };
 
@@ -98,7 +130,7 @@ export const MyInput = ({ label, icon: Icon, rightIcon: RightIcon, onRightIconPr
           props.multiline && styles.inputMultiline,
           props.style
         ]}
-        placeholderTextColor="#94A3B8"
+        placeholderTextColor={Theme.colors.placeholder}
         selectionColor={Theme.colors.primary}
         {...props}
       />
@@ -128,27 +160,24 @@ export const MyCheckbox = ({ label, checked, onPress }) => (
   </TouchableOpacity>
 );
 
-export const MyButton = ({ title, onPress, type = 'primary', style }) => {
+export const MyButton = ({ title, onPress, type = 'primary', style, disabled = false }) => {
   const isPrimary = type === 'primary';
   return (
     <TouchableOpacity
       style={[
         styles.btn,
         isPrimary ? styles.btnPrimary : styles.btnSecondary,
+        disabled && styles.btnDisabled,
         style
       ]}
-      onPress={onPress}
-      activeOpacity={0.9}
+      onPress={disabled ? undefined : onPress}
+      activeOpacity={disabled ? 1 : 0.9}
+      disabled={disabled}
     >
-      <Text style={[styles.btnText, !isPrimary && styles.btnTextSecondary]}>{title}</Text>
+      <Text style={[styles.btnText, !isPrimary && styles.btnTextSecondary, disabled && styles.btnTextDisabled]}>{title}</Text>
     </TouchableOpacity>
   );
 };
-
-// --- REUSABLE COMPONENTS ---
-import RNDateTimePicker from '@react-native-community/datetimepicker';
-
-// ... other components
 
 export const MyDatePicker = ({ label, value, onChange, icon: Icon, minimumDate, maximumDate }) => {
   const [show, setShow] = useState(false);
@@ -291,12 +320,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: Theme.spacing.lg
   },
   iconBadge: {
-    backgroundColor: "#EEF2FF", // Very light indigo
+    backgroundColor: Theme.colors.primaryLight,
     padding: 16,
     borderRadius: 24,
     marginBottom: Theme.spacing.lg,
     borderWidth: 1,
-    borderColor: "#E0E7FF"
+    borderColor: Theme.colors.primaryBorder
   },
   title: {
     fontSize: 28,
@@ -333,7 +362,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     backgroundColor: Theme.colors.surface,
-    borderRadius: Theme.radius,
+    borderRadius: Theme.radii?.md ?? Theme.radius,
     borderWidth: 1,
     borderColor: Theme.colors.border,
     height: 56, // Taller inputs for better touch target
@@ -341,7 +370,7 @@ const styles = StyleSheet.create({
   },
   inputContainerActive: {
     borderColor: Theme.colors.primary,
-    backgroundColor: "#F8FAFC"
+    backgroundColor: Theme.colors.background
   },
   inputIcon: { paddingLeft: 16 },
   input: {
@@ -360,7 +389,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     backgroundColor: Theme.colors.surface,
-    borderRadius: Theme.radius,
+    borderRadius: Theme.radii?.md ?? Theme.radius,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: Theme.colors.border,
@@ -368,7 +397,7 @@ const styles = StyleSheet.create({
   },
   checkboxRowActive: {
     borderColor: Theme.colors.secondary,
-    backgroundColor: "#F5F3FF" // Very light purple tint
+    backgroundColor: Theme.colors.secondaryLight
   },
   checkbox: {
     width: 24,
@@ -400,7 +429,7 @@ const styles = StyleSheet.create({
   // Button
   btn: {
     paddingVertical: 18,
-    borderRadius: Theme.radius,
+    borderRadius: Theme.radii?.md ?? Theme.radius,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
@@ -415,6 +444,9 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.border,
     shadowOpacity: 0.05
   },
+  btnDisabled: {
+    opacity: 0.5,
+  },
   btnText: {
     color: '#fff',
     fontSize: 16,
@@ -423,6 +455,9 @@ const styles = StyleSheet.create({
   },
   btnTextSecondary: {
     color: Theme.colors.textMain
+  },
+  btnTextDisabled: {
+    opacity: 0.8,
   },
 
   // Alert
@@ -442,7 +477,7 @@ const styles = StyleSheet.create({
     ...Theme.shadows.glow
   },
   alertIconBadge: {
-    backgroundColor: "#F0Fdf4", // Light green or brand color
+    backgroundColor: Theme.colors.successLight,
     padding: 12,
     borderRadius: 50,
     marginBottom: 16
@@ -500,7 +535,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
 
-    borderRadius: Theme.radius,
+    borderRadius: Theme.radii?.md ?? Theme.radius,
 
     width: '100%',
 
