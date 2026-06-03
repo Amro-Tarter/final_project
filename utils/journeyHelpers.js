@@ -1,15 +1,15 @@
-export function getTimeGreeting() {
+export function getTimeGreeting(t) {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
+    if (hour < 12) return t ? t('goodMorning') : 'Good Morning';
+    if (hour < 17) return t ? t('goodAfternoon') : 'Good Afternoon';
+    return t ? t('goodEvening') : 'Good Evening';
 }
 
 export function getUserDisplayName(user) {
     return user?.fullName || user?.displayName || user?.email?.split('@')[0] || 'Friend';
 }
 
-export function getPrimaryDestination(goals) {
+export function getPrimaryGoal(goals) {
     const active = goals.filter(g => g.status === 'active' || !g.status);
     if (active.length === 0) return null;
     return active.reduce((best, g) => {
@@ -22,7 +22,7 @@ export function getGoalTasks(tasks, goalId) {
     return tasks.filter(t => t.goalId === goalId);
 }
 
-export function getCurrentPitStop(tasks, goalId) {
+export function getCurrentTask(tasks, goalId) {
     const goalTasks = getGoalTasks(tasks, goalId).filter(t => t.status === 'pending');
     return goalTasks[0] || null;
 }
@@ -85,11 +85,11 @@ export function getCoPilotMessage(profile, tasks, entries) {
         if (latest.createdAt?.toDate) {
             const diff = (Date.now() - latest.createdAt.toDate().getTime()) / (1000 * 60 * 60 * 24);
             if (diff >= 3) {
-                return "You haven't reflected in a few days. Want to check in?";
+                return "You haven't written in your diary in a few days. Want to check in?";
             }
         }
     } else if (daysSinceDiary > 0) {
-        return "Your travel log is waiting. Want to capture today?";
+        return "Your diary is waiting. Want to capture today?";
     }
 
     if (profile.tasks?.overdue > 0) {
@@ -101,8 +101,13 @@ export function getCoPilotMessage(profile, tasks, entries) {
 
 export function getMoodEmoji(mood) {
     switch (mood) {
+        case 'excellent': return '😁';
         case 'good': return '😊';
-        case 'bad': return '😔';
+        case 'okay': return '😐';
+        case 'neutral': return '😐'; // Backwards compatibility
+        case 'difficult': return '😔';
+        case 'bad': return '😔'; // Backwards compatibility
+        case 'overwhelmed': return '😫';
         default: return '😐';
     }
 }
@@ -151,7 +156,7 @@ export function getJourneyStats(tasks, goals, entries) {
         milestonesReached,
         goalsCompleted,
         activeGoals,
-        reflectionsWritten: entries.length,
+        diariesWritten: entries.length,
         momentum: calculateMomentum(tasks),
     };
 }

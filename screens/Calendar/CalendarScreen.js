@@ -2,13 +2,18 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '../../components/components';
+import { MotiView } from 'moti';
 import { Calendar } from 'react-native-calendars';
 import { useTasks } from '../../hooks/useTasks';
 import { useGoals } from '../../hooks/useGoals';
 import { useDiary } from '../../hooks/useDiary';
 import { CheckCircle2, Circle, Target, BookOpen, Plus } from 'lucide-react-native';
+import { useAppTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function CalendarScreen({ navigation, embedded = false }) {
+    const { colors } = useAppTheme();
+    const { t } = useLanguage();
     const { tasks } = useTasks();
     const { goals } = useGoals();
     const { entries: diaries } = useDiary();
@@ -40,7 +45,7 @@ export default function CalendarScreen({ navigation, embedded = false }) {
                 addMark(task.due, {
                     key: 'task',
                     type: 'task',
-                    color: Theme.colors.success
+                    color: colors.success
                 });
             }
         });
@@ -51,7 +56,7 @@ export default function CalendarScreen({ navigation, embedded = false }) {
             addMark(goal.deadline, {
             key: 'goal',
             type: 'goal',
-            color: Theme.colors.primary
+            color: colors.primary
             });
             }
         });
@@ -75,7 +80,7 @@ export default function CalendarScreen({ navigation, embedded = false }) {
             if (dDate) {
                 addMark(dDate, {
                     key: `diary-${diary.id}`,
-                    color: Theme.colors.secondary
+                    color: colors.secondary
                 });
             }
         });
@@ -83,18 +88,18 @@ export default function CalendarScreen({ navigation, embedded = false }) {
         // Mark the selected date
         if (marks[selectedDate]) {
             marks[selectedDate].selected = true;
-            marks[selectedDate].selectedColor = Theme.colors.surface;
-            marks[selectedDate].selectedTextColor = Theme.colors.primary;
+            marks[selectedDate].selectedColor = colors.surface;
+            marks[selectedDate].selectedTextColor = colors.primary;
         } else {
             marks[selectedDate] = {
                 selected: true,
-                selectedColor: Theme.colors.surface,
-                selectedTextColor: Theme.colors.primary
+                selectedColor: colors.surface,
+                selectedTextColor: colors.primary
             };
         }
 
         return marks;
-    }, [tasks, goals, diaries, selectedDate]);
+    }, [tasks, goals, diaries, selectedDate, colors]);
 
     // Filter items for the selected agenda view
     const agendaItems = useMemo(() => {
@@ -138,86 +143,104 @@ export default function CalendarScreen({ navigation, embedded = false }) {
         if (item.type === 'task') {
             const isCompleted = item.data.status === 'completed';
             return (
-                <TouchableOpacity
+                <MotiView
                     key={`agenda-task-${index}`}
-                    style={styles.agendaCard}
-                    onPress={() => navigation.navigate('TaskDetails', { taskId: item.data.id })}
+                    from={{ opacity: 0, translateY: 10 }}
+                    animate={{ opacity: 1, translateY: 0 }}
+                    transition={{ type: 'timing', duration: 400, delay: index * 50 }}
                 >
-                    <View style={[styles.typeStrip, { backgroundColor: Theme.colors.success }]} />
-                    <View style={styles.agendaContent}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            {isCompleted ? (
-                                <CheckCircle2 size={16} color={Theme.colors.success} style={{ marginRight: 8 }} />
-                            ) : (
-                                <Circle size={16} color={Theme.colors.success} style={{ marginRight: 8 }} />
-                            )}
-                            <Text style={styles.agendaTitle}>{item.data.title}</Text>
+                    <TouchableOpacity
+                        style={[styles.agendaCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                        onPress={() => navigation.navigate('TaskDetails', { taskId: item.data.id })}
+                    >
+                        <View style={[styles.typeStrip, { backgroundColor: colors.success }]} />
+                        <View style={styles.agendaContent}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                {isCompleted ? (
+                                    <CheckCircle2 size={16} color={colors.success} style={{ marginRight: 8 }} />
+                                ) : (
+                                    <Circle size={16} color={colors.success} style={{ marginRight: 8 }} />
+                                )}
+                                <Text style={[styles.agendaTitle, { color: colors.textMain }]}>{item.data.title}</Text>
+                            </View>
+                            <Text style={[styles.agendaSubtitle, { color: colors.textSecondary }]}>{t('stepLabel')} {isCompleted ? `(${t('done')})` : `(${t('pending')})`}</Text>
                         </View>
-                        <Text style={styles.agendaSubtitle}>Step {isCompleted ? '(Done)' : '(Pending)'}</Text>
-                    </View>
-                </TouchableOpacity>
+                    </TouchableOpacity>
+                </MotiView>
             );
         }
 
         if (item.type === 'goal') {
             return (
-                <TouchableOpacity
+                <MotiView
                     key={`agenda-goal-${index}`}
-                    style={styles.agendaCard}
-                    onPress={() => navigation.navigate('GoalDetails', { goalId: item.data.id })}
+                    from={{ opacity: 0, translateY: 10 }}
+                    animate={{ opacity: 1, translateY: 0 }}
+                    transition={{ type: 'timing', duration: 400, delay: index * 50 }}
                 >
-                    <View style={[styles.typeStrip, { backgroundColor: Theme.colors.primary }]} />
-                    <View style={styles.agendaContent}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Target size={16} color={Theme.colors.primary} style={{ marginRight: 8 }} />
-                            <Text style={styles.agendaTitle}>{item.data.title}</Text>
+                    <TouchableOpacity
+                        style={[styles.agendaCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                        onPress={() => navigation.navigate('GoalDetails', { goalId: item.data.id })}
+                    >
+                        <View style={[styles.typeStrip, { backgroundColor: colors.primary }]} />
+                        <View style={styles.agendaContent}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Target size={16} color={colors.primary} style={{ marginRight: 8 }} />
+                                <Text style={[styles.agendaTitle, { color: colors.textMain }]}>{item.data.title}</Text>
+                            </View>
+                            <Text style={[styles.agendaSubtitle, { color: colors.textSecondary }]}>{t('goalDeadline')}</Text>
                         </View>
-                        <Text style={styles.agendaSubtitle}>Destination Deadline</Text>
-                    </View>
-                </TouchableOpacity>
+                    </TouchableOpacity>
+                </MotiView>
             );
         }
 
         if (item.type === 'diary') {
             return (
-                <TouchableOpacity
+                <MotiView
                     key={`agenda-diary-${index}`}
-                    style={styles.agendaCard}
-                    onPress={() => navigation.navigate('DiaryEntry', { entry: item.data })}
+                    from={{ opacity: 0, translateY: 10 }}
+                    animate={{ opacity: 1, translateY: 0 }}
+                    transition={{ type: 'timing', duration: 400, delay: index * 50 }}
                 >
-                    <View style={[styles.typeStrip, { backgroundColor: Theme.colors.secondary }]} />
-                    <View style={styles.agendaContent}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <BookOpen size={16} color={Theme.colors.secondary} style={{ marginRight: 8 }} />
-                            <Text style={styles.agendaTitle}>{item.data.title || 'Diary Entry'}</Text>
+                    <TouchableOpacity
+                        style={[styles.agendaCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                        onPress={() => navigation.navigate('DiaryEntry', { entry: item.data })}
+                    >
+                        <View style={[styles.typeStrip, { backgroundColor: colors.secondary }]} />
+                        <View style={styles.agendaContent}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <BookOpen size={16} color={colors.secondary} style={{ marginRight: 8 }} />
+                                <Text style={[styles.agendaTitle, { color: colors.textMain }]}>{item.data.title || t('diariesTitle')}</Text>
+                            </View>
+                            <Text style={[styles.agendaSubtitle, { color: colors.textSecondary }]}>{t('diariesTitle')} · {item.data.mood}</Text>
                         </View>
-                        <Text style={styles.agendaSubtitle}>Reflection · {item.data.mood}</Text>
-                    </View>
-                </TouchableOpacity>
+                    </TouchableOpacity>
+                </MotiView>
             );
         }
     };
 
     const body = (
-        <>
+        <ScrollView showsVerticalScrollIndicator={false}>
             {!embedded && (
-                <View style={styles.header}>
-                    <Text style={styles.headerTitle}>Journey Calendar</Text>
+                <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+                    <Text style={[styles.headerTitle, { color: colors.textMain }]}>{t('calendar')}</Text>
                 </View>
             )}
 
-            <View style={styles.legendContainer}>
+            <View style={[styles.legendContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
                 <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: Theme.colors.success }]} />
-                    <Text style={styles.legendText}>Steps</Text>
+                    <View style={[styles.legendDot, { backgroundColor: colors.success }]} />
+                    <Text style={[styles.legendText, { color: colors.textSecondary }]}>{t('steps')}</Text>
                 </View>
                 <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: Theme.colors.primary }]} />
-                    <Text style={styles.legendText}>Destinations</Text>
+                    <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
+                    <Text style={[styles.legendText, { color: colors.textSecondary }]}>{t('goals')}</Text>
                 </View>
                 <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: Theme.colors.secondary }]} />
-                    <Text style={styles.legendText}>Reflections</Text>
+                    <View style={[styles.legendDot, { backgroundColor: colors.secondary }]} />
+                    <Text style={[styles.legendText, { color: colors.textSecondary }]}>{t('diariesTitle')}</Text>
                 </View>
             </View>
 
@@ -230,78 +253,58 @@ export default function CalendarScreen({ navigation, embedded = false }) {
                 markingType={'multi-dot'}
                 markedDates={markedDates}
                 theme={{
-                    backgroundColor: Theme.colors.background,
-                    calendarBackground: Theme.colors.background,
-                    textSectionTitleColor: Theme.colors.textSecondary,
-                    selectedDayBackgroundColor: Theme.colors.primary,
+                    backgroundColor: colors.background,
+                    calendarBackground: colors.background,
+                    textSectionTitleColor: colors.textSecondary,
+                    selectedDayBackgroundColor: colors.primary,
                     selectedDayTextColor: '#ffffff',
-                    todayTextColor: Theme.colors.primary,
-                    dayTextColor: Theme.colors.textMain,
-                    textDisabledColor: Theme.colors.border,
-                    dotColor: Theme.colors.primary,
+                    todayTextColor: colors.primary,
+                    dayTextColor: colors.textMain,
+                    textDisabledColor: colors.border,
+                    dotColor: colors.primary,
                     selectedDotColor: '#ffffff',
-                    arrowColor: Theme.colors.primary,
-                    monthTextColor: Theme.colors.textMain,
+                    arrowColor: colors.primary,
+                    monthTextColor: colors.textMain,
                     textMonthFontFamily: Theme.typography.header,
                     textDayFontFamily: Theme.typography.body,
                     textDayHeaderFontFamily: Theme.typography.subHeader,
                 }}
             />
             
-            <View style={styles.agendaHeader}>
-                <Text style={styles.agendaHeaderText}>On {selectedDate}</Text>
+            <View style={[styles.agendaHeader, { backgroundColor: colors.background }]}>
+                <Text style={[styles.agendaHeaderText, { color: colors.textSecondary }]}>{t('on')} {selectedDate}</Text>
 
                 <View style={styles.quickAddRow}>
                     {!isPastDate && (
                         <TouchableOpacity
-                            style={styles.quickAddBtn}
+                            style={[styles.quickAddBtn, { backgroundColor: colors.primaryLight }]}
                             onPress={() => navigation.navigate('TaskForm', { prefilledDate: selectedDate })}
                         >
-                            <CheckCircle2 size={16} color={Theme.colors.primary} />
-                            <Text style={styles.quickAddText}>Task</Text>
-                        </TouchableOpacity>
-                    )}
-
-                    {!isPastDate && (
-                        <TouchableOpacity
-                            style={styles.quickAddBtn}
-                            onPress={() => navigation.navigate('GoalForm', { prefilledDate: selectedDate })}
-                        >
-                            <Target size={16} color={Theme.colors.primary} />
-                            <Text style={styles.quickAddText}>Goal</Text>
-                        </TouchableOpacity>
-                    )}
-
-                    {!isFutureDate && (
-                        <TouchableOpacity
-                            style={styles.quickAddBtn}
-                            onPress={() => navigation.navigate('DiaryForm', { prefilledDate: selectedDate })}
-                        >
-                            <BookOpen size={16} color={Theme.colors.primary} />
-                            <Text style={styles.quickAddText}>Diary</Text>
+                            <CheckCircle2 size={16} color={colors.primary} />
+                            <Text style={[styles.quickAddText, { color: colors.primary }]}>{t('addTask')}</Text>
                         </TouchableOpacity>
                     )}
                 </View>
             </View>
 
-            <ScrollView contentContainerStyle={styles.agendaList} showsVerticalScrollIndicator={false}>
+            <View style={styles.agendaList}>
                 {agendaItems.length === 0 ? (
                     <View style={styles.emptyState}>
-                        <Text style={styles.emptyText}>Your road is clear for this day.</Text>
+                        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{t('roadClear')}</Text>
                     </View>
                 ) : (
                     agendaItems.map((item, index) => renderAgendaItem(item, index))
                 )}
-            </ScrollView>
-        </>
+            </View>
+        </ScrollView>
     );
 
     if (embedded) {
-        return <View style={styles.container}>{body}</View>;
+        return <View style={[styles.container, { backgroundColor: colors.background }]}>{body}</View>;
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
             {body}
         </SafeAreaView>
     );
@@ -370,7 +373,7 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         borderWidth: 1,
         borderColor: Theme.colors.border,
-        ...Theme.shadows.sm,
+        ...Theme.shadows.float,
     },
     typeStrip: {
         width: 6,

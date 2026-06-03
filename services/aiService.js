@@ -9,13 +9,15 @@ const TOOL_FORMATS = `
 [TOOL FORMATS]
 
 Goal:
-{"tool":"create_goal","title":"Goal Title"}
+{"tool":"create_goal","title":"Goal Title","deadline":"YYYY-MM-DD"}
 
 Task:
 {
   "tool":"create_task",
   "title":"Task Title",
+  "desc":"Detailed description or context",
   "dueDate":"YYYY-MM-DD",
+  "priority":"High|Normal|Low",
   "targetGoal":"Optional Goal Title",
   "recurrence":{
     "type":"none|daily|weekly|custom",
@@ -31,10 +33,13 @@ Roadmap:
 {
   "tool":"create_roadmap",
   "goalTitle":"Goal Name",
+  "deadline":"YYYY-MM-DD",
   "tasks":[
     {
       "title":"Task 1",
+      "desc":"Description",
       "dueDate":"YYYY-MM-DD",
+      "priority":"High|Normal|Low",
       "recurrence":{
         "type":"none|daily|weekly|custom",
         "interval":1
@@ -52,7 +57,9 @@ Diary:
   "tool":"create_diary",
   "title":"A short title for the day",
   "mood":"good|neutral|bad",
-  "content":"The actual diary entry text"
+  "content":"The actual diary entry text",
+  "tags":["tag1", "tag2"],
+  "reflection":"A deep insight or lesson learned today (optional)"
 }
 `;
 
@@ -61,13 +68,7 @@ Diary:
  * Common fetch helper for OpenAI Responses API
  */
 async function callOpenAI(messages, jsonMode = false) {
-    console.log('[AI_DEBUG][callOpenAI:start]', {
-        model: PRIMARY_MODEL,
-        jsonMode,
-        messageCount: messages.length,
-        roles: messages.map(message => message.role),
-        firstUserMessage: messages.find(message => message.role === 'user')?.content?.slice(0, 120) || null,
-    });
+    // Debug logging removed for cleaner console
 
     if (!OPENAI_API_KEY || OPENAI_API_KEY === 'YOUR_OPENAI_API_KEY_HERE') {
         console.error('[AI_DEBUG][callOpenAI:no_api_key]');
@@ -110,37 +111,16 @@ async function callOpenAI(messages, jsonMode = false) {
         throw error;
     }
 
-    console.log('[AI_DEBUG][callOpenAI:http_status]', {
-        ok: response.ok,
-        status: response.status
-    });
-
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        console.error('[AI_DEBUG][callOpenAI:api_error]', errData);
         throw new Error(errData.error?.message || `OpenAI API error: ${response.status}`);
     }
 
     const json = await response.json();
-    console.log(
-        '[AI_DEBUG][FULL_OPENAI_RESPONSE]',
-        JSON.stringify(json, null, 2)
-    );
-    console.log('[AI_DEBUG][callOpenAI:success]', {
-        responseId: json?.id,
-        outputCount: Array.isArray(json?.output) ? json.output.length : null,
-        outputTextLength: json?.output_text?.length || 0
-    });
     return json;
 }
 
 function extractOpenAIResponseText(response) {
-    console.log('[AI_DEBUG][extractOpenAIResponseText:start]', {
-        hasResponse: !!response,
-        hasOutputText: typeof response?.output_text === 'string',
-        outputCount: Array.isArray(response?.output) ? response.output.length : null
-    });
-
     if (!response) return '';
 
     if (typeof response.output_text === 'string') {
@@ -269,10 +249,13 @@ function createNovaPrompt(
     analystStrategy,
     memorySummary,
     currentDate,
-    includePrivateContext = false
+    includePrivateContext = false,
+    userLanguage = 'en'
 ) {
     return `
 You are Nova, a warm, wise, emotionally intelligent companion.
+
+[USER LANGUAGE: ${userLanguage}] You MUST generate your ENTIRE final response strictly in this language. Do not reply in English unless the user language is English.
 
 Current Date: ${currentDate}
 
@@ -392,29 +375,32 @@ Required fields:
 
 Task:
 - title
-- due date
+- desc (be helpful and descriptive)
+- dueDate
+- priority (infer this automatically: High if urgent/crucial, Low if trivial, else Normal)
 - recurrence
 - reminder
 
 Goal:
 - title
+- deadline (YYYY-MM-DD format)
 
 Diary:
 - title
 - mood
 - content
+- tags
+- reflection
 
 Roadmap:
 - goal title
-- task list
-- every task needs:
-  - due date
-  - recurrence
-  - reminder
+- deadline
+- task list (with desc, dueDate, priority, recurrence, reminder for each)
 
-Never invent missing values.
+Never invent missing dates unless the user implies "today" or "tomorrow".
+If the user's intent is very clear (e.g. "Remind me to call Mom tomorrow at 5pm"), do not ask endless clarification questions. Use your best judgment to fill in defaults and confirm action natively.
 
-Ask naturally.
+Ask naturally if critical information is missing.
 
 Examples:
 
@@ -431,10 +417,10 @@ If the user provides:
 
 you may infer task intent.
 
-If uncertain:
+If highly uncertain:
 ask first.
 
-Never execute before explicit confirmation.
+Never execute before explicit confirmation UNLESS the user gave a very direct command (e.g. "Remind me to...", "Create a goal...").
 
 Valid confirmations:
 
@@ -570,9 +556,11 @@ Obey the requested response length exactly.
 `;
 }
 
-function createCompanionPrompt(profileSummary, currentDate) {
+function createCompanionPrompt(profileSummary, currentDate, userLanguage = 'en') {
     return `You are "Nova", a warm, wise, emotionally intelligent companion.
 Current Date: ${currentDate}
+
+[USER LANGUAGE: ${userLanguage}] You MUST generate your ENTIRE final response strictly in this language. Do not reply in English unless the user language is English.
 
 Your default role is NOT task management. Your default role is to be present with the user, understand what they are feeling, and help them think clearly.
 
@@ -603,7 +591,7 @@ Nova: "That sounds exhausting. Let's separate what is urgent from what is just l
  * Prompt for Insights Generation 
  * (Does not use the Analyst flow since it just needs to generate daily advice)
  */
-function createInsightsPrompt(profile) {
+function createInsightsPrompt(profile, userLanguage = 'en') {
     let psychologyContext = profile?.psychology ? `Vision: "${profile.psychology.identityVision}" | Struggles: ${profile.psychology.focusThieves?.join(', ')}` : '';
     let taskContext = profile?.tasks?.total > 0 ? `Pending Tasks: ${profile.tasks.recentPending?.map(t => `"${t.title}"`).join(', ')}` : '';
     let goalContext = profile?.goals?.total > 0 ? `Active Goals: ${profile.goals.activeList?.map(g => `"${g.title}"`).join(', ')}` : '';
@@ -612,6 +600,8 @@ function createInsightsPrompt(profile) {
 ${psychologyContext}
 ${taskContext}
 ${goalContext}
+
+[USER LANGUAGE: ${userLanguage}] You MUST generate all text fields in the JSON response strictly in this language.
 
 Generate a JSON response for their insights page.
 JSON Structure:
@@ -630,9 +620,9 @@ RESPOND ONLY WITH VALID JSON.`;
 /**
  * Gets personalized insights, advice, and a growth topic.
  */
-export async function getAIInsights(profile) {
+export async function getAIInsights(profile, language = 'en') {
     try {
-        const systemPrompt = createInsightsPrompt(profile);
+        const systemPrompt = createInsightsPrompt(profile, language);
         const prompt = `${systemPrompt}\n\nGenerate a JSON response for ${profile?.userName || 'the user'}'s insights page. RESPOND ONLY WITH VALID JSON.`;
 
         const response = await callOpenAI([
@@ -641,11 +631,6 @@ export async function getAIInsights(profile) {
         ], true);
 
         const raw = extractOpenAIResponseText(response);
-        console.log('[AI_DEBUG][getAIInsights:raw_response]', {
-            rawType: typeof raw,
-            rawLength: raw?.length || 0,
-            rawPreview: typeof raw === 'string' ? raw.slice(0, 240) : raw
-        });
         return raw ? JSON.parse(raw) : {
             insights: [
                 { title: 'Keep Building', desc: 'Consistency is the key to achieving your long-term vision.', type: 'positive' }
@@ -716,7 +701,7 @@ export async function summarizeConversation(currentSummary, history) {
 /**
  * Sends a chat message and returns response.
  */
-export async function chatWithAI(profile, history, newMessage, memorySummary = "", systemContext = "") {
+export async function chatWithAI(profile, history, newMessage, memorySummary = "", systemContext = "", language = 'en') {
     try {
         const toolMode =
             !!systemContext ||
@@ -724,15 +709,6 @@ export async function chatWithAI(profile, history, newMessage, memorySummary = "
             mayContainActionIntent(newMessage);
         const includePrivateContext = toolMode || isPlanningOrSavedDataRequest(newMessage);
         const shouldUseHistory = !isSimpleGreeting(newMessage);
-        console.log('[AI_DEBUG][chatWithAI:start]', {
-            text: newMessage,
-            toolMode,
-            includePrivateContext,
-            shouldUseHistory,
-            hasSystemContext: !!systemContext,
-            historyCount: history?.length || 0,
-            memoryLength: memorySummary?.length || 0
-        });
         const profileSummary = summarizeProfileData(profile);
         const apiHistory = shouldUseHistory ? history.map(h => ({
             role: h.role === 'model' ? 'assistant' : h.role,
@@ -755,9 +731,10 @@ export async function chatWithAI(profile, history, newMessage, memorySummary = "
                 analystStrategy,
                 memorySummary,
                 currentDate,
-                includePrivateContext
+                includePrivateContext,
+                language
             ) + "\n\n" + TOOL_FORMATS
-            : createCompanionPrompt(profileSummary, currentDate);
+            : createCompanionPrompt(profileSummary, currentDate, language);
 
 
         const novaMessages = [
@@ -782,11 +759,6 @@ export async function chatWithAI(profile, history, newMessage, memorySummary = "
 
         const response = await callOpenAI(novaMessages);
         const raw = extractOpenAIResponseText(response);
-        console.log('[AI_DEBUG][chatWithAI:raw_response]', {
-            rawType: typeof raw,
-            rawLength: raw?.length || 0,
-            rawPreview: typeof raw === 'string' ? raw.slice(0, 240) : raw
-        });
         return raw || "I'm having a lot of requests right now please try again later 🌟 ";
     } catch (error) {
         console.error('[AI_DEBUG][chatWithAI:error]', {

@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, Platform
 } from 'react-native';
-import { Sparkles, Check, ChevronRight } from "lucide-react-native";
+import { LinearGradient } from 'expo-linear-gradient';
+import { Sparkles, Check, ChevronRight, AlertCircle } from "lucide-react-native";
 import RNDateTimePicker from '@react-native-community/datetimepicker';
-
+import { useAppTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export const Theme = {
   colors: {
@@ -87,86 +89,130 @@ export const Theme = {
 
 // --- REUSABLE COMPONENTS ---
 
-export const LogoHeader = ({ title, subtitle, style, titleStyle, subtitleStyle }) => (
-  <View style={[styles.logoSection, style]}>
-    <View style={styles.iconBadge}>
-      <Sparkles size={32} color={Theme.colors.primary} />
-    </View>
+export const LogoHeader = ({ title, subtitle, style, titleStyle, subtitleStyle }) => {
+  const { colors } = useAppTheme();
+  return (
+    <View style={[styles.logoSection, style]}>
+      <View style={[styles.iconBadge, { backgroundColor: colors.primaryLight, borderColor: colors.primaryBorder }]}>
+        <Sparkles size={32} color={colors.primary} />
+      </View>
 
-    <Text style={[
-      styles.title,
-      titleStyle
-    ]}>
-      {title}
-    </Text>
-
-    {subtitle && (
       <Text style={[
-        styles.subtitle,
-        subtitleStyle
+        styles.title,
+        { color: colors.textMain },
+        titleStyle
       ]}>
-        {subtitle}
+        {title}
       </Text>
-    )}
-  </View>
-);
 
-export const MyInput = ({ label, icon: Icon, rightIcon: RightIcon, onRightIconPress, ...props }) => (
-  <View style={styles.inputWrapper}>
-    {label && <Text style={styles.label}>{label}</Text>}
-
-    <View
-      style={[
-        styles.inputContainer,
-        props.multiline && styles.inputContainerMultiline,
-        props.value ? styles.inputContainerActive : null
-      ]}
-    >
-      {Icon && <View style={styles.inputIcon}><Icon size={20} color={Theme.colors.textSecondary} /></View>}
-
-      <TextInput
-        style={[
-          styles.input,
-          props.multiline && styles.inputMultiline,
-          props.style
-        ]}
-        placeholderTextColor={Theme.colors.placeholder}
-        selectionColor={Theme.colors.primary}
-        {...props}
-      />
-
-      {RightIcon && (
-        <TouchableOpacity onPress={onRightIconPress} style={styles.rightIconBtn}>
-          <RightIcon size={20} color={Theme.colors.textSecondary} />
-        </TouchableOpacity>
+      {subtitle && (
+        <Text style={[
+          styles.subtitle,
+          { color: colors.textSecondary },
+          subtitleStyle
+        ]}>
+          {subtitle}
+        </Text>
       )}
     </View>
-  </View>
-);
+  );
+};
 
-export const MyCheckbox = ({ label, checked, onPress }) => (
-  <TouchableOpacity
-    onPress={onPress}
-    activeOpacity={0.7}
-    style={[styles.checkboxRow, checked && styles.checkboxRowActive]}
-  >
-    <View style={[
-      styles.checkbox,
-      checked && styles.checkboxActive,
-    ]}>
-      {checked && <Check size={14} color="#fff" strokeWidth={3} />}
+export const MyInput = ({ label, icon: Icon, rightIcon: RightIcon, onRightIconPress, ...props }) => {
+  const { colors } = useAppTheme();
+  return (
+    <View style={styles.inputWrapper}>
+      {label && <Text style={[styles.label, { color: colors.textMain }]}>{label}</Text>}
+
+      <View
+        style={[
+          styles.inputContainer,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+          props.multiline && styles.inputContainerMultiline,
+          props.value ? [styles.inputContainerActive, { borderColor: colors.primary, backgroundColor: colors.background }] : null
+        ]}
+      >
+        {Icon && <View style={styles.inputIcon}><Icon size={20} color={colors.textSecondary} /></View>}
+
+        <TextInput
+          style={[
+            styles.input,
+            { color: colors.textMain },
+            props.multiline && styles.inputMultiline,
+            props.style
+          ]}
+          placeholderTextColor={colors.placeholder}
+          selectionColor={colors.primary}
+          {...props}
+        />
+
+        {RightIcon && (
+          <TouchableOpacity onPress={onRightIconPress} style={styles.rightIconBtn}>
+            <RightIcon size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
-    {label && <Text style={[styles.checkboxLabel, checked && styles.checkboxLabelActive]}>{label}</Text>}
-  </TouchableOpacity>
-);
+  );
+};
+
+export const MyCheckbox = ({ label, checked, onPress }) => {
+  const { colors } = useAppTheme();
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.7}
+      style={[
+        styles.checkboxRow, 
+        { backgroundColor: colors.surface, borderColor: colors.border },
+        checked && [styles.checkboxRowActive, { borderColor: colors.secondary, backgroundColor: colors.secondaryLight }]
+      ]}
+    >
+      <View style={[styles.checkbox, { borderColor: colors.border, backgroundColor: colors.surface }, checked && styles.checkboxActiveWrapper]}>
+        {checked && (
+          <LinearGradient
+            colors={Theme.gradients.hero}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.checkboxActiveGradient}
+          >
+            <Check size={14} color="#fff" strokeWidth={3} />
+          </LinearGradient>
+        )}
+      </View>
+      {label && <Text style={[styles.checkboxLabel, { color: colors.textMain }, checked && [styles.checkboxLabelActive, { color: colors.primary }]]}>{label}</Text>}
+    </TouchableOpacity>
+  );
+};
 
 export const MyButton = ({ title, onPress, type = 'primary', style, disabled = false }) => {
+  const { colors } = useAppTheme();
   const isPrimary = type === 'primary';
+
+  if (isPrimary && !disabled) {
+    return (
+      <TouchableOpacity
+        style={[styles.btnWrapper, style]}
+        onPress={onPress}
+        activeOpacity={0.9}
+      >
+        <LinearGradient
+          colors={Theme.gradients.hero}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.btnPrimaryGradient}
+        >
+          <Text style={styles.btnText}>{title}</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  }
+
   return (
     <TouchableOpacity
       style={[
         styles.btn,
-        isPrimary ? styles.btnPrimary : styles.btnSecondary,
+        isPrimary ? [styles.btnPrimaryDisabled, { backgroundColor: colors.border }] : [styles.btnSecondary, { backgroundColor: colors.surface, borderColor: colors.border }],
         disabled && styles.btnDisabled,
         style
       ]}
@@ -174,18 +220,19 @@ export const MyButton = ({ title, onPress, type = 'primary', style, disabled = f
       activeOpacity={disabled ? 1 : 0.9}
       disabled={disabled}
     >
-      <Text style={[styles.btnText, !isPrimary && styles.btnTextSecondary, disabled && styles.btnTextDisabled]}>{title}</Text>
+      <Text style={[styles.btnText, !isPrimary && [styles.btnTextSecondary, { color: colors.textMain }], disabled && styles.btnTextDisabled]}>{title}</Text>
     </TouchableOpacity>
   );
 };
 
 export const MyDatePicker = ({ label, value, onChange, icon: Icon, minimumDate, maximumDate }) => {
+  const { colors } = useAppTheme();
+  const { t, language } = useLanguage();
   const [show, setShow] = useState(false);
 
   const handleDateChange = (event, selectedDate) => {
-    setShow(Platform.OS === 'ios'); // Keep open on iOS until confirmed (or close if style is simple)
+    setShow(Platform.OS === 'ios');
     if (selectedDate) {
-      // Format to YYYY-MM-DD for text display
       const dateStr = selectedDate.toISOString().split('T')[0];
       onChange(dateStr);
     }
@@ -196,14 +243,18 @@ export const MyDatePicker = ({ label, value, onChange, icon: Icon, minimumDate, 
 
   return (
     <View style={styles.inputWrapper}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && <Text style={[styles.label, { color: colors.textMain }]}>{label}</Text>}
       <TouchableOpacity
-        style={[styles.inputContainer, value ? styles.inputContainerActive : null]}
+        style={[
+          styles.inputContainer, 
+          { backgroundColor: colors.surface, borderColor: colors.border },
+          value ? [styles.inputContainerActive, { borderColor: colors.primary, backgroundColor: colors.background }] : null
+        ]}
         onPress={() => setShow(true)}
       >
-        {Icon && <View style={styles.inputIcon}><Icon size={20} color={Theme.colors.textSecondary} /></View>}
-        <Text style={[styles.input, { textAlignVertical: 'center', paddingTop: 14 }]}>
-          {value || "Select Date"}
+        {Icon && <View style={styles.inputIcon}><Icon size={20} color={colors.textSecondary} /></View>}
+        <Text style={[styles.input, { color: colors.textMain, textAlignVertical: 'center', paddingTop: 14 }]}>
+          {value || t('selectDate')}
         </Text>
       </TouchableOpacity>
 
@@ -213,24 +264,25 @@ export const MyDatePicker = ({ label, value, onChange, icon: Icon, minimumDate, 
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={handleDateChange}
-          themeVariant="light"
-          accentColor={Theme.colors.primary}
+          themeVariant={colors.background === '#0F172A' ? "dark" : "light"}
+          accentColor={colors.primary}
           minimumDate={minimumDate}
           maximumDate={maximumDate}
+          locale={language}
         />
       )}
     </View>
   );
-
 };
 
 export const MyTimePicker = ({ label, value, onChange, icon: Icon }) => {
+  const { colors } = useAppTheme();
+  const { t, language } = useLanguage();
   const [show, setShow] = useState(false);
 
   const handleTimeChange = (event, selectedDate) => {
     setShow(Platform.OS === 'ios');
     if (selectedDate) {
-      // Format to HH:MM for text display
       const hours = selectedDate.getHours().toString().padStart(2, '0');
       const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
       onChange(`${hours}:${minutes}`);
@@ -240,7 +292,6 @@ export const MyTimePicker = ({ label, value, onChange, icon: Icon }) => {
     }
   };
 
-  // Parse current value string (HH:MM) to Date object for the picker
   const getTimeObject = () => {
     if (!value) return new Date();
     const [hours, minutes] = value.split(':').map(Number);
@@ -252,14 +303,18 @@ export const MyTimePicker = ({ label, value, onChange, icon: Icon }) => {
 
   return (
     <View style={styles.inputWrapper}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && <Text style={[styles.label, { color: colors.textMain }]}>{label}</Text>}
       <TouchableOpacity
-        style={[styles.inputContainer, value ? styles.inputContainerActive : null]}
+        style={[
+          styles.inputContainer, 
+          { backgroundColor: colors.surface, borderColor: colors.border },
+          value ? [styles.inputContainerActive, { borderColor: colors.primary, backgroundColor: colors.background }] : null
+        ]}
         onPress={() => setShow(true)}
       >
-        {Icon && <View style={styles.inputIcon}><Icon size={20} color={Theme.colors.textSecondary} /></View>}
-        <Text style={[styles.input, { textAlignVertical: 'center', paddingTop: 14 }]}>
-          {value || "Select Time"}
+        {Icon && <View style={styles.inputIcon}><Icon size={20} color={colors.textSecondary} /></View>}
+        <Text style={[styles.input, { color: colors.textMain, textAlignVertical: 'center', paddingTop: 14 }]}>
+          {value || t('selectTime')}
         </Text>
       </TouchableOpacity>
 
@@ -269,44 +324,100 @@ export const MyTimePicker = ({ label, value, onChange, icon: Icon }) => {
           mode="time"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={handleTimeChange}
-          themeVariant="light"
-          accentColor={Theme.colors.primary}
+          themeVariant={colors.background === '#0F172A' ? "dark" : "light"}
+          accentColor={colors.primary}
           is24Hour={true}
+          locale={language}
         />
       )}
     </View>
   );
 };
 
-export const MyCustomAlert = ({ visible, title, message, onClose }) => (
-  // ...
-  <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
-    <View style={styles.alertOverlay}>
-      <View style={styles.alertContainer}>
-        <View style={styles.alertIconBadge}>
-          <Sparkles size={24} color={Theme.colors.primary} />
+export const MyCustomAlert = ({ visible, title, message, onClose }) => {
+  const { colors } = useAppTheme();
+  const { t } = useLanguage();
+  return (
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
+      <View style={[styles.alertOverlay, { backgroundColor: colors.overlay }]}>
+        <View style={[styles.alertContainer, { backgroundColor: colors.surface }]}>
+          <View style={[styles.alertIconBadge, { backgroundColor: colors.successLight }]}>
+            <Sparkles size={24} color={colors.primary} />
+          </View>
+          <Text style={[styles.alertTitle, { color: colors.textMain }]}>{title}</Text>
+          <Text style={[styles.alertMessage, { color: colors.textSecondary }]}>{message}</Text>
+          <TouchableOpacity style={styles.alertButtonWrapper} onPress={onClose}>
+            <LinearGradient
+              colors={Theme.gradients.hero}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.alertButtonGradient}
+            >
+              <Text style={styles.alertButtonText}>{t('okayBtn')}</Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
-        <Text style={styles.alertTitle}>{title}</Text>
-        <Text style={styles.alertMessage}>{message}</Text>
-        <TouchableOpacity style={styles.alertButton} onPress={onClose}>
-          <Text style={styles.alertButtonText}>Okay</Text>
-        </TouchableOpacity>
       </View>
-    </View>
-  </Modal>
-);
+    </Modal>
+  );
+};
+
+export const MyConfirmAlert = ({ visible, title, message, onConfirm, onCancel }) => {
+  const { colors } = useAppTheme();
+  const { t } = useLanguage();
+  return (
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
+      <View style={[styles.alertOverlay, { backgroundColor: colors.overlay }]}>
+        <View style={[styles.alertContainer, { backgroundColor: colors.surface }]}>
+          <View style={[styles.alertIconBadge, { backgroundColor: colors.warningLight }]}>
+            <AlertCircle size={24} color={colors.warning} />
+          </View>
+          <Text style={[styles.alertTitle, { color: colors.textMain }]}>{title}</Text>
+          <Text style={[styles.alertMessage, { color: colors.textSecondary }]}>{message}</Text>
+          
+          <View style={styles.confirmButtonsRow}>
+            <TouchableOpacity 
+              style={[styles.confirmCancelBtn, { backgroundColor: colors.background, borderColor: colors.border }]} 
+              onPress={onCancel}
+            >
+              <Text style={[styles.confirmCancelText, { color: colors.textMain }]}>{t('cancelBtn') || 'Cancel'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.confirmActionBtn} onPress={onConfirm}>
+              <LinearGradient
+                colors={Theme.gradients.hero}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.confirmActionGradient}
+              >
+                <Text style={styles.alertButtonText}>{t('confirmBtn') || 'Confirm'}</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 export const NovaButton = ({ title, onPress, style }) => (
   <TouchableOpacity
-    style={[styles.novaButton, style]}
+    style={[styles.novaButtonWrapper, style]}
     onPress={onPress}
     activeOpacity={0.9}
   >
-    <Sparkles size={20} color="#fff" />
-    <Text style={styles.novaButtonText}>
-      {title}
-    </Text>
-    <ChevronRight size={18} color="#fff" />
+    <LinearGradient
+      colors={Theme.gradients.hero}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.novaButtonGradient}
+    >
+      <Sparkles size={20} color="#fff" />
+      <Text style={styles.novaButtonText}>
+        {title}
+      </Text>
+      <ChevronRight size={18} color="#fff" />
+    </LinearGradient>
   </TouchableOpacity>
 );
 
@@ -410,9 +521,16 @@ const styles = StyleSheet.create({
     marginRight: 16,
     backgroundColor: Theme.colors.surface
   },
-  checkboxActive: {
-    borderColor: Theme.colors.primary,
-    backgroundColor: Theme.colors.primary,
+  checkboxActiveWrapper: {
+    borderColor: 'transparent',
+    borderWidth: 0,
+  },
+  checkboxActiveGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   checkboxLabel: {
     fontSize: 16,
@@ -435,8 +553,20 @@ const styles = StyleSheet.create({
     width: '100%',
     ...Theme.shadows.md
   },
-  btnPrimary: {
-    backgroundColor: Theme.colors.primary,
+  btnWrapper: {
+    width: '100%',
+    borderRadius: Theme.radii?.md ?? Theme.radius,
+    ...Theme.shadows.glow
+  },
+  btnPrimaryGradient: {
+    paddingVertical: 18,
+    borderRadius: Theme.radii?.md ?? Theme.radius,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  btnPrimaryDisabled: {
+    backgroundColor: Theme.colors.border,
   },
   btnSecondary: {
     backgroundColor: Theme.colors.surface,
@@ -497,8 +627,12 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     lineHeight: 24
   },
-  alertButton: {
-    backgroundColor: Theme.colors.primary,
+  alertButtonWrapper: {
+    width: '100%',
+    borderRadius: 12,
+    ...Theme.shadows.glow
+  },
+  alertButtonGradient: {
     paddingVertical: 14,
     paddingHorizontal: 32,
     borderRadius: 12,
@@ -509,6 +643,37 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontFamily: Theme.typography.subHeader,
     fontSize: 16
+  },
+  confirmButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    gap: 16,
+    marginTop: 8
+  },
+  confirmCancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  confirmCancelText: {
+    fontFamily: Theme.typography.subHeader,
+    fontSize: 16,
+  },
+  confirmActionBtn: {
+    flex: 1,
+    borderRadius: 12,
+    ...Theme.shadows.glow
+  },
+  confirmActionGradient: {
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   inputContainerMultiline: {
     height: 'auto',
@@ -524,22 +689,20 @@ const styles = StyleSheet.create({
     minHeight: 80,
   },
 
-  novaButton: {
+  novaButtonWrapper: {
+    width: '100%',
+    borderRadius: Theme.radii?.md ?? Theme.radius,
+    ...Theme.shadows.glow,
+  },
+  novaButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-
-    backgroundColor: Theme.colors.primary,
-
     paddingVertical: 16,
     paddingHorizontal: 20,
-
     borderRadius: Theme.radii?.md ?? Theme.radius,
-
     width: '100%',
-
-    ...Theme.shadows.glow,
   },
 
   novaButtonText: {

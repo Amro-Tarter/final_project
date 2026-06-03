@@ -2,14 +2,18 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MotiView } from 'moti';
 import { Theme } from '../components';
+import { useAppTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export function MoodRiver({ moods = [] }) {
+    const { colors } = useAppTheme();
+    const { t } = useLanguage();
     const display = moods.length >= 7 ? moods.slice(-7) : [...Array(7 - moods.length).fill('·'), ...moods];
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Mood River</Text>
-            <Text style={styles.subtitle}>Past 7 days</Text>
+        <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.title, { color: colors.textMain }]}>{t('moodRiver')}</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{t('past7Days')}</Text>
             <View style={styles.river}>
                 {display.map((emoji, i) => (
                     <MotiView
@@ -17,7 +21,7 @@ export function MoodRiver({ moods = [] }) {
                         from={{ opacity: 0, scale: 0.5 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ type: 'timing', duration: 300, delay: i * 60 }}
-                        style={styles.moodDot}
+                        style={[styles.moodDot, { backgroundColor: colors.background }]}
                     >
                         <Text style={styles.emoji}>{emoji}</Text>
                     </MotiView>

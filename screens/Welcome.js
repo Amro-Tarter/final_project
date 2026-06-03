@@ -3,10 +3,12 @@ import { View, StyleSheet, Text, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme, LogoHeader, MyButton } from '../components/components';
 import { Target, TrendingUp, Heart } from 'lucide-react-native';
+import { useAppTheme } from '../context/ThemeContext';
 
 export default function WelcomeScreen({ navigation }) {
+    const { colors } = useAppTheme();
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.contentContainer}>
                 <LogoHeader
                     title="Achievements Ahead"
@@ -16,16 +18,16 @@ export default function WelcomeScreen({ navigation }) {
 
                 <View style={styles.featuresBox}>
                     <View style={styles.featureRow}>
-                        <Target size={28} color={Theme.colors.primary} />
-                        <Text style={styles.featureText}>Set Meaningful Goals</Text>
+                        <Target size={28} color={colors.primary} />
+                        <Text style={[styles.featureText, { color: colors.textMain }]}>Set Meaningful Goals</Text>
                     </View>
                     <View style={styles.featureRow}>
-                        <TrendingUp size={28} color={Theme.colors.success} />
-                        <Text style={styles.featureText}>Track Your Progress</Text>
+                        <TrendingUp size={28} color={colors.success} />
+                        <Text style={[styles.featureText, { color: colors.textMain }]}>Track Your Progress</Text>
                     </View>
                     <View style={styles.featureRow}>
-                        <Heart size={28} color={Theme.colors.secondary} />
-                        <Text style={styles.featureText}>Reflect & Grow</Text>
+                        <Heart size={28} color={colors.secondary} />
+                        <Text style={[styles.featureText, { color: colors.textMain }]}>Reflect & Grow</Text>
                     </View>
                 </View>
 

@@ -1,10 +1,15 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MotiView } from 'moti';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles, ChevronRight } from 'lucide-react-native';
 import { Theme } from '../components';
+import { useAppTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export function CoPilotCard({ message, onPress }) {
+    const { colors } = useAppTheme();
+    const { t } = useLanguage();
     return (
         <TouchableOpacity onPress={onPress} activeOpacity={0.92}>
             <MotiView
@@ -18,18 +23,25 @@ export function CoPilotCard({ message, onPress }) {
                     animate={{ opacity: [0.3, 0.6, 0.3] }}
                     transition={{ type: 'timing', duration: 3000, loop: true }}
                     style={styles.glow}
-                />
-                <View style={styles.card}>
+                >
+                    <LinearGradient
+                        colors={Theme.gradients.hero}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.glowFill}
+                    />
+                </MotiView>
+                <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.primaryBorder }]}>
                     <View style={styles.iconRow}>
-                        <View style={styles.iconBadge}>
-                            <Sparkles size={18} color={Theme.colors.primary} />
+                        <View style={[styles.iconBadge, { backgroundColor: colors.primaryLight }]}>
+                            <Sparkles size={18} color={colors.primary} />
                         </View>
-                        <Text style={styles.badge}>Nova · Co-Pilot</Text>
+                        <Text style={[styles.badge, { color: colors.primary }]}>{t('coPilotBadge')}</Text>
                     </View>
-                    <Text style={styles.message}>{message}</Text>
+                    <Text style={[styles.message, { color: colors.textMain }]}>{message}</Text>
                     <View style={styles.footer}>
-                        <Text style={styles.cta}>Talk to Nova</Text>
-                        <ChevronRight size={18} color={Theme.colors.primary} />
+                        <Text style={[styles.cta, { color: colors.primary }]}>{t('talkToNova')}</Text>
+                        <ChevronRight size={18} color={colors.primary} />
                     </View>
                 </View>
             </MotiView>
@@ -49,7 +61,11 @@ const styles = StyleSheet.create({
         right: -4,
         bottom: -4,
         borderRadius: Theme.radii.lg + 4,
-        backgroundColor: Theme.colors.primary,
+        overflow: 'hidden',
+    },
+    glowFill: {
+        flex: 1,
+        borderRadius: Theme.radii.lg + 4,
     },
     card: {
         backgroundColor: Theme.colors.surface,

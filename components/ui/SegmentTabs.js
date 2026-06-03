@@ -1,20 +1,34 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../components';
+import { useAppTheme } from '../../context/ThemeContext';
 
 export function SegmentTabs({ tabs, activeTab, onTabChange }) {
+    const { colors } = useAppTheme();
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             {tabs.map(tab => {
                 const isActive = activeTab === tab;
                 return (
                     <TouchableOpacity
                         key={tab}
-                        style={[styles.tab, isActive && styles.tabActive]}
+                        style={isActive ? styles.tabWrapper : styles.tab}
                         onPress={() => onTabChange(tab)}
                         activeOpacity={0.8}
                     >
-                        <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{tab}</Text>
+                        {isActive ? (
+                            <LinearGradient
+                                colors={Theme.gradients.hero}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.tabActiveGradient}
+                            >
+                                <Text style={styles.tabTextActive}>{tab}</Text>
+                            </LinearGradient>
+                        ) : (
+                            <Text style={[styles.tabText, { color: colors.textSecondary }]}>{tab}</Text>
+                        )}
                     </TouchableOpacity>
                 );
             })}
@@ -23,12 +37,13 @@ export function SegmentTabs({ tabs, activeTab, onTabChange }) {
 }
 
 export function SectionHeader({ title, action, onAction }) {
+    const { colors } = useAppTheme();
     return (
         <View style={styles.header}>
-            <Text style={styles.title}>{title}</Text>
+            <Text style={[styles.title, { color: colors.textMain }]}>{title}</Text>
             {action && (
                 <TouchableOpacity onPress={onAction}>
-                    <Text style={styles.action}>{action}</Text>
+                    <Text style={[styles.action, { color: colors.primary }]}>{action}</Text>
                 </TouchableOpacity>
             )}
         </View>
@@ -52,8 +67,15 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderRadius: Theme.radii.md,
     },
-    tabActive: {
-        backgroundColor: Theme.colors.primary,
+    tabWrapper: {
+        flex: 1,
+        borderRadius: Theme.radii.md,
+        ...Theme.shadows.sm,
+    },
+    tabActiveGradient: {
+        alignItems: 'center',
+        paddingVertical: 10,
+        borderRadius: Theme.radii.md,
     },
     tabText: {
         fontSize: 14,

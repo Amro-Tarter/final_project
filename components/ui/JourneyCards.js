@@ -1,76 +1,89 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { MotiView } from 'moti';
-import { Sparkles } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Sparkles, MapPin } from 'lucide-react-native';
 import { Theme, MyButton } from '../components';
+import { useAppTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export function CelebrationModal({ visible, title, message, onClose }) {
+    const { colors } = useAppTheme();
+    const { t } = useLanguage();
     return (
         <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
-            <View style={styles.overlay}>
+            <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
                 <MotiView
                     from={{ opacity: 0, scale: 0.85 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ type: 'spring', damping: 14 }}
-                    style={styles.card}
+                    style={[styles.card, { backgroundColor: colors.surface }]}
                 >
-                    <View style={styles.iconWrap}>
-                        <Sparkles size={36} color={Theme.colors.primary} />
+                    <View style={[styles.iconWrap, { backgroundColor: colors.primaryLight }]}>
+                        <Sparkles size={36} color={colors.primary} />
                     </View>
-                    <Text style={styles.badge}>Journey Completed</Text>
-                    <Text style={styles.title}>{title}</Text>
-                    <Text style={styles.message}>{message}</Text>
-                    <MyButton title="Continue Journey" onPress={onClose} style={{ marginTop: 8 }} />
+                    <Text style={[styles.badge, { color: colors.primary }]}>{t('journeyCompleted')}</Text>
+                    <Text style={[styles.title, { color: colors.textMain }]}>{title}</Text>
+                    <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text>
+                    <MyButton title={t('continueJourney')} onPress={onClose} style={{ marginTop: 8 }} />
                 </MotiView>
             </View>
         </Modal>
     );
 }
 
-export function DestinationCard({ goal, pitStop, remainingStops, onPress }) {
+export function GoalCard({ goal, currentTask, remainingTasks, onPress }) {
+    const { colors } = useAppTheme();
+    const { t } = useLanguage();
     const pct = Math.round((goal.progress || 0) * 100);
 
     return (
-        <TouchableOpacity style={styles.destCard} onPress={onPress} activeOpacity={0.92}>
+        <TouchableOpacity style={[styles.destCard, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={onPress} activeOpacity={0.92}>
             <View style={styles.destHeader}>
-                <Text style={styles.destName} numberOfLines={2}>{goal.title}</Text>
-                <Text style={styles.destPct}>{pct}%</Text>
+                <Text style={[styles.destName, { color: colors.textMain }]} numberOfLines={2}>{goal.title}</Text>
+                <Text style={[styles.destPct, { color: colors.primary }]}>{pct}%</Text>
             </View>
             {goal.deadline && (
-                <Text style={styles.destDate}>Target: {goal.deadline}</Text>
+                <Text style={[styles.destDate, { color: colors.textSecondary }]}>{t('target')}: {goal.deadline}</Text>
             )}
-            {pitStop && (
-                <Text style={styles.destPitStop} numberOfLines={1}>
-                    Current Pit Stop: {pitStop}
+            {currentTask && (
+                <Text style={[styles.destPitStop, { color: colors.textMain }]} numberOfLines={1}>
+                    {t('currentTask')}: {currentTask}
                 </Text>
             )}
-            <Text style={styles.destRemaining}>
-                {remainingStops} stop{remainingStops !== 1 ? 's' : ''} remaining
+            <Text style={[styles.destRemaining, { color: colors.textSecondary }]}>
+                {remainingTasks} {t('tasksRemaining')}
             </Text>
-            <View style={styles.destProgressTrack}>
-                <View style={[styles.destProgressFill, { width: `${pct}%` }]} />
+            <View style={[styles.destProgressTrack, { backgroundColor: colors.border }]}>
+                <LinearGradient
+                    colors={Theme.gradients.hero}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.destProgressFill, { width: `${pct}%` }]}
+                />
             </View>
-            <Text style={styles.destCta}>Open Journey →</Text>
+            <Text style={[styles.destCta, { color: colors.primary }]}>{t('openJourney')} →</Text>
         </TouchableOpacity>
     );
 }
 
 export function InsightCard({ title, desc, type = 'info' }) {
+    const { colors: appColors } = useAppTheme();
     const colors = {
         positive: '#F59E0B',
-        warning: Theme.colors.error,
-        info: Theme.colors.success,
+        warning: appColors.error,
+        info: appColors.success,
     };
     const color = colors[type] || colors.info;
 
     return (
-        <View style={styles.insightCard}>
+        <View style={[styles.insightCard, { backgroundColor: appColors.surface, borderColor: appColors.border }]}>
             <View style={[styles.insightDot, { backgroundColor: color + '25' }]}>
                 <View style={[styles.insightDotInner, { backgroundColor: color }]} />
             </View>
             <View style={styles.insightContent}>
-                <Text style={styles.insightTitle}>{title}</Text>
-                <Text style={styles.insightDesc}>{desc}</Text>
+                <Text style={[styles.insightTitle, { color: appColors.textMain }]}>{title}</Text>
+                <Text style={[styles.insightDesc, { color: appColors.textSecondary }]}>{desc}</Text>
             </View>
         </View>
     );
@@ -178,7 +191,6 @@ const styles = StyleSheet.create({
     },
     destProgressFill: {
         height: '100%',
-        backgroundColor: Theme.colors.primary,
         borderRadius: 3,
     },
     destCta: {

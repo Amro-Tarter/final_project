@@ -2,29 +2,33 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Theme } from '../components';
 import { Sun } from 'lucide-react-native';
+import { useAppTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export function DailyJourneySnapshot({ destination, nextStep, focusTime, onPress }) {
+    const { colors } = useAppTheme();
+    const { t } = useLanguage();
     if (!nextStep && !destination) return null;
 
     return (
-        <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={onPress ? 0.9 : 1}>
-            <View style={styles.iconWrap}>
-                <Sun size={20} color={Theme.colors.primary} />
+        <TouchableOpacity style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={onPress} activeOpacity={onPress ? 0.9 : 1}>
+            <View style={[styles.iconWrap, { backgroundColor: colors.primaryLight }]}>
+                <Sun size={20} color={colors.primary} />
             </View>
             <View style={styles.content}>
-                <Text style={styles.label}>Today's Journey Snapshot</Text>
+                <Text style={[styles.label, { color: colors.primary }]}>{t('todayJourneySnapshot')}</Text>
                 {destination && (
-                    <Text style={styles.line} numberOfLines={1}>
-                        Destination: <Text style={styles.bold}>{destination}</Text>
+                    <Text style={[styles.line, { color: colors.textSecondary }]} numberOfLines={1}>
+                        {t('goalPrefix')} <Text style={[styles.bold, { color: colors.textMain }]}>{destination}</Text>
                     </Text>
                 )}
                 {nextStep && (
-                    <Text style={styles.line} numberOfLines={1}>
-                        Next step: <Text style={styles.bold}>{nextStep}</Text>
+                    <Text style={[styles.line, { color: colors.textSecondary }]} numberOfLines={1}>
+                        {t('nextTaskPrefix')} <Text style={[styles.bold, { color: colors.textMain }]}>{nextStep}</Text>
                     </Text>
                 )}
                 {focusTime && (
-                    <Text style={styles.hint}>Suggested focus: {focusTime}</Text>
+                    <Text style={[styles.hint, { color: colors.textSecondary }]}>{t('suggestedFocus')} {focusTime}</Text>
                 )}
             </View>
         </TouchableOpacity>

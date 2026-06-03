@@ -3,14 +3,18 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { CheckCircle2, Circle } from 'lucide-react-native';
 import { MotiView } from 'moti';
 import { Theme } from '../components';
-
-const PRIORITY_COLORS = {
-    High: Theme.colors.primary,
-    Normal: Theme.colors.textSecondary,
-    Low: '#94A3B8',
-};
+import { useAppTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export function TaskStepCard({ task, onToggle, onPress }) {
+    const { colors } = useAppTheme();
+    const { t } = useLanguage();
+    const PRIORITY_COLORS = {
+        High: colors.primary,
+        Normal: colors.textSecondary,
+        Low: '#94A3B8',
+    };
+
     const isCompleted = task.status === 'completed';
     const priorityColor = PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.Normal;
 
@@ -19,29 +23,41 @@ export function TaskStepCard({ task, onToggle, onPress }) {
             from={{ opacity: 0, translateX: -8 }}
             animate={{ opacity: 1, translateX: 0 }}
             transition={{ type: 'timing', duration: 350 }}
-            style={styles.card}
+            style={[
+                styles.card, 
+                { backgroundColor: colors.surface, borderColor: colors.border },
+                task.priority === 'High' && !isCompleted && { 
+                    borderColor: colors.primary, 
+                    borderWidth: 1.5,
+                    shadowColor: colors.primary,
+                    shadowOpacity: 0.15,
+                    shadowRadius: 10,
+                    shadowOffset: { width: 0, height: 4 },
+                    elevation: 5
+                }
+            ]}
         >
             <TouchableOpacity style={styles.checkBtn} onPress={onToggle} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 {isCompleted ? (
-                    <CheckCircle2 size={24} color={Theme.colors.success} />
+                    <CheckCircle2 size={24} color={colors.success} />
                 ) : (
                     <Circle size={24} color={priorityColor} />
                 )}
             </TouchableOpacity>
             <TouchableOpacity style={styles.content} onPress={onPress} activeOpacity={0.7}>
-                <Text style={[styles.title, isCompleted && styles.titleDone]} numberOfLines={2}>
+                <Text style={[styles.title, { color: colors.textMain }, isCompleted && { textDecorationLine: 'line-through', color: colors.textSecondary }]} numberOfLines={2}>
                     {task.title}
                 </Text>
                 <View style={styles.meta}>
                     {task.priority && (
                         <View style={[styles.priorityBadge, { backgroundColor: priorityColor + '18' }]}>
                             <Text style={[styles.priorityText, { color: priorityColor }]}>
-                                {task.priority === 'High' ? 'Focus' : task.priority}
+                                {task.priority === 'High' ? t('focus') : t('normal')}
                             </Text>
                         </View>
                     )}
                     {task.due && (
-                        <Text style={styles.due}>{task.due}</Text>
+                        <Text style={[styles.due, { color: colors.textSecondary }]}>{task.due}</Text>
                     )}
                 </View>
             </TouchableOpacity>

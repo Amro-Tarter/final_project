@@ -12,11 +12,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Mail, Lock, Eye, EyeOff } from "lucide-react-native";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../config/firebase";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import components
 import { MyButton, MyInput, MyCheckbox, LogoHeader, Theme, MyCustomAlert } from "../components/components";
+import { useAppTheme } from "../context/ThemeContext";
 
 export default function LoginScreen({ navigation }) {
+  const { colors } = useAppTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -33,8 +36,8 @@ export default function LoginScreen({ navigation }) {
         setAlertVisible(true);
         return;
       }
+      await AsyncStorage.setItem('rememberMe', rememberMe ? 'true' : 'false');
       await signInWithEmailAndPassword(auth, email, password);
-      // Logic for "Remember Me" could go here
     } catch (error) {
       setAlertTitle("Login Failed");
       setAlertMessage("The email or password you entered is incorrect.");
@@ -43,7 +46,7 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
@@ -88,7 +91,7 @@ export default function LoginScreen({ navigation }) {
               </View>
 
               <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
-                <Text style={styles.linkText}>Forgot password?</Text>
+                <Text style={[styles.linkText, { color: colors.primary }]}>Forgot password?</Text>
               </TouchableOpacity>
             </View>
 
@@ -99,9 +102,9 @@ export default function LoginScreen({ navigation }) {
             />
 
             <View style={styles.footer}>
-              <Text style={styles.grayText}>Don't have an account? </Text>
+              <Text style={[styles.grayText, { color: colors.textSecondary }]}>Don't have an account? </Text>
               <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-                <Text style={styles.linkTextBold}>Sign Up</Text>
+                <Text style={[styles.linkTextBold, { color: colors.primary }]}>Sign Up</Text>
               </TouchableOpacity>
             </View>
 

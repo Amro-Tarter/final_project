@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Theme, NovaButton, MyButton, MyInput, MyCheckbox, MyDatePicker, MyTimePicker } from '../../components/components';
-
+import { MotiView } from 'moti';
 import { ArrowLeft, Calendar, Sparkles } from 'lucide-react-native';
 import { useTasks } from '../../hooks/useTasks';
 import { useGoals } from '../../hooks/useGoals';
 import { useNotifications } from '../../context/NotificationContext';
+import { useAppTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function TaskForm({ navigation, route }) {
+    const { colors } = useAppTheme();
+    const { t } = useLanguage();
     // If editing, we passed the full task object
     const taskToEdit = route.params?.task;
     const isEditing = !!taskToEdit;
@@ -37,12 +42,12 @@ export default function TaskForm({ navigation, route }) {
 
     const handleSave = async () => {
         if (!title.trim()) {
-            showNotification('warning', 'Please add a task title 📝');
+            showNotification('warning', t('taskTitleRequired'));
             return;
         }
 
         if (!dueDate) {
-            showNotification('warning', "Please set a due date ⏳");
+            showNotification('warning', t('taskDateRequired'));
             return;
         }
 
@@ -51,18 +56,18 @@ export default function TaskForm({ navigation, route }) {
             today.setHours(0, 0, 0, 0);
             const selectedDate = new Date(dueDate);
             if (selectedDate < today) {
-                showNotification('error', "Tasks belong in the future! 🕰️ Please pick today or a later date.");
+                showNotification('error', t('taskFutureDateRequired'));
                 return;
             }
         }
 
         if (recurrenceType === 'custom' && (!customInterval || Number(customInterval) < 1)) {
-            showNotification('warning', 'Please choose a valid repeat interval.');
+            showNotification('warning', t('taskRepeatInvalid'));
             return;
         }
 
         if (reminderType !== 'none' && !reminderValue) {
-            showNotification('warning', 'Please choose when Nova should remind you.');
+            showNotification('warning', t('taskReminderInvalid'));
             return;
         }
 
@@ -97,7 +102,8 @@ export default function TaskForm({ navigation, route }) {
             }
             navigation.goBack();
         } catch (error) {
-            showNotification('error', 'Could not save task. Please try again. 🛑');
+            showNotification('error', t('taskSaveError'));
+            console.error('Error saving task:', error);
         } finally {
             setSubmitting(false);
         }
@@ -105,10 +111,21 @@ export default function TaskForm({ navigation, route }) {
 
     const OptionChip = ({ label, selected, onPress }) => (
         <TouchableOpacity
-            style={[styles.chip, selected && styles.chipSelected]}
+            style={selected ? styles.chipWrapper : [styles.chip, { backgroundColor: colors.surface, borderColor: colors.border }]}
             onPress={onPress}
         >
-            <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
+            {selected ? (
+                <LinearGradient
+                    colors={Theme.gradients.hero}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.chipSelectedGradient}
+                >
+                    <Text style={styles.chipTextSelected}>{label}</Text>
+                </LinearGradient>
+            ) : (
+                <Text style={[styles.chipText, { color: colors.textSecondary }]}>{label}</Text>
+            )}
         </TouchableOpacity>
     );
 
@@ -116,11 +133,11 @@ export default function TaskForm({ navigation, route }) {
 
         const intentText =
             title?.trim()
-                ? `I want help planning a task called "${title}".`
-                : `I want help planning a new task.`;
+                ? `I want help planning a step called "${title}".`
+                : `I want help planning a new step.`;
 
         const hiddenContext =
-            "The user is starting a brand-new task planning session. Ignore previous task conversations. DO NOT create any task yet. Help them define the task, due date, recurrence and reminder. Ask any missing questions naturally. Only use create_task after the user explicitly agrees.";
+            "The user is starting a brand-new step planning session. Ignore previous step conversations. DO NOT create any step yet. Help them define the step, due date, recurrence and reminder. Ask any missing questions naturally. Only use create_task after the user explicitly agrees.";
 
         navigation.push('AIChat', {
             freshChat: true,
@@ -129,34 +146,34 @@ export default function TaskForm({ navigation, route }) {
         });
     };
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <ArrowLeft size={24} color={Theme.colors.textMain} />
+                    <ArrowLeft size={24} color={colors.textMain} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>
-                    {isEditing ? 'Edit Task' : 'New Task'}
+                <Text style={[styles.headerTitle, { color: colors.textMain }]}>
+                    {isEditing ? t('editTask') : t('addTask')}
                 </Text>
                 <View style={{ width: 24 }} />
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
-                {!isEditing && (
-                    <NovaButton
-                        title="Plan Task with Nova"
-                        onPress={handleNovaTask}
-                    />
-                )}
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <MotiView
+                    from={{ opacity: 0, translateY: 20 }}
+                    animate={{ opacity: 1, translateY: 0 }}
+                    transition={{ type: 'timing', duration: 500 }}
+                    style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                >
                 <MyInput
-                    label="Task Title"
-                    placeholder="What needs to be done?"
+                    label={t('taskTitle')}
+                    placeholder={t('taskTitlePlaceholder')}
                     value={title}
                     onChangeText={setTitle}
                 />
 
                 <MyInput
-                    label="Description"
-                    placeholder="Add details..."
+                    label={t('taskDesc')}
+                    placeholder={t('taskDescPlaceholder')}
                     value={desc}
                     onChangeText={setDesc}
                     multiline
@@ -165,7 +182,7 @@ export default function TaskForm({ navigation, route }) {
                 />
 
                 <MyDatePicker
-                    label="Due Date"
+                    label={t('dueDate')}
                     value={dueDate}
                     onChange={setDueDate}
                     icon={Calendar}
@@ -173,16 +190,16 @@ export default function TaskForm({ navigation, route }) {
                 />
 
                 {/* Recurrence Section */}
-                <Text style={styles.sectionLabel}>Repetition</Text>
+                <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>{t('repetition')}</Text>
                 <View style={styles.chipRow}>
-                    <OptionChip label="None" selected={recurrenceType === 'none'} onPress={() => setRecurrenceType('none')} />
-                    <OptionChip label="Daily" selected={recurrenceType === 'daily'} onPress={() => setRecurrenceType('daily')} />
-                    <OptionChip label="Weekly" selected={recurrenceType === 'weekly'} onPress={() => setRecurrenceType('weekly')} />
-                    <OptionChip label="Custom" selected={recurrenceType === 'custom'} onPress={() => setRecurrenceType('custom')} />
+                    <OptionChip label={t('none')} selected={recurrenceType === 'none'} onPress={() => setRecurrenceType('none')} />
+                    <OptionChip label={t('daily')} selected={recurrenceType === 'daily'} onPress={() => setRecurrenceType('daily')} />
+                    <OptionChip label={t('weekly')} selected={recurrenceType === 'weekly'} onPress={() => setRecurrenceType('weekly')} />
+                    <OptionChip label={t('custom')} selected={recurrenceType === 'custom'} onPress={() => setRecurrenceType('custom')} />
                 </View>
                 {recurrenceType === 'custom' && (
                     <MyInput
-                        label="Every X Days"
+                        label={t('everyXDays')}
                         placeholder="e.g. 3"
                         value={customInterval}
                         onChangeText={setCustomInterval}
@@ -191,17 +208,17 @@ export default function TaskForm({ navigation, route }) {
                 )}
 
                 {/* Reminder Section */}
-                <Text style={styles.sectionLabel}>Reminder</Text>
+                <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>{t('reminder')}</Text>
                 <View style={styles.chipRow}>
-                    <OptionChip label="None" selected={reminderType === 'none'} onPress={() => {
+                    <OptionChip label={t('none')} selected={reminderType === 'none'} onPress={() => {
                         setReminderType('none');
                         setReminderValue('');
                     }} />
-                    <OptionChip label="Period" selected={reminderType === 'period'} onPress={() => {
+                    <OptionChip label={t('period')} selected={reminderType === 'period'} onPress={() => {
                         setReminderType('period');
                         if (reminderValue.includes(':')) setReminderValue('');
                     }} />
-                    <OptionChip label="Time" selected={reminderType === 'time'} onPress={() => {
+                    <OptionChip label={t('time')} selected={reminderType === 'time'} onPress={() => {
                         setReminderType('time');
                         if (reminderValue === 'morning' || reminderValue === 'evening') setReminderValue('');
                     }} />
@@ -209,13 +226,13 @@ export default function TaskForm({ navigation, route }) {
 
                 {reminderType === 'period' && (
                     <View style={styles.chipRow}>
-                        <OptionChip label="Morning" selected={reminderValue === 'morning'} onPress={() => setReminderValue('morning')} />
-                        <OptionChip label="Evening" selected={reminderValue === 'evening'} onPress={() => setReminderValue('evening')} />
+                        <OptionChip label={t('morning')} selected={reminderValue === 'morning'} onPress={() => setReminderValue('morning')} />
+                        <OptionChip label={t('evening')} selected={reminderValue === 'evening'} onPress={() => setReminderValue('evening')} />
                     </View>
                 )}
                 {reminderType === 'time' && (
                     <MyTimePicker
-                        label="At Time"
+                        label={t('time')}
                         value={reminderValue}
                         onChange={setReminderValue}
                     />
@@ -224,11 +241,11 @@ export default function TaskForm({ navigation, route }) {
                 {/* Link to Goal Section */}
                 {activeGoals.length > 0 && (
                     <>
-                        <Text style={styles.sectionLabel}>Link to Goal (Optional)</Text>
+                        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>{t('linkToGoal')}</Text>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
                             <View style={[styles.chipRow, { flexWrap: 'nowrap' }]}>
                                 <OptionChip
-                                    label="None"
+                                    label={t('none')}
                                     selected={selectedGoalId === null}
                                     onPress={() => setSelectedGoalId(null)}
                                 />
@@ -247,18 +264,26 @@ export default function TaskForm({ navigation, route }) {
 
                 <View style={{ marginVertical: Theme.spacing.md }}>
                     <MyCheckbox
-                        label="High Priority"
+                        label={t('high')}
                         checked={isHighPriority}
                         onPress={() => setIsHighPriority(!isHighPriority)}
                     />
                 </View>
 
-                <MyButton
-                    title={submitting ? "Saving..." : (isEditing ? "Save Changes" : "Create Task")}
-                    onPress={handleSave}
-                    disabled={submitting}
-                    style={{ marginTop: Theme.spacing.xl }}
-                />
+                </MotiView>
+
+                <MotiView
+                    from={{ opacity: 0, translateY: 20 }}
+                    animate={{ opacity: 1, translateY: 0 }}
+                    transition={{ type: 'timing', duration: 500, delay: 100 }}
+                >
+                    <MyButton
+                        title={submitting ? "..." : (isEditing ? t('saveTask') : t('addTask'))}
+                        onPress={handleSave}
+                        disabled={submitting}
+                        style={{ marginTop: Theme.spacing.xl }}
+                    />
+                </MotiView>
             </ScrollView>
         </SafeAreaView>
     );
@@ -287,6 +312,14 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: Theme.spacing.lg,
+    },
+    card: {
+        backgroundColor: Theme.colors.surface,
+        padding: 24,
+        borderRadius: Theme.radii.lg,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        ...Theme.shadows.float,
     },
     aiButton: {
         flexDirection: 'row',
@@ -324,9 +357,14 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: Theme.colors.border,
     },
-    chipSelected: {
-        backgroundColor: Theme.colors.primary,
-        borderColor: Theme.colors.primary,
+    chipWrapper: {
+        borderRadius: 20,
+        ...Theme.shadows.sm,
+    },
+    chipSelectedGradient: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
     },
     chipText: {
         fontSize: 14,

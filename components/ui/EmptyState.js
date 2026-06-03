@@ -1,9 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MotiView } from 'moti';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../components';
+import { useAppTheme } from '../../context/ThemeContext';
 
 export function EmptyState({ title, subtitle, cta, onPress, icon: Icon }) {
+    const { colors } = useAppTheme();
     return (
         <MotiView
             from={{ opacity: 0, translateY: 12 }}
@@ -12,15 +15,22 @@ export function EmptyState({ title, subtitle, cta, onPress, icon: Icon }) {
             style={styles.container}
         >
             {Icon && (
-                <View style={styles.iconWrap}>
-                    <Icon size={32} color={Theme.colors.secondary} />
+                <View style={[styles.iconWrap, { backgroundColor: colors.secondaryLight }]}>
+                    <Icon size={32} color={colors.secondary} />
                 </View>
             )}
-            <Text style={styles.title}>{title}</Text>
-            <Text style={styles.subtitle}>{subtitle}</Text>
+            <Text style={[styles.title, { color: colors.textMain }]}>{title}</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{subtitle}</Text>
             {cta && onPress && (
-                <TouchableOpacity style={styles.cta} onPress={onPress} activeOpacity={0.85}>
-                    <Text style={styles.ctaText}>{cta}</Text>
+                <TouchableOpacity style={styles.ctaWrapper} onPress={onPress} activeOpacity={0.85}>
+                    <LinearGradient
+                        colors={Theme.gradients.hero}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.ctaGradient}
+                    >
+                        <Text style={styles.ctaText}>{cta}</Text>
+                    </LinearGradient>
                 </TouchableOpacity>
             )}
         </MotiView>
@@ -57,12 +67,14 @@ const styles = StyleSheet.create({
         lineHeight: 22,
         marginBottom: 20,
     },
-    cta: {
-        backgroundColor: Theme.colors.primary,
+    ctaWrapper: {
+        borderRadius: Theme.radii.lg,
+        ...Theme.shadows.glow,
+    },
+    ctaGradient: {
         paddingVertical: 14,
         paddingHorizontal: 24,
         borderRadius: Theme.radii.lg,
-        ...Theme.shadows.md,
     },
     ctaText: {
         color: '#fff',

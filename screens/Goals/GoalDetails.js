@@ -1,20 +1,26 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
 import * as Haptics from 'expo-haptics';
-import { Theme, MyButton, NovaButton } from '../../components/components';
-import { ArrowLeft, MapPin, CheckCircle2, Circle, Flag } from 'lucide-react-native';
+import { Theme, MyButton, NovaButton, MyConfirmAlert } from '../../components/components';
+import { ArrowLeft, MapPin, Circle, Check, Target } from 'lucide-react-native';
 import { useGoals } from '../../hooks/useGoals';
 import { useTasks } from '../../hooks/useTasks';
 import { useNotifications } from '../../context/NotificationContext';
 import { CelebrationModal } from '../../components/ui/JourneyCards';
 import { ProgressBar } from '../../components/ui/ProgressRing';
+import { useAppTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function GoalDetails({ navigation, route }) {
+    const { colors } = useAppTheme();
+    const { t } = useLanguage();
     const goalId = route?.params?.goalId;
     const [showCelebration, setShowCelebration] = useState(false);
+    const [completeAlertVisible, setCompleteAlertVisible] = useState(false);
+    const [deleteAlertVisible, setDeleteAlertVisible] = useState(false);
 
     const { goals, updateGoal, deleteGoal } = useGoals();
     const { tasks, deleteTask } = useTasks();
@@ -29,14 +35,14 @@ export default function GoalDetails({ navigation, route }) {
 
     if (!goal) {
         return (
-            <SafeAreaView style={styles.container}>
-                <View style={styles.header}>
+            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+                <View style={[styles.header, { borderBottomColor: colors.border }]}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                        <ArrowLeft size={24} color={Theme.colors.textMain} />
+                        <ArrowLeft size={24} color={colors.textMain} />
                     </TouchableOpacity>
                 </View>
                 <View style={styles.notFound}>
-                    <Text style={styles.notFoundText}>This destination couldn't be found.</Text>
+                    <Text style={[styles.notFoundText, { color: colors.textSecondary }]}>{t('goalNotFound')}</Text>
                 </View>
             </SafeAreaView>
         );
@@ -45,47 +51,11 @@ export default function GoalDetails({ navigation, route }) {
     const pct = Math.round((goal.progress || 0) * 100);
 
     const handleComplete = async () => {
-        Alert.alert(
-            'Destination Reached',
-            'Congratulations on finishing your journey to this destination!',
-            [
-                { text: 'Not yet', style: 'cancel' },
-                {
-                    text: 'Complete Journey',
-                    onPress: async () => {
-                        await updateGoal(goal.id, { status: 'completed', progress: 1 });
-                        try {
-                            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                        } catch (_) {}
-                        setShowCelebration(true);
-                    },
-                },
-            ]
-        );
+        setCompleteAlertVisible(true);
     };
 
     const handleDelete = () => {
-        Alert.alert(
-            'Remove Destination',
-            'This will remove the destination and all linked pit stops.',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Remove',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await Promise.all(goalTasks.map(task => deleteTask(task.id)));
-                            await deleteGoal(goal.id);
-                            showNotification('warning', `Destination "${goal.title}" removed`);
-                            navigation.goBack();
-                        } catch (e) {
-                            showNotification('error', 'Could not remove destination');
-                        }
-                    },
-                },
-            ]
-        );
+        setDeleteAlertVisible(true);
     };
 
     const getStopState = (index, task) => {
@@ -95,116 +65,139 @@ export default function GoalDetails({ navigation, route }) {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <ArrowLeft size={24} color={Theme.colors.textMain} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Journey Roadmap</Text>
-                <TouchableOpacity onPress={() => navigation.navigate('GoalForm', { goal })}>
-                    <Text style={styles.editText}>Edit</Text>
-                </TouchableOpacity>
-            </View>
+        <>
+            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+                <View style={[styles.header, { borderBottomColor: colors.border }]}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                        <ArrowLeft size={24} color={colors.textMain} />
+                    </TouchableOpacity>
+                    <Text style={[styles.headerTitle, { color: colors.textMain }]}>{t('journeyRoadmap')}</Text>
+                    <TouchableOpacity onPress={() => navigation.navigate('GoalForm', { goal })}>
+                        <Text style={[styles.editText, { color: colors.primary }]}>{t('editLabel')}</Text>
+                    </TouchableOpacity>
+                </View>
 
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <LinearGradient
-                    colors={Theme.gradients.hero}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.heroBanner}
-                >
-                    <Text style={styles.heroLabel}>Destination</Text>
-                    <Text style={styles.heroTitle}>{goal.title}</Text>
-                    <Text style={styles.heroProgress}>{pct}% of the journey</Text>
-                    <ProgressBar progress={pct} height={6} color="rgba(255,255,255,0.85)" />
-                    {goal.deadline && (
-                        <Text style={styles.heroDeadline}>Target: {goal.deadline}</Text>
-                    )}
-                </LinearGradient>
+                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                    <MotiView
+                        from={{ opacity: 0, translateY: 20 }}
+                        animate={{ opacity: 1, translateY: 0 }}
+                        transition={{ type: 'timing', duration: 600 }}
+                    >
+                        <LinearGradient
+                            colors={Theme.gradients.hero}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.heroBanner}
+                        >
+                            <Text style={styles.heroLabel}>{t('goalLabel')}</Text>
+                            <Text style={styles.heroTitle}>{goal.title}</Text>
+                            <Text style={styles.heroProgress}>{pct}% {t('ofTheJourney')}</Text>
+                            <ProgressBar progress={pct} height={6} color="rgba(255,255,255,0.85)" />
+                            {goal.deadline && (
+                                <Text style={styles.heroDeadline}>{t('targetDate')} {goal.deadline}</Text>
+                            )}
+                        </LinearGradient>
+                    </MotiView>
 
-                <Text style={styles.sectionTitle}>Your Route</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.textMain }]}>{t('yourRoute')}</Text>
 
-                <View style={styles.timeline}>
-                    <View style={styles.routeLine} />
+                    <View style={styles.timeline}>
+                        <View style={[styles.routeLine, { backgroundColor: colors.primaryBorder }]} />
 
-                    {goalTasks.map((item, index) => {
-                        const state = getStopState(index, item);
-                        return (
-                            <TouchableOpacity
-                                key={item.id}
-                                style={styles.stopRow}
-                                onPress={() => navigation.navigate('TaskDetails', { taskId: item.id })}
-                                activeOpacity={0.85}
-                            >
-                                <View style={styles.markerCol}>
-                                    {state === 'completed' ? (
-                                        <MotiView
-                                            from={{ scale: 0.8 }}
-                                            animate={{ scale: 1 }}
-                                            style={[styles.marker, styles.markerDone]}
-                                        >
-                                            <CheckCircle2 size={22} color={Theme.colors.success} />
-                                        </MotiView>
-                                    ) : state === 'current' ? (
-                                        <MotiView
-                                            from={{ scale: 1 }}
-                                            animate={{ scale: [1, 1.08, 1] }}
-                                            transition={{ loop: true, type: 'timing', duration: 2000 }}
-                                            style={[styles.marker, styles.markerCurrent]}
-                                        >
-                                            <Flag size={18} color={Theme.colors.primary} />
-                                        </MotiView>
-                                    ) : (
-                                        <View style={[styles.marker, styles.markerFuture]}>
-                                            <Circle size={20} color={Theme.colors.border} />
+                        {goalTasks.map((item, index) => {
+                            const state = getStopState(index, item);
+                            const isDone = state === 'completed';
+                            const isCurrent = state === 'current';
+                            return (
+                                <MotiView
+                                    key={item.id}
+                                    from={{ opacity: 0, translateX: -10 }}
+                                    animate={{ opacity: 1, translateX: 0 }}
+                                    transition={{ type: 'timing', duration: 400, delay: index * 100 + 300 }}
+                                >
+                                    <TouchableOpacity
+                                        style={styles.stopRow}
+                                        onPress={() => navigation.navigate('TaskDetails', { taskId: item.id })}
+                                        activeOpacity={0.85}
+                                    >
+                                        <View style={styles.markerCol}>
+                                            {isDone ? (
+                                                <MotiView
+                                                    from={{ scale: 0.8 }}
+                                                    animate={{ scale: 1 }}
+                                                    style={[styles.marker, styles.markerDone, { borderColor: colors.success, backgroundColor: colors.successLight }]}
+                                                >
+                                                    <Check size={18} color={colors.success} />
+                                                </MotiView>
+                                            ) : isCurrent ? (
+                                                <MotiView
+                                                    from={{ scale: 1 }}
+                                                    animate={{ scale: [1, 1.08, 1] }}
+                                                    transition={{ loop: true, type: 'timing', duration: 2000 }}
+                                                >
+                                                    <LinearGradient
+                                                        colors={Theme.gradients.hero}
+                                                        start={{ x: 0, y: 0 }}
+                                                        end={{ x: 1, y: 1 }}
+                                                        style={styles.markerGradient}
+                                                    >
+                                                        <MapPin size={18} color="#fff" />
+                                                    </LinearGradient>
+                                                </MotiView>
+                                            ) : (
+                                                <View style={[styles.marker, styles.markerFuture, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+                                                    <Circle size={20} color={colors.border} />
+                                                </View>
+                                            )}
                                         </View>
-                                    )}
-                                </View>
 
-                                <View style={[
+                                    <View style={[
                                     styles.stopCard,
-                                    state === 'current' && styles.stopCardCurrent,
+                                    { backgroundColor: colors.surface, borderColor: colors.border },
+                                    state === 'current' && [styles.stopCardCurrent, { borderColor: colors.primary, backgroundColor: colors.primaryLightAlt }],
                                     state === 'completed' && styles.stopCardDone,
                                 ]}>
-                                    <Text style={styles.stopLabel}>
-                                        {state === 'completed' ? 'Pit Stop · Done' : state === 'current' ? 'Current Pit Stop' : 'Upcoming Stop'}
+                                    <Text style={[styles.stopLabel, { color: colors.textSecondary }]}>
+                                        {state === 'completed' ? t('taskDone') : state === 'current' ? t('currentTask') : t('upcomingTask')}
                                     </Text>
                                     <Text style={[
                                         styles.stopTitle,
-                                        state === 'completed' && styles.stopTitleDone,
+                                        { color: colors.textMain },
+                                        state === 'completed' && [styles.stopTitleDone, { color: colors.textSecondary }],
                                     ]}>
                                         {item.title}
                                     </Text>
                                 </View>
                             </TouchableOpacity>
+                        </MotiView>
                         );
                     })}
 
                     <View style={styles.stopRow}>
                         <View style={styles.markerCol}>
-                            <View style={[styles.marker, styles.markerFinish]}>
-                                <MapPin size={20} color={Theme.colors.secondary} />
+                            <View style={[styles.marker, styles.markerFinish, { borderColor: pct === 100 ? colors.success : colors.border, backgroundColor: pct === 100 ? colors.successLight : colors.surface }]}>
+                                <Target size={20} color={pct === 100 ? colors.success : colors.textSecondary} />
                             </View>
                         </View>
-                        <Text style={styles.finishLabel}>Finish Line</Text>
+                        <Text style={[styles.finishLabel, { color: colors.textMain }]}>{t('finishLine')}</Text>
                     </View>
                 </View>
 
                 <MyButton
-                    title={goal.status === 'completed' ? 'Journey Completed 🎉' : 'Mark Destination Complete'}
+                    title={goal.status === 'completed' ? t('journeyCompleted') : t('markGoalComplete')}
                     disabled={goal.status === 'completed' || !allTasksCompleted}
                     style={{
                         marginTop: Theme.spacing.lg,
-                        backgroundColor: goal.status === 'completed' ? Theme.colors.success : Theme.colors.primary,
+                        backgroundColor: goal.status === 'completed' ? colors.success : colors.primary,
                     }}
                     onPress={handleComplete}
                 />
 
                 <NovaButton
-                    title="Plan Roadmap with Nova"
+                    title={t('planWithNova')}
                     onPress={() => {
-                        const intentText = `I want to plan the roadmap for my goal: "${goal.title}". Can we break it down into milestones?`;
-                        const hiddenContext = `The user wants to expand the roadmap for their existing goal "${goal.title}". DO NOT execute any tools yet. Analyze their progress and discuss adding structured milestones (tasks) to help them finish. MUST FOLLOW ROADMAP GENERATION RULES based on their Main Struggle. ONLY use the create_roadmap tool after they explicitly agree. When you use the create_roadmap tool, use the goal name "${goal.title}".`;
+                        const intentText = `I want to plan the roadmap for my goal: "${goal.title}". Can we break it down into tasks?`;
+                        const hiddenContext = `The user wants to expand the roadmap for their existing goal "${goal.title}". DO NOT execute any tools yet. Analyze their progress and discuss adding structured tasks to help them finish. MUST FOLLOW ROADMAP GENERATION RULES based on their Main Struggle. ONLY use the create_roadmap tool after they explicitly agree. When you use the create_roadmap tool, use the goal name "${goal.title}".`;
                         navigation.navigate('AIChat', {
                             initialIntentText: intentText,
                             hiddenContext,
@@ -215,31 +208,65 @@ export default function GoalDetails({ navigation, route }) {
                 />
 
                 <MyButton
-                    title="Add Pit Stop Manually"
+                    title={t('addTaskManually')}
                     type="secondary"
                     onPress={() => navigation.navigate('TaskForm', { prefilledGoalId: goal.id })}
                     style={{ marginTop: Theme.spacing.sm }}
                 />
 
                 <MyButton
-                    title="Remove Destination"
+                    title={t('removeGoal')}
                     type="secondary"
                     onPress={handleDelete}
-                    style={{ marginTop: Theme.spacing.sm, borderColor: Theme.colors.error, marginBottom: 40 }}
+                    style={{ marginTop: Theme.spacing.sm, borderColor: colors.error, marginBottom: 40 }}
                 />
             </ScrollView>
 
             <CelebrationModal
                 visible={showCelebration}
                 title={goal.title}
-                message="You've reached your destination. Take a moment to appreciate how far you've come."
+                message="You've reached your goal. Take a moment to appreciate how far you've come."
                 onClose={() => {
                     setShowCelebration(false);
-                    showNotification('success', `🎉 Destination reached: ${goal.title}`, 4);
+                    showNotification('success', `🎉 Goal reached: ${goal.title}`, 4);
                     navigation.goBack();
                 }}
             />
         </SafeAreaView>
+
+        <MyConfirmAlert 
+            visible={completeAlertVisible}
+            title={t('goalReached')}
+            message={t('congratsMessage')}
+            onConfirm={async () => {
+                setCompleteAlertVisible(false);
+                await updateGoal(goal.id, { status: 'completed', progress: 1 });
+                try {
+                    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                } catch (_) {}
+                setShowCelebration(true);
+            }}
+            onCancel={() => setCompleteAlertVisible(false)}
+        />
+
+        <MyConfirmAlert 
+            visible={deleteAlertVisible}
+            title={t('removeGoal')}
+            message={t('removeGoalConfirm')}
+            onConfirm={async () => {
+                setDeleteAlertVisible(false);
+                try {
+                    await Promise.all(goalTasks.map(task => deleteTask(task.id)));
+                    await deleteGoal(goal.id);
+                    showNotification('warning', t('goalRemoved', { title: goal.title }));
+                    navigation.goBack();
+                } catch (e) {
+                    showNotification('error', t('errorRemovingGoal'));
+                }
+            }}
+            onCancel={() => setDeleteAlertVisible(false)}
+        />
+        </>
     );
 }
 
@@ -353,9 +380,12 @@ const styles = StyleSheet.create({
         borderColor: Theme.colors.success,
         backgroundColor: Theme.colors.successLight,
     },
-    markerCurrent: {
-        borderColor: Theme.colors.primary,
-        backgroundColor: Theme.colors.primaryLight,
+    markerGradient: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     markerFuture: {
         borderColor: Theme.colors.border,
@@ -371,7 +401,11 @@ const styles = StyleSheet.create({
         borderRadius: Theme.radii.lg,
         borderWidth: 1,
         borderColor: Theme.colors.border,
-        ...Theme.shadows.sm,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 3,
     },
     stopCardCurrent: {
         borderColor: Theme.colors.primary,

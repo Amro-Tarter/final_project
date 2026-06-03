@@ -6,8 +6,10 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../config/firebase";
 import { MyButton, MyInput, LogoHeader, Theme, MyCustomAlert } from "../components/components";
+import { useAppTheme } from "../context/ThemeContext";
 
 export default function SignUpScreen({ navigation, route }) {
+  const { colors } = useAppTheme();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -93,7 +95,7 @@ export default function SignUpScreen({ navigation, route }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <LogoHeader
@@ -129,7 +131,7 @@ export default function SignUpScreen({ navigation, route }) {
               rightIcon={showPass ? EyeOff : Eye}
               onRightIconPress={() => setShowPass(!showPass)}
             />
-            <Text style={styles.passwordHint}>
+            <Text style={[styles.passwordHint, { color: colors.textSecondary }]}>
               Password must be at least 8 characters and include uppercase, lowercase, number, and special character.
             </Text>
             <MyInput
@@ -151,9 +153,9 @@ export default function SignUpScreen({ navigation, route }) {
             />
 
             <View style={styles.footer}>
-              <Text style={styles.grayText}>Already have an account? </Text>
+              <Text style={[styles.grayText, { color: colors.textSecondary }]}>Already have an account? </Text>
               <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                <Text style={styles.linkTextBold}>Sign In</Text>
+                <Text style={[styles.linkTextBold, { color: colors.primary }]}>Sign In</Text>
               </TouchableOpacity>
             </View>
           </View>

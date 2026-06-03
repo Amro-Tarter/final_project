@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Platform, TouchableOpacity } from 'react-native';
 import { Theme } from '../components/components';
 import { Check, Info, AlertCircle, X, Sparkles } from 'lucide-react-native';
+import { useAppTheme } from '../context/ThemeContext';
 
 export const NotificationToast = ({
     visible,
@@ -9,6 +10,7 @@ export const NotificationToast = ({
     message,
     onDismiss
 }) => {
+    const { colors } = useAppTheme();
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(-50)).current;
 
@@ -49,43 +51,43 @@ export const NotificationToast = ({
         switch (type) {
             case 'success':
                 return {
-                    bg: '#F0FDF4', // Green 50
-                    border: '#BBF7D0', // Green 200
-                    text: '#166534', // Green 800
+                    bg: colors.successLight,
+                    border: colors.success,
+                    text: colors.success,
                     icon: Check,
-                    iconColor: '#22C55E' // Green 500
+                    iconColor: colors.success
                 };
             case 'encouragement':
                 return {
-                    bg: '#EEF2FF', // Indigo 50
-                    border: '#C7D2FE', // Indigo 200
-                    text: '#3730A3', // Indigo 800
+                    bg: colors.primaryLight,
+                    border: colors.primaryBorder,
+                    text: colors.primary,
                     icon: Sparkles,
-                    iconColor: '#6366F1' // Indigo 500
+                    iconColor: colors.primary
                 };
             case 'warning':
                 return {
-                    bg: '#FFFBEB', // Amber 50
-                    border: '#FDE68A', // Amber 200
-                    text: '#92400E', // Amber 800
+                    bg: colors.warningLight,
+                    border: colors.warningBorder,
+                    text: colors.warningText,
                     icon: Info,
-                    iconColor: '#F59E0B' // Amber 500
+                    iconColor: colors.warning
                 };
             case 'error':
                 return {
-                    bg: '#FFF1F2', // Rose 50
-                    border: '#FECDD3', // Rose 200
-                    text: '#9F1239', // Rose 800
+                    bg: colors.errorLight,
+                    border: colors.error,
+                    text: colors.error,
                     icon: AlertCircle,
-                    iconColor: '#F43F5E' // Rose 500
+                    iconColor: colors.error
                 };
             default:
                 return {
-                    bg: '#F8FAFC',
-                    border: '#E2E8F0',
-                    text: '#1E293B',
+                    bg: colors.surface,
+                    border: colors.border,
+                    text: colors.textMain,
                     icon: Info,
-                    iconColor: '#64748B'
+                    iconColor: colors.textSecondary
                 };
         }
     };

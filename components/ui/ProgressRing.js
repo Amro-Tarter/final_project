@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { Theme } from '../components';
+import { useAppTheme } from '../../context/ThemeContext';
 
 export function ProgressRing({ progress = 0, size = 56, strokeWidth = 5 }) {
     const animatedProgress = useSharedValue(0);
@@ -29,7 +30,9 @@ export function ProgressRing({ progress = 0, size = 56, strokeWidth = 5 }) {
     );
 }
 
-export function ProgressBar({ progress = 0, height = 8, color = Theme.colors.primary }) {
+export function ProgressBar({ progress = 0, height = 8, color }) {
+    const { colors } = useAppTheme();
+    const barColor = color || colors.primary;
     const animatedProgress = useSharedValue(0);
     const pct = Math.min(Math.max(progress, 0), 100);
 
@@ -42,8 +45,8 @@ export function ProgressBar({ progress = 0, height = 8, color = Theme.colors.pri
     }));
 
     return (
-        <View style={[styles.barTrack, { height, borderRadius: height }]}>
-            <Animated.View style={[styles.barFill, { height, borderRadius: height, backgroundColor: color }, barStyle]} />
+        <View style={[styles.barTrack, { height, borderRadius: height, backgroundColor: colors.border }]}>
+            <Animated.View style={[styles.barFill, { height, borderRadius: height, backgroundColor: barColor }, barStyle]} />
         </View>
     );
 }

@@ -2,9 +2,11 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
     View, Text, StyleSheet, FlatList, TextInput,
-    TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator
+    TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MotiView } from 'moti';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../../components/components';
 import { ArrowLeft, Send, Sparkles, BarChart2, ArrowDown } from 'lucide-react-native';
 import { useUserProfile } from '../../hooks/useUserProfile';
@@ -15,10 +17,12 @@ import { db } from '../../config/firebase';
 import { useNotifications } from '../../context/NotificationContext';
 import { extractIntent } from '../../services/intentParser';
 import { useTasks } from '../../hooks/useTasks';
+import { useAppTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
-const INITIAL_MESSAGE = (name) => ({
+const INITIAL_MESSAGE = (name, t) => ({
     id: 'initial_msg',
-    text: `Hello, ${name || 'Friend'}! 👋 I'm Nova, your personal companion. I've been looking at your progress and I'm here to help you grow. What's on your mind today?`,
+    text: t ? t('homeGreeting') + `, ${name}! ` + t('aiGuideSubtitle') : `Hello, ${name || 'Friend'}! 👋 I'm Nova, your personal companion. I've been looking at your progress and I'm here to help you grow. What's on your mind today?`,
     isUser: false,
 });
 
@@ -131,6 +135,8 @@ const mayContainActionIntent = (message) => {
 };
 
 export default function AIChat({ navigation, route }) {
+    const { colors } = useAppTheme();
+    const { t, language } = useLanguage();
     const { user } = useAuth();
     const { profile, loading: profileLoading, refreshProfile } = useUserProfile();
     const { showNotification } = useNotifications();
@@ -222,7 +228,7 @@ export default function AIChat({ navigation, route }) {
                 }
 
                 if (snapshot.empty) {
-                    const initial = INITIAL_MESSAGE(profile.userName);
+                    const initial = INITIAL_MESSAGE(profile.userName, t);
                     setMessages([initial]);
                     chatHistoryRef.current = [{
                         role: 'assistant',
@@ -251,7 +257,7 @@ export default function AIChat({ navigation, route }) {
                 }
             } catch (error) {
                 console.error("Failed to load chat history:", error);
-                setMessages([INITIAL_MESSAGE(profile.userName)]);
+                setMessages([INITIAL_MESSAGE(profile.userName, t)]);
             } finally {
                 setLoadingHistory(false);
             }
@@ -315,12 +321,13 @@ export default function AIChat({ navigation, route }) {
             await addDoc(collection(db, 'goals'), {
                 userId: user.uid,
                 title: toolCall.data.title,
+                deadline: toolCall.data.deadline || toolCall.deadline || null,
                 status: 'active',
                 progress: 0,
                 createdAt: serverTimestamp()
             });
 
-            showNotification('success', `Goal "${toolCall.data.title}" is ready 🎯`);
+            showNotification('success', t('goalSaved'));
         }
 
         else if (toolCall.action === 'create_task') {
@@ -353,7 +360,7 @@ export default function AIChat({ navigation, route }) {
             await addTask(taskPayload);
             console.log('[AI_DEBUG][AIChat:create_task:saved]');
 
-            showNotification('success', `Task "${toolCall.data.title}" added ✅`);
+            showNotification('success', t('taskSaved'));
         }
 
         else if (toolCall.action === 'create_roadmap') {
@@ -370,6 +377,7 @@ export default function AIChat({ navigation, route }) {
             const newGoalRef = await addDoc(collection(db, 'goals'), {
                 userId: user.uid,
                 title: toolCall.goalTitle,
+                deadline: toolCall.deadline || null,
                 status: 'active',
                 progress: 0,
                 createdAt: serverTimestamp()
@@ -383,7 +391,7 @@ export default function AIChat({ navigation, route }) {
 
             showNotification(
                 'encouragement',
-                `Your plan "${toolCall.goalTitle}" is set 🚀`
+                t('roadmapSaved')
             );
         }
 
@@ -392,12 +400,14 @@ export default function AIChat({ navigation, route }) {
             await addDoc(collection(db, 'diary_entries'), {
                 userId: user.uid,
                 title: toolCall.data.title || 'My Day',
-                mood: toolCall.mood || 'good',
-                content: toolCall.content,
+                mood: toolCall.mood || toolCall.data.mood || 'good',
+                content: toolCall.content || toolCall.data.content,
+                tags: toolCall.tags || toolCall.data.tags || [],
+                reflection: toolCall.reflection || toolCall.data.reflection || '',
                 createdAt: serverTimestamp()
             });
 
-            showNotification('success', `Diary entry saved ✨`);
+            showNotification('success', t('diarySaved'));
         }
 
         refreshProfile(true);
@@ -471,7 +481,8 @@ export default function AIChat({ navigation, route }) {
                 requestHistory.slice(-25),
                 text,
                 memorySummary,
-                systemContextForRequest
+                systemContextForRequest,
+                language
             );
             console.log('[AI_DEBUG][AIChat:sendMessage:rawResponse]', {
                 type: typeof rawResponse,
@@ -497,7 +508,7 @@ export default function AIChat({ navigation, route }) {
                         stack: e?.stack,
                         intent
                     });
-                    showNotification('error', 'Something went wrong while creating that ⚠️');
+                    showNotification('error', t('updateError'));
                 }
 
                 // Strip the JSON block from the raw response to show only conversational text
@@ -605,32 +616,90 @@ export default function AIChat({ navigation, route }) {
         }
     };
 
-    const renderItem = ({ item }) => (
-        <View style={[styles.bubble, item.isUser ? styles.userBubble : styles.aiBubble]}>
-            {!item.isUser && (
-                <View style={styles.aiIcon}>
-                    <Sparkles size={14} color="#fff" />
-                </View>
+    const STARTERS = [
+        "How can I set a new destination?",
+        "Help me plan my week.",
+        "I need some motivation today.",
+        "Reflect on my recent progress."
+    ];
+
+    const renderItem = ({ item, index }) => (
+        <MotiView
+            from={{ opacity: 0, translateY: 10, scale: 0.95 }}
+            animate={{ opacity: 1, translateY: 0, scale: 1 }}
+            transition={{ type: 'timing', duration: 350, delay: index > 0 ? 50 : 0 }}
+            style={[styles.bubble, item.isUser ? styles.userBubbleWrapper : [styles.aiBubble, { backgroundColor: colors.surface, borderColor: colors.border }]]}
+        >
+            {item.isUser ? (
+                <LinearGradient
+                    colors={Theme.gradients.hero}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.userBubbleGradient}
+                >
+                    <Text style={styles.userText}>
+                        {item.text}
+                    </Text>
+                </LinearGradient>
+            ) : (
+                <>
+                    <View style={[styles.aiIcon, { backgroundColor: colors.primaryLight }]}>
+                        <Sparkles size={14} color={colors.primary} />
+                    </View>
+                    <Text style={[styles.aiText, { color: colors.textMain }]}>
+                        {item.text}
+                    </Text>
+                </>
             )}
-            <Text style={[styles.messageText, item.isUser ? styles.userText : styles.aiText]}>
-                {item.text}
-            </Text>
-        </View>
+        </MotiView>
     );
 
+    const renderEmptyState = () => {
+        if (profileLoading || loadingHistory) return null;
+        if (messages.length > 1) return null;
+
+        return (
+            <MotiView
+                from={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'timing', duration: 600, delay: 200 }}
+                style={styles.emptyState}
+            >
+                <View style={[styles.emptyIconBadge, { backgroundColor: colors.primaryLight }]}>
+                    <Sparkles size={32} color={colors.primary} />
+                </View>
+                <Text style={[styles.emptyTitle, { color: colors.textMain }]}>I'm Nova</Text>
+                <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>Your personal growth companion. How can I support your journey today?</Text>
+
+                <View style={styles.starterGrid}>
+                    {STARTERS.map((s, idx) => (
+                        <TouchableOpacity
+                            key={idx}
+                            style={[styles.starterPill, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                            onPress={() => {
+                                setInputText(s);
+                                sendMessage(s);
+                            }}
+                        >
+                            <Text style={[styles.starterText, { color: colors.primary }]}>{s}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            </MotiView>
+        );
+    };
+
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+            <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <ArrowLeft size={24} color={Theme.colors.textMain} />
+                    <ArrowLeft size={24} color={colors.textMain} />
                 </TouchableOpacity>
                 <View style={styles.headerCenter}>
-                    <Text style={styles.headerTitle}>Nova — AI Companion</Text>
-                    <View style={styles.onlineDot} />
+                    <Text style={[styles.headerTitle, { color: colors.textMain }]}>{t('aiGuideTitle')}</Text>
+                    <View style={[styles.onlineDot, { backgroundColor: colors.success }]} />
                 </View>
-                <TouchableOpacity onPress={() => navigation.navigate('AIInsights')} style={{ padding: 8 }}>
-                    <BarChart2 size={22} color={Theme.colors.primary} />
-                </TouchableOpacity>
+                <View style={{ width: 38 }} />
             </View>
 
             <KeyboardAvoidingView
@@ -656,45 +725,65 @@ export default function AIChat({ navigation, route }) {
                     ListHeaderComponent={
                         (profileLoading || loadingHistory) ? (
                             <View style={{ paddingVertical: 20 }}>
-                                <ActivityIndicator color={Theme.colors.primary} />
-                                <Text style={{ textAlign: 'center', color: Theme.colors.textSecondary, marginTop: 8, fontSize: 13, fontFamily: Theme.typography.body }}>Reading your journey...</Text>
+                                <ActivityIndicator color={colors.primary} />
+                                <Text style={{ textAlign: 'center', color: colors.textSecondary, marginTop: 8, fontSize: 13, fontFamily: Theme.typography.body }}>Reading your journey...</Text>
                             </View>
-                        ) : null
+                        ) : renderEmptyState()
                     }
                 />
 
                 {isAiTyping && (
                     <View style={styles.typingIndicator}>
-                        <Sparkles size={14} color={Theme.colors.primary} />
-                        <Text style={styles.typingText}>Nova is thinking...</Text>
+                        <Sparkles size={14} color={colors.primary} />
+                        <Text style={[styles.typingText, { color: colors.textSecondary }]}>Nova is thinking...</Text>
                     </View>
                 )}
 
                 {showScrollDown && (
                     <TouchableOpacity
-                        style={styles.scrollDownButton}
+                        style={styles.scrollDownButtonWrapper}
                         onPress={() => flatListRef.current?.scrollToEnd({ animated: true })}
                     >
-                        <ArrowDown size={24} color="#fff" />
+                        <LinearGradient
+                            colors={Theme.gradients.hero}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.scrollDownButtonGradient}
+                        >
+                            <ArrowDown size={24} color="#fff" />
+                        </LinearGradient>
                     </TouchableOpacity>
                 )}
 
-                <View style={styles.inputArea}>
+                <View style={[styles.inputArea, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
                     <TextInput
-                        style={styles.input}
+                        style={[styles.input, { backgroundColor: colors.background, color: colors.textMain, borderColor: colors.border }]}
                         placeholder="Ask anything..."
-                        placeholderTextColor={Theme.colors.textSecondary}
+                        placeholderTextColor={colors.textSecondary}
                         value={inputText}
                         onChangeText={setInputText}
                         multiline
                         onSubmitEditing={handleSend}
                     />
                     <TouchableOpacity
-                        style={[styles.sendButton, (!inputText.trim() || isAiTyping) && styles.sendButtonDisabled]}
+                        style={[styles.sendButtonWrapper, (!inputText.trim() || isAiTyping) && [styles.sendButtonDisabled, { backgroundColor: colors.border }]]}
                         onPress={handleSend}
                         disabled={!inputText.trim() || isAiTyping}
                     >
-                        <Send size={20} color="#fff" />
+                        {(!inputText.trim() || isAiTyping) ? (
+                            <View style={styles.sendButtonGradient}>
+                                <Send size={20} color="#fff" />
+                            </View>
+                        ) : (
+                            <LinearGradient
+                                colors={Theme.gradients.hero}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.sendButtonGradient}
+                            >
+                                <Send size={20} color="#fff" />
+                            </LinearGradient>
+                        )}
                     </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>
@@ -741,33 +830,40 @@ const styles = StyleSheet.create({
     chatContent: { padding: Theme.spacing.lg, paddingBottom: 8 },
     bubble: {
         maxWidth: '82%',
-        padding: 12,
-        borderRadius: 16,
         marginBottom: 12,
         flexDirection: 'row',
         alignItems: 'flex-start',
     },
-    userBubble: {
+    userBubbleWrapper: {
         alignSelf: 'flex-end',
-        backgroundColor: Theme.colors.primary,
-        borderBottomRightRadius: 4,
+        borderRadius: 16,
+        borderTopRightRadius: 4,
+        ...Theme.shadows.sm,
+    },
+    userBubbleGradient: {
+        padding: 12,
+        borderRadius: 16,
+        borderTopRightRadius: 4,
     },
     aiBubble: {
+        padding: 12,
+        borderRadius: 16,
         alignSelf: 'flex-start',
         backgroundColor: Theme.colors.surface,
         borderWidth: 1,
         borderColor: Theme.colors.border,
-        borderBottomLeftRadius: 4,
+        borderTopLeftRadius: 4,
+        ...Theme.shadows.sm,
     },
     aiIcon: {
-        width: 22,
-        height: 22,
-        borderRadius: 11,
-        backgroundColor: Theme.colors.secondary,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: Theme.colors.primaryLight,
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 8,
-        marginTop: 2,
+        marginRight: 10,
+        marginTop: 0,
     },
     messageText: { fontSize: 15, fontFamily: Theme.typography.body, lineHeight: 22 },
     userText: { color: '#fff' },
@@ -807,29 +903,90 @@ const styles = StyleSheet.create({
         borderColor: Theme.colors.border,
         maxHeight: 100,
     },
-    sendButton: {
+    sendButtonWrapper: {
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: Theme.colors.primary,
+        ...Theme.shadows.sm,
+    },
+    sendButtonGradient: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    sendButtonDisabled: { backgroundColor: Theme.colors.border },
-    scrollDownButton: {
+    sendButtonDisabled: {
+        backgroundColor: Theme.colors.border,
+        shadowOpacity: 0,
+    },
+    scrollDownButtonWrapper: {
         position: 'absolute',
         bottom: 90,
         right: 20,
-        backgroundColor: Theme.colors.primary,
         width: 44,
         height: 44,
         borderRadius: 22,
-        alignItems: 'center',
-        justifyContent: 'center',
         elevation: 4,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 3.84,
+    },
+    scrollDownButtonGradient: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    emptyState: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 32,
+        marginTop: 40,
+    },
+    emptyIconBadge: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: Theme.colors.primaryLight,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 16,
+    },
+    emptyTitle: {
+        fontSize: 24,
+        fontFamily: Theme.typography.header,
+        color: Theme.colors.textMain,
+        marginBottom: 8,
+    },
+    emptySubtitle: {
+        fontSize: 15,
+        fontFamily: Theme.typography.body,
+        color: Theme.colors.textSecondary,
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: 32,
+    },
+    starterGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        gap: 12,
+    },
+    starterPill: {
+        backgroundColor: Theme.colors.surface,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        ...Theme.shadows.sm,
+    },
+    starterText: {
+        fontSize: 14,
+        fontFamily: Theme.typography.subHeader,
+        color: Theme.colors.primary,
     },
 });

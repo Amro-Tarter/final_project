@@ -1,35 +1,46 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Theme, NovaButton, MyButton, MyInput } from '../../components/components';
-import { ArrowLeft, Smile, Meh, Frown, Sparkles } from 'lucide-react-native'; import { useNotifications } from '../../context/NotificationContext';
+import { MotiView } from 'moti';
+import { ArrowLeft, Sparkles } from 'lucide-react-native';
+import { useNotifications } from '../../context/NotificationContext';
 import { useDiary } from '../../hooks/useDiary';
+import { getMoodEmoji } from '../../utils/journeyHelpers';
+import { useAppTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
-const DiaryInput = ({ label, placeholder, value, onChangeText }) => (
-    <View style={styles.inputWrapper}>
-        {label && <Text style={styles.inputLabel}>{label}</Text>}
-        <View style={styles.diaryInputContainer}>
-            <TextInput
-                style={styles.diaryInput}
-                placeholder={placeholder}
-                placeholderTextColor={Theme.colors.placeholder}
-                selectionColor={Theme.colors.primary}
-                value={value}
-                onChangeText={onChangeText}
-                multiline
-                textAlignVertical="top"
-            />
+const DiaryInput = ({ label, placeholder, value, onChangeText }) => {
+    const { colors } = useAppTheme();
+    return (
+        <View style={styles.inputWrapper}>
+            {label && <Text style={[styles.inputLabel, { color: colors.textMain }]}>{label}</Text>}
+            <View style={[styles.diaryInputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <TextInput
+                    style={[styles.diaryInput, { color: colors.textMain }]}
+                    placeholder={placeholder}
+                    placeholderTextColor={Theme.colors.placeholder}
+                    selectionColor={colors.primary}
+                    value={value}
+                    onChangeText={onChangeText}
+                    multiline
+                    textAlignVertical="top"
+                />
+            </View>
         </View>
-    </View>
-);
+    );
+};
 
 
 export default function DiaryForm({ navigation, route }) {
+    const { colors } = useAppTheme();
+    const { t } = useLanguage();
     const entryToEdit = route?.params?.entryToEdit;
 
     const [title, setTitle] = useState(entryToEdit ? entryToEdit.title : '');
     const [content, setContent] = useState(entryToEdit ? entryToEdit.content : '');
-    const [mood, setMood] = useState(entryToEdit ? entryToEdit.mood : 'good'); // good, neutral, bad
+    const [mood, setMood] = useState(entryToEdit ? entryToEdit.mood : 'okay');
     const [submitting, setSubmitting] = useState(false);
 
     const { showNotification } = useNotifications();
@@ -37,11 +48,11 @@ export default function DiaryForm({ navigation, route }) {
 
     const handleSave = async () => {
         if (!title.trim()) {
-            showNotification('warning', "Please add a title to your entry 📝");
+            showNotification('warning', t('diaryTitleRequired'));
             return;
         }
         if (!content.trim()) {
-            showNotification('warning', "Your thoughts are valuable! 💭 Please write something before saving.");
+            showNotification('warning', t('diaryContentRequired'));
             return;
         }
 
@@ -52,7 +63,7 @@ export default function DiaryForm({ navigation, route }) {
         const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
         if (entryDateNormalized > todayNormalized) {
-            showNotification('error', "The future hasn't happened yet! 🕊️ Please wait for today to pass before writing this entry.");
+            showNotification('error', t('diaryPastDateRequired'));
             return;
         }
 
@@ -60,18 +71,18 @@ export default function DiaryForm({ navigation, route }) {
         try {
             if (entryToEdit) {
                 await updateEntry(entryToEdit.id, { title, content, mood });
-                showNotification('success', "Entry updated 📔", 1);
+                showNotification('success', t('diaryUpdated'), 1);
             } else {
                 const newEntry = { title, content, mood };
                 if (route?.params?.prefilledDate) {
                     newEntry.date = route.params.prefilledDate;
                 }
                 await addEntry(newEntry);
-                showNotification('success', "Entry saved to your diary 📔", 1);
+                showNotification('success', t('diarySaved'), 1);
             }
             navigation.goBack();
         } catch (error) {
-            showNotification('error', "Could not save entry. Please try again.");
+            showNotification('error', t('diarySaveError'));
         } finally {
             setSubmitting(false);
         }
@@ -85,7 +96,7 @@ export default function DiaryForm({ navigation, route }) {
                 : `I want help writing a diary entry.`;
 
         const hiddenContext =
-            "The user is starting a brand-new diary writing session. DO NOT save anything yet. Help them reflect naturally. Ask thoughtful questions about their day, emotions and experiences. Only create a diary entry after the user explicitly agrees.";
+            "The user is starting a brand-new diary session. DO NOT save anything yet. Help them reflect naturally. Ask thoughtful questions about their day, emotions and experiences. Only create a diary entry after the user explicitly agrees.";
 
         navigation.navigate('AIChat', {
             freshChat: true,
@@ -94,70 +105,103 @@ export default function DiaryForm({ navigation, route }) {
         });
     };
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <ArrowLeft size={24} color={Theme.colors.textMain} />
+                    <ArrowLeft size={24} color={colors.textMain} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>{entryToEdit ? 'Edit Entry' : 'New Entry'}</Text>
+                <Text style={[styles.headerTitle, { color: colors.textMain }]}>{entryToEdit ? t('editDiary') : t('newDiary')}</Text>
                 <View style={{ width: 24 }} />
             </View>
 
-            <ScrollView
+            <KeyboardAvoidingView
                 style={{ flex: 1 }}
-                contentContainerStyle={styles.content}>
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            >
+                <ScrollView
+                    style={{ flex: 1 }}
+                    contentContainerStyle={styles.content}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                >
+                <MotiView
+                    from={{ opacity: 0, translateY: 20 }}
+                    animate={{ opacity: 1, translateY: 0 }}
+                    transition={{ type: 'timing', duration: 500 }}
+                    style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                >
 
-                {!entryToEdit && (
-                    <NovaButton
-                        title="Write With Nova"
-                        onPress={handleNovaDiary}
+
+                    <Text style={[styles.label, { color: colors.textMain }]}>{t('howFeeling')}</Text>
+                    <View style={styles.moodSelector}>
+                        {[
+                            { value: 'excellent', label: t('moodExcellent') },
+                            { value: 'good', label: t('moodGood') },
+                            { value: 'okay', label: t('moodOkay') },
+                            { value: 'difficult', label: t('moodDifficult') },
+                            { value: 'overwhelmed', label: t('moodHeavy') }
+                        ].map((m) => (
+                            <TouchableOpacity
+                                key={m.value}
+                                onPress={() => setMood(m.value)}
+                                style={mood === m.value ? [styles.moodBtnWrapper, { shadowColor: colors.primary, elevation: 8 }] : [styles.moodBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                                activeOpacity={0.9}
+                            >
+                                {mood === m.value ? (
+                                    <LinearGradient
+                                        colors={Theme.gradients.hero}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={styles.moodBtnGradient}
+                                    >
+                                        <Text style={styles.emojiText}>{getMoodEmoji(m.value)}</Text>
+                                        <Text style={[styles.moodText, styles.moodTextActive]}>
+                                            {m.label}
+                                        </Text>
+                                    </LinearGradient>
+                                ) : (
+                                    <>
+                                        <Text style={styles.emojiText}>{getMoodEmoji(m.value)}</Text>
+                                        <Text style={[styles.moodText, { color: colors.textSecondary }]}>
+                                            {m.label}
+                                        </Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+
+                    <MyInput
+                        label={t('titleYourDay')}
+                        placeholder={t('titleYourDay')}
+                        value={title}
+                        onChangeText={setTitle}
                     />
-                )}
 
-                <Text style={styles.label}>How are you feeling?</Text>
-                <View style={styles.moodSelector}>
-                    {['good', 'neutral', 'bad'].map((m) => (
-                        <TouchableOpacity
-                            key={m}
-                            onPress={() => setMood(m)}
-                            style={[
-                                styles.moodBtn,
-                                mood === m && styles.moodBtnActive
-                            ]}
-                        >
-                            {m === 'good' && <Smile size={32} color={mood === m ? '#fff' : Theme.colors.success} />}
-                            {m === 'neutral' && <Meh size={32} color={mood === m ? '#fff' : Theme.colors.textSecondary} />}
-                            {m === 'bad' && <Frown size={32} color={mood === m ? '#fff' : Theme.colors.error} />}
-                            <Text style={[styles.moodText, mood === m && styles.moodTextActive]}>
-                                {m.charAt(0).toUpperCase() + m.slice(1)}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
-                <MyInput
-                    label="Title"
-                    placeholder="Title your day..."
-                    value={title}
-                    onChangeText={setTitle}
-                />
-
-                <DiaryInput
-                    label="Dear Diary..."
-                    placeholder="What's on your mind?"
-                    value={content}
-                    onChangeText={setContent}
-                />
+                    <DiaryInput
+                        label={t('diary')}
+                        placeholder={t('whatsOnMind')}
+                        value={content}
+                        onChangeText={setContent}
+                    />
+                </MotiView>
 
                 <View style={{ flex: 2 }} />
 
-                <MyButton
-                    title={submitting ? "Saving..." : "Save Entry"}
-                    onPress={handleSave}
-                    disabled={submitting}
-                    style={{ marginTop: 40, marginBottom: 40 }}
-                />
-            </ScrollView>
+                <MotiView
+                    from={{ opacity: 0, translateY: 20 }}
+                    animate={{ opacity: 1, translateY: 0 }}
+                    transition={{ type: 'timing', duration: 500, delay: 100 }}
+                >
+                    <MyButton
+                        title={submitting ? "..." : t('saveDiary')}
+                        onPress={handleSave}
+                        disabled={submitting}
+                        style={{ marginTop: 40, marginBottom: 40 }}
+                    />
+                </MotiView>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }
@@ -187,6 +231,14 @@ const styles = StyleSheet.create({
         padding: Theme.spacing.lg,
         flexGrow: 1,
     },
+    card: {
+        backgroundColor: Theme.colors.surface,
+        padding: 24,
+        borderRadius: Theme.radii.lg,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        ...Theme.shadows.float,
+    },
     label: {
         fontSize: 16,
         fontFamily: Theme.typography.subHeader,
@@ -197,26 +249,44 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         marginBottom: 24,
+        paddingBottom: 4, // for shadow
     },
     moodBtn: {
-        flex: 1,
+        width: '18%',
         alignItems: 'center',
-        padding: 16,
+        paddingVertical: 12,
+        paddingHorizontal: 0,
         borderRadius: Theme.radius,
         backgroundColor: Theme.colors.surface,
         borderWidth: 1,
         borderColor: Theme.colors.border,
-        marginHorizontal: 4,
     },
-    moodBtnActive: {
-        backgroundColor: Theme.colors.primary,
-        borderColor: Theme.colors.primary,
+    moodBtnWrapper: {
+        width: '18%',
+        borderRadius: Theme.radius,
+        borderWidth: 1,
+        borderColor: 'transparent',
+        backgroundColor: Theme.colors.surface,
+        ...Theme.shadows.glow,
+    },
+    moodBtnGradient: {
+        flex: 1,
+        width: '100%',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 0,
+        borderRadius: Theme.radius,
+        justifyContent: 'center',
+    },
+    emojiText: {
+        fontSize: 28,
+        marginBottom: 4,
     },
     moodText: {
-        marginTop: 8,
-        fontSize: 12,
+        fontSize: 10,
         fontFamily: Theme.typography.body,
         color: Theme.colors.textSecondary,
+        textAlign: 'center',
     },
     moodTextActive: {
         color: '#fff',

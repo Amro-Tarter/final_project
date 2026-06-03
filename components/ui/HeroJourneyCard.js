@@ -5,6 +5,8 @@ import { MotiView } from 'moti';
 import { MapPin, ChevronRight } from 'lucide-react-native';
 import { Theme } from '../components';
 import { ProgressBar } from './ProgressRing';
+import { useAppTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export function HeroJourneyCard({
     greeting,
@@ -16,19 +18,29 @@ export function HeroJourneyCard({
     empty = false,
     onSetDestination,
 }) {
+    const { colors } = useAppTheme();
+    const { t } = useLanguage();
+
     if (empty) {
         return (
             <MotiView
                 from={{ opacity: 0, translateY: 20 }}
                 animate={{ opacity: 1, translateY: 0 }}
                 transition={{ type: 'timing', duration: 600 }}
-                style={styles.emptyCard}
+                style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
             >
-                <MapPin size={28} color={Theme.colors.primary} />
-                <Text style={styles.emptyTitle}>No destination yet.</Text>
-                <Text style={styles.emptySub}>Let's choose where you're heading.</Text>
-                <TouchableOpacity style={styles.emptyBtn} onPress={onSetDestination}>
-                    <Text style={styles.emptyBtnText}>Set a Destination</Text>
+                <MapPin size={28} color={colors.primary} />
+                <Text style={[styles.emptyTitle, { color: colors.textMain }]}>{t('noGoalSet')}</Text>
+                <Text style={[styles.emptySub, { color: colors.textSecondary }]}>{t('chooseGoal')}</Text>
+                <TouchableOpacity style={styles.emptyBtnWrapper} onPress={onSetDestination}>
+                    <LinearGradient
+                        colors={Theme.gradients.hero}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.emptyBtnGradient}
+                    >
+                        <Text style={styles.emptyBtnText}>{t('setGoal')}</Text>
+                    </LinearGradient>
                 </TouchableOpacity>
             </MotiView>
         );
@@ -52,30 +64,30 @@ export function HeroJourneyCard({
                 >
                     <Text style={styles.greeting}>{greeting}</Text>
 
-                    <Text style={styles.destLabel}>Destination</Text>
+                    <Text style={styles.destLabel}>{t('goalLabel')}</Text>
                     <Text style={styles.destination} numberOfLines={2}>{destination}</Text>
 
                     <View style={styles.progressSection}>
-                        <Text style={styles.progressLabel}>{pct}% Complete</Text>
+                        <Text style={styles.progressLabel}>{pct}% {t('completeLabel')}</Text>
                         <ProgressBar progress={pct} height={6} color="rgba(255,255,255,0.9)" />
                     </View>
 
                     {pitStop && (
                         <View style={styles.row}>
-                            <Text style={styles.rowLabel}>Current Pit Stop</Text>
+                            <Text style={styles.rowLabel}>{t('currentTask')}</Text>
                             <Text style={styles.rowValue} numberOfLines={1}>{pitStop}</Text>
                         </View>
                     )}
 
                     {nextStep && (
                         <View style={styles.row}>
-                            <Text style={styles.rowLabel}>Next Step</Text>
+                            <Text style={styles.rowLabel}>{t('nextTaskHero')}</Text>
                             <Text style={styles.rowValue} numberOfLines={1}>{nextStep}</Text>
                         </View>
                     )}
 
                     <View style={styles.continueRow}>
-                        <Text style={styles.continueText}>Continue Journey</Text>
+                        <Text style={styles.continueText}>{t('continueJourney')}</Text>
                         <ChevronRight size={20} color="#fff" />
                     </View>
                 </LinearGradient>
@@ -177,9 +189,12 @@ const styles = StyleSheet.create({
         marginTop: 6,
         textAlign: 'center',
     },
-    emptyBtn: {
+    emptyBtnWrapper: {
         marginTop: 20,
-        backgroundColor: Theme.colors.primary,
+        borderRadius: Theme.radii.lg,
+        ...Theme.shadows.glow,
+    },
+    emptyBtnGradient: {
         paddingVertical: 14,
         paddingHorizontal: 24,
         borderRadius: Theme.radii.lg,

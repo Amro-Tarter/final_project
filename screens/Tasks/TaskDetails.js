@@ -1,18 +1,28 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Theme, MyButton } from '../../components/components';
-import { ArrowLeft, Bell, Calendar, Flag, RotateCw } from 'lucide-react-native';
+import { Theme, MyButton, MyConfirmAlert } from '../../components/components';
+import { MotiView } from 'moti';
+import { LinearGradient } from 'expo-linear-gradient';
+import { ArrowLeft, Bell, Calendar, Flag, RotateCw, Target } from 'lucide-react-native';
 import { useTasks } from '../../hooks/useTasks';
+import { useGoals } from '../../hooks/useGoals';
 import { useNotifications } from '../../context/NotificationContext';
+import { useAppTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function TaskDetails({ navigation, route }) {
+    const { colors } = useAppTheme();
+    const { t } = useLanguage();
     const { taskId } = route.params;
     const { tasks, deleteTask, toggleTaskStatus } = useTasks();
+    const { goals } = useGoals();
     const { showNotification } = useNotifications();
 
-    // Find the live task from the hook
+    const [deleteAlertVisible, setDeleteAlertVisible] = useState(false);
+
     const item = tasks.find(t => t.id === taskId);
+    const parentGoal = item?.goalId ? goals.find(g => g.id === item.goalId) : null;
 
     const isCompleted = item?.status === 'completed';
 
@@ -29,200 +39,223 @@ export default function TaskDetails({ navigation, route }) {
 
     if (!item) {
         return (
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                        <ArrowLeft size={24} color={Theme.colors.textMain} />
+                        <ArrowLeft size={24} color={colors.textMain} />
                     </TouchableOpacity>
                 </View>
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                    <Text style={{ fontFamily: Theme.typography.body, color: Theme.colors.textSecondary }}>
-                        Task not found or deleted.
+                    <Text style={{ fontFamily: Theme.typography.body, color: colors.textSecondary }}>
+                        {t('stepNotFound')}
                     </Text>
                 </View>
             </SafeAreaView>
         );
     }
 
+    const handleEdit = () => {
+        navigation.navigate('TaskForm', { task: item });
+    };
+
     const handleDelete = () => {
-        Alert.alert(
-            "Delete Task",
-            "Are you sure you want to delete this task?",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Delete",
-                    style: "destructive",
-                    onPress: async () => {
-                        await deleteTask(item.id, item.goalId, item.notificationId);
-                        navigation.goBack();
-                    }
-                }
-            ]
-        );
+        setDeleteAlertVisible(true);
     };
 
     const handleToggle = async () => {
         try {
             await toggleTaskStatus(item);
-
-            // Logic to determine what notification to show
             if (item.status === 'pending') {
-                // We just marked it as done (pending -> completed)
-                // EXCEPT toggleTaskStatus runs before this check, but local 'item' is stale until re-render.
-                // Actually wait, 'item' is const item = tasks.find... 
-                // We need to check the NEW status or infer it.
-                // If it WAS pending, and we toggled, it IS NOW completed (unless recurring).
-
                 if (item.recurrence?.type && item.recurrence.type !== 'none') {
-                    showNotification('success', "Task completed! Next occurrence scheduled 🗓️", 2);
+                    showNotification('success', t('taskCompletedRecurring'), 2);
                 } else {
-                    // Standard completion
-                    showNotification('success', "Task completed! 🎉", 3);
+                    showNotification('success', t('taskCompleted'), 3);
                 }
             } else {
-                // It WAS completed, now pending
-                showNotification('warning', "Task marked as pending 📝", 1);
+                showNotification('warning', t('taskPending'), 1);
             }
         } catch (error) {
             console.error("Toggle error:", error);
-            showNotification('error', "Could not update task status 🛑");
+            showNotification('error', t('updateError'));
         }
     };
 
     const getReminderText = () => {
         if (!item.reminder || item.reminder.type === 'none') {
-            return 'No reminder set';
+            return t('noReminder');
         }
 
-        const duePrefix = item.due ? `On ${item.due}` : 'Reminder';
+        const duePrefix = item.due ? `${t('on')} ${item.due}` : t('reminder');
 
         if (item.reminder.type === 'time' && item.reminder.value) {
-            return `${duePrefix} at ${item.reminder.value}`;
+            return `${duePrefix} ${t('at')} ${item.reminder.value}`;
         }
 
         if (item.reminder.type === 'period') {
             if (item.reminder.value === 'morning') {
-                return `${duePrefix} in the morning`;
+                return `${duePrefix} ${t('morning')}`;
             }
             if (item.reminder.value === 'evening') {
-                return `${duePrefix} in the evening`;
+                return `${duePrefix} ${t('evening')}`;
             }
         }
 
-        return 'No reminder set';
+        return t('noReminder');
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+            <View style={[styles.header, { borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <ArrowLeft size={24} color={Theme.colors.textMain} />
+                    <ArrowLeft size={24} color={colors.textMain} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Task Details</Text>
-                {!isCompleted && !isOverdue && (
-                    <TouchableOpacity onPress={() => navigation.navigate('TaskForm', { task: item })}>
-                        <Text style={styles.editText}>Edit</Text>
-                    </TouchableOpacity>
-                )}
+                <Text style={[styles.headerTitle, { color: colors.textMain }]}>{t('stepDetails')}</Text>
+                <View style={styles.headerRight}>
+                    {!isCompleted && !isOverdue && (
+                        <TouchableOpacity onPress={handleEdit} style={styles.editBtn}>
+                            <Text style={[styles.editText, { color: colors.primary }]}>{t('editLabel')}</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
-                <Text style={styles.title}>{item.title}</Text>
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <MotiView
+                    from={{ opacity: 0, translateY: 20 }}
+                    animate={{ opacity: 1, translateY: 0 }}
+                    transition={{ type: 'timing', duration: 500 }}
+                >
+                    <LinearGradient
+                        colors={isCompleted ? [colors.successLight, colors.successLight] : Theme.gradients.hero}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.heroBanner}
+                    >
+                        <View style={styles.heroHeader}>
+                            <View style={styles.heroTextContainer}>
+                                <Text style={styles.heroLabel}>{t('taskLabel')}</Text>
+                                <Text style={[styles.heroTitle, isCompleted && { color: colors.success }]}>
+                                    {item.title}
+                                </Text>
+                                <View style={[
+                                    styles.statusBadge,
+                                    isOverdue && { backgroundColor: colors.errorLight },
+                                    isCompleted && { backgroundColor: 'rgba(255,255,255,0.2)' }
+                                ]}>
+                                    <Text style={[
+                                        styles.statusText,
+                                        isOverdue && { color: colors.error },
+                                        isCompleted && { color: colors.success }
+                                    ]}>
+                                        {isOverdue ? t('overdueStatus') : (isCompleted ? t('done').toUpperCase() : t('pending').toUpperCase())}
+                                    </Text>
+                                </View>
+                            </View>
+                        </View>
+                    </LinearGradient>
+                </MotiView>
 
-                <View style={[
-                    styles.statusBadge,
-                    isOverdue && { backgroundColor: Theme.colors.errorLight },
-                    isCompleted && { backgroundColor: Theme.colors.successLight }
-                ]}>
-                    <Text style={[
-                        styles.statusText,
-                        isOverdue && { color: Theme.colors.error },
-                        isCompleted && { color: Theme.colors.success }
-                    ]}>
-                        {isOverdue ? "OVERDUE" : item.status.toUpperCase()}
-                    </Text>
-                </View>
+                <MotiView
+                    from={{ opacity: 0, translateY: 20 }}
+                    animate={{ opacity: 1, translateY: 0 }}
+                    transition={{ type: 'timing', duration: 500, delay: 100 }}
+                    style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                >
+                    {item.desc ? (
+                        <View style={[styles.section, { borderBottomColor: colors.border }]}>
+                            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>{t('descLabel')}</Text>
+                            <Text style={[styles.description, { color: colors.textMain }]}>{item.desc}</Text>
+                        </View>
+                    ) : null}
 
-                {item.desc ? (
-                    <>
-                        <Text style={styles.sectionLabel}>Description</Text>
-                        <Text style={styles.description}>{item.desc}</Text>
-                    </>
-                ) : null}
+                    {parentGoal ? (
+                        <View style={styles.row}>
+                            <Target size={20} color={colors.primary} />
+                            <View style={styles.infoRow}>
+                                <Text style={[styles.label, { color: colors.textSecondary }]}>{t('relatedGoal')}</Text>
+                                <Text style={[styles.value, { color: colors.textMain }]}>{parentGoal.title}</Text>
+                            </View>
+                        </View>
+                    ) : null}
 
-                <View style={styles.divider} />
+                    {item.due ? (
+                        <View style={styles.row}>
+                            <Calendar size={20} color={isOverdue ? colors.error : colors.primary} />
+                            <View style={styles.infoRow}>
+                                <Text style={[styles.label, { color: colors.textSecondary }]}>{t('dueDateLabel')}</Text>
+                                <Text style={[
+                                    styles.value,
+                                    { color: colors.textMain },
+                                    isOverdue && { color: colors.error, fontFamily: Theme.typography.subHeader }
+                                ]}>{item.due}</Text>
+                            </View>
+                        </View>
+                    ) : null}
 
-                {item.due ? (
+                    {isCompleted && item.completedLate && (
+                        <View style={styles.row}>
+                            <Calendar size={20} color={colors.warning} />
+                            <View style={styles.infoRow}>
+                                <Text style={[styles.label, { color: colors.textSecondary }]}>{t('completedInfo')}</Text>
+                                <Text style={[styles.value, { color: colors.warning }]}>
+                                    {item.lateByDays === 1 ? t('oneDayLate') : `${item.lateByDays} ${t('daysLate')}`}
+                                </Text>
+                            </View>
+                        </View>
+                    )}
+
+                    {item.recurrence && item.recurrence.type !== 'none' && (
+                        <View style={styles.row}>
+                            <RotateCw size={20} color={colors.secondary} />
+                            <View style={styles.infoRow}>
+                                <Text style={[styles.label, { color: colors.textSecondary }]}>{t('repeatsLabel')}</Text>
+                                <Text style={[styles.value, { color: colors.textMain }]}>
+                                    {item.recurrence.type === 'daily' ? t('daily') :
+                                        item.recurrence.type === 'weekly' ? t('weekly') :
+                                            item.recurrence.type === 'custom' ? `${t('every')} ${item.recurrence.interval} ${t('days')}` : ''}
+                                </Text>
+                            </View>
+                        </View>
+                    )}
+
                     <View style={styles.row}>
-                        <Calendar size={20} color={isOverdue ? Theme.colors.error : Theme.colors.primary} />
-                        <View style={styles.rowText}>
-                            <Text style={styles.label}>Due Date</Text>
-                            <Text style={[
-                                styles.value,
-                                isOverdue && { color: Theme.colors.error, fontFamily: Theme.typography.subHeader }
-                            ]}>{item.due}</Text>
+                        <Bell size={20} color={item.reminder && item.reminder.type !== 'none' ? colors.primary : colors.textSecondary} />
+                        <View style={styles.infoRow}>
+                            <Text style={[styles.label, { color: colors.textSecondary }]}>{t('reminderLabel')}</Text>
+                            <Text style={[styles.value, { color: colors.textMain }]}>{getReminderText()}</Text>
                         </View>
                     </View>
-                ) : null}
 
-                {isCompleted && item.completedLate && (
                     <View style={styles.row}>
-                        <Calendar size={20} color={Theme.colors.warning} />
-                        <View style={styles.rowText}>
-                            <Text style={styles.label}>Completed Info</Text>
-                            <Text style={[styles.value, { color: Theme.colors.warning }]}>
-                                {item.lateByDays === 1 ? '1 day late' : `${item.lateByDays} days late`}
-                            </Text>
+                        <Flag size={20} color={item.priority === 'High' ? colors.error : colors.textSecondary} />
+                        <View style={styles.infoRow}>
+                            <Text style={[styles.label, { color: colors.textSecondary }]}>{t('priorityLabel')}</Text>
+                            <Text style={[styles.value, { color: colors.textMain }]}>{item.priority === 'High' ? t('high') : t('normal')}</Text>
                         </View>
                     </View>
-                )}
-
-                {item.recurrence && item.recurrence.type !== 'none' && (
-                    <View style={styles.row}>
-                        <RotateCw size={20} color={Theme.colors.secondary} />
-                        <View style={styles.rowText}>
-                            <Text style={styles.label}>Repeats</Text>
-                            <Text style={styles.value}>
-                                {item.recurrence.type === 'daily' ? 'Daily' :
-                                    item.recurrence.type === 'weekly' ? 'Weekly' :
-                                        item.recurrence.type === 'custom' ? `Every ${item.recurrence.interval} Days` : ''}
-                            </Text>
-                        </View>
-                    </View>
-                )}
-
-                <View style={styles.row}>
-                    <Bell size={20} color={item.reminder && item.reminder.type !== 'none' ? Theme.colors.primary : Theme.colors.textSecondary} />
-                    <View style={styles.rowText}>
-                        <Text style={styles.label}>Reminder</Text>
-                        <Text style={styles.value}>{getReminderText()}</Text>
-                    </View>
-                </View>
-
-                <View style={styles.row}>
-                    <Flag size={20} color={item.priority === 'High' ? Theme.colors.error : Theme.colors.textSecondary} />
-                    <View style={styles.rowText}>
-                        <Text style={styles.label}>Priority</Text>
-                        <Text style={styles.value}>{item.priority || 'Normal'}</Text>
-                    </View>
-                </View>
+                </MotiView>
 
                 <View style={{ flex: 1 }} />
 
-                <MyButton
-                    title={item.status === 'completed' ? "Mark as Pending" : "Mark as Completed"}
-                    onPress={handleToggle}
-                    style={{ marginTop: Theme.spacing.xl }}
-                />
+                <MotiView
+                    from={{ opacity: 0, translateY: 20 }}
+                    animate={{ opacity: 1, translateY: 0 }}
+                    transition={{ type: 'timing', duration: 500, delay: 200 }}
+                >
+                    <MyButton
+                        title={item.status === 'completed' ? t('markPending') : t('markCompleted')}
+                        onPress={handleToggle}
+                        style={{ marginTop: Theme.spacing.xl }}
+                    />
 
-                <MyButton
-                    title="Delete Task"
-                    onPress={handleDelete}
-                    type="secondary"
-                    style={{ marginTop: Theme.spacing.md, borderColor: Theme.colors.error }}
-                    textStyle={{ color: Theme.colors.error }}
-                />
+                    <MyButton
+                        title={t('deleteStep')}
+                        onPress={handleDelete}
+                        type="secondary"
+                        style={{ marginTop: Theme.spacing.md, borderColor: colors.error }}
+                        textStyle={{ color: colors.error }}
+                    />
+                </MotiView>
             </ScrollView>
         </SafeAreaView>
     );
@@ -258,6 +291,35 @@ const styles = StyleSheet.create({
         padding: Theme.spacing.lg,
         flexGrow: 1,
     },
+    heroBanner: {
+        borderRadius: Theme.radii.lg,
+        padding: 24,
+        marginBottom: 24,
+        ...Theme.shadows.hero,
+    },
+    heroLabel: {
+        fontSize: 11,
+        fontFamily: Theme.typography.subHeader,
+        color: 'rgba(255,255,255,0.75)',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        marginBottom: 6,
+    },
+    heroTitle: {
+        fontSize: 24,
+        fontFamily: Theme.typography.header,
+        color: '#fff',
+        marginBottom: 16,
+    },
+    card: {
+        backgroundColor: Theme.colors.surface,
+        padding: 24,
+        borderRadius: Theme.radii.lg,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        ...Theme.shadows.float,
+        marginBottom: 24,
+    },
     title: {
         fontSize: 24,
         fontFamily: Theme.typography.header,
@@ -266,14 +328,13 @@ const styles = StyleSheet.create({
     },
     statusBadge: {
         alignSelf: 'flex-start',
-        backgroundColor: Theme.colors.primaryLight,
+        backgroundColor: 'rgba(255,255,255,0.2)',
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 8,
-        marginBottom: Theme.spacing.xl,
     },
     statusText: {
-        color: Theme.colors.primary,
+        color: '#fff',
         fontSize: 12,
         fontFamily: Theme.typography.subHeader,
         letterSpacing: 1,

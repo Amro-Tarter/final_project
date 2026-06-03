@@ -1,26 +1,43 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../../components/components';
 import { ArrowLeft, TrendingUp, Target, Flag, BookOpen, Sparkles } from 'lucide-react-native';
 import { useTasks } from '../../hooks/useTasks';
 import { useGoals } from '../../hooks/useGoals';
 import { useDiary } from '../../hooks/useDiary';
 import { useUserProfile } from '../../hooks/useUserProfile';
+import { useAppTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { getWeeklyCompletionData, getJourneyStats, calculateMomentum } from '../../utils/journeyHelpers';
 
-const ChartBar = ({ height, day, color }) => (
-    <View style={styles.chartBarContainer}>
-        <View style={[styles.chartBar, { height: Math.max(height, 8), backgroundColor: color }]} />
-        <Text style={styles.chartLabel}>{day}</Text>
-    </View>
-);
+const ChartBar = ({ height, day, color, isPrimary }) => {
+    const { colors } = useAppTheme();
+    return (
+        <View style={styles.chartBarContainer}>
+            {isPrimary ? (
+                <LinearGradient
+                    colors={Theme.gradients.hero}
+                    start={{ x: 0, y: 1 }}
+                    end={{ x: 0, y: 0 }}
+                    style={[styles.chartBar, { height: Math.max(height, 8) }]}
+                />
+            ) : (
+                <View style={[styles.chartBar, { height: Math.max(height, 8), backgroundColor: color || colors.surface }]} />
+            )}
+            <Text style={[styles.chartLabel, { color: colors.textSecondary }]}>{day}</Text>
+        </View>
+    );
+};
 
 export default function AnalyticsDashboard({ navigation }) {
     const { tasks } = useTasks();
     const { goals } = useGoals();
     const { entries } = useDiary();
     const { profile } = useUserProfile();
+    const { colors } = useAppTheme();
+    const { t } = useLanguage();
 
     const stats = useMemo(() => getJourneyStats(tasks, goals, entries), [tasks, goals, entries]);
     const weeklyData = useMemo(() => getWeeklyCompletionData(tasks), [tasks]);
@@ -29,84 +46,86 @@ export default function AnalyticsDashboard({ navigation }) {
     const burnoutSignal = profile?.tasks?.overdue > 2 && profile?.diary?.emotionalTone === 'struggling';
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <ArrowLeft size={24} color={Theme.colors.textMain} />
+                    <ArrowLeft size={24} color={colors.textMain} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Journey Insights</Text>
+                <Text style={[styles.headerTitle, { color: colors.textMain }]}>{t('journeyInsights')}</Text>
                 <View style={{ width: 24 }} />
             </View>
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <Text style={styles.intro}>
-                    A personal look at how your journey is unfolding.
+                <Text style={[styles.intro, { color: colors.textSecondary }]}>
+                    {t('journeyInsightsSub')}
                 </Text>
 
                 <View style={styles.statsGrid}>
-                    <View style={styles.statCard}>
-                        <Flag size={20} color={Theme.colors.primary} />
-                        <Text style={styles.statValue}>{stats.tasksCompleted}</Text>
-                        <Text style={styles.statLabel}>Steps Done</Text>
+                    <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                        <Flag size={20} color={colors.primary} />
+                        <Text style={[styles.statValue, { color: colors.textMain }]}>{stats.tasksCompleted}</Text>
+                        <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('stepsDone')}</Text>
                     </View>
-                    <View style={styles.statCard}>
-                        <Target size={20} color={Theme.colors.success} />
-                        <Text style={styles.statValue}>{stats.milestonesReached}</Text>
-                        <Text style={styles.statLabel}>Pit Stops</Text>
+                    <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                        <Target size={20} color={colors.success} />
+                        <Text style={[styles.statValue, { color: colors.textMain }]}>{stats.milestonesReached}</Text>
+                        <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('tasks')}</Text>
                     </View>
-                    <View style={styles.statCard}>
-                        <TrendingUp size={20} color={Theme.colors.secondary} />
-                        <Text style={styles.statValue}>{stats.goalsCompleted}</Text>
-                        <Text style={styles.statLabel}>Destinations</Text>
+                    <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                        <TrendingUp size={20} color={colors.secondary} />
+                        <Text style={[styles.statValue, { color: colors.textMain }]}>{stats.goalsCompleted}</Text>
+                        <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('goals')}</Text>
                     </View>
-                    <View style={styles.statCard}>
-                        <BookOpen size={20} color={Theme.colors.warning} />
-                        <Text style={styles.statValue}>{stats.reflectionsWritten}</Text>
-                        <Text style={styles.statLabel}>Reflections</Text>
+                    <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                        <BookOpen size={20} color={colors.warning} />
+                        <Text style={[styles.statValue, { color: colors.textMain }]}>{stats.reflectionsWritten}</Text>
+                        <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('reflectionsWritten')}</Text>
                     </View>
                 </View>
 
-                <Text style={styles.sectionTitle}>Weekly Momentum</Text>
-                <View style={styles.chartCard}>
-                    <Text style={styles.chartSubtitle}>Steps completed by day</Text>
+                <Text style={[styles.sectionTitle, { color: colors.textMain }]}>{t('weeklyMomentum')}</Text>
+                <View style={[styles.chartCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Text style={[styles.chartSubtitle, { color: colors.textSecondary }]}>{t('stepsByDay')}</Text>
                     <View style={styles.chartRow}>
                         {weeklyData.map((d, i) => (
-                            <ChartBar key={i} day={d.day} height={d.height} color={Theme.colors.primary} />
+                            <ChartBar key={i} day={d.day} height={d.height} isPrimary={true} />
                         ))}
                     </View>
                 </View>
 
-                <View style={styles.momentumCard}>
+                <View style={[styles.momentumCard, { backgroundColor: colors.primaryLight, borderColor: colors.primaryBorder }]}>
                     <View style={styles.momentumHeader}>
-                        <Sparkles size={20} color={Theme.colors.primary} />
-                        <Text style={styles.momentumTitle}>Momentum Level</Text>
+                        <Sparkles size={20} color={colors.primary} />
+                        <Text style={[styles.momentumTitle, { color: colors.primary }]}>{t('momentumLevel')}</Text>
                     </View>
-                    <Text style={styles.momentumValue}>{momentum}%</Text>
-                    <View style={styles.momentumTrack}>
-                        <View style={[styles.momentumFill, { width: `${momentum}%` }]} />
+                    <Text style={[styles.momentumValue, { color: colors.textMain }]}>{momentum}%</Text>
+                    <View style={[styles.momentumTrack, { backgroundColor: 'rgba(255,255,255,0.6)' }]}>
+                        <LinearGradient
+                            colors={Theme.gradients.hero}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={[styles.momentumFill, { width: `${momentum}%` }]}
+                        />
                     </View>
-                    <Text style={styles.momentumSub}>
-                        {momentum >= 50
-                            ? "You're building steady forward motion."
-                            : 'Small steps still count. Keep going gently.'}
+                    <Text style={[styles.momentumSub, { color: colors.textSecondary }]}>
+                        {momentum >= 50 ? t('momentumHigh') : t('momentumLow')}
                     </Text>
                 </View>
 
                 {burnoutSignal && (
-                    <View style={styles.burnoutCard}>
-                        <Text style={styles.burnoutTitle}>Gentle Check-In</Text>
-                        <Text style={styles.burnoutText}>
-                            Some steps have passed and your mood has been heavy lately.
-                            Consider replanning at a pace that feels kinder.
+                    <View style={[styles.burnoutCard, { backgroundColor: colors.warningLight, borderColor: colors.warningBorder }]}>
+                        <Text style={[styles.burnoutTitle, { color: colors.warningText }]}>{t('gentleCheckIn')}</Text>
+                        <Text style={[styles.burnoutText, { color: colors.warningText }]}>
+                            {t('burnoutText')}
                         </Text>
                     </View>
                 )}
 
                 {profile?.psychology?.dailyExecutionTime && (
                     <>
-                        <Text style={styles.sectionTitle}>Peak Focus Time</Text>
-                        <View style={styles.peakCard}>
-                            <Text style={styles.peakText}>{profile.psychology.dailyExecutionTime}</Text>
+                        <Text style={[styles.sectionTitle, { color: colors.textMain }]}>{t('peakFocusTime')}</Text>
+                        <View style={[styles.peakCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                            <Text style={[styles.peakText, { color: colors.textMain }]}>{profile.psychology.dailyExecutionTime}</Text>
                         </View>
                     </>
                 )}
@@ -246,7 +265,6 @@ const styles = StyleSheet.create({
     },
     momentumFill: {
         height: '100%',
-        backgroundColor: Theme.colors.primary,
         borderRadius: 4,
     },
     momentumSub: {

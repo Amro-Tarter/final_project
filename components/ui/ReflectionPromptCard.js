@@ -2,16 +2,20 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Theme } from '../components';
 import { BookHeart } from 'lucide-react-native';
+import { useAppTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export function ReflectionPromptCard({ prompt, onPress }) {
+    const { colors } = useAppTheme();
+    const { t } = useLanguage();
     return (
-        <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
-            <View style={styles.iconWrap}>
-                <BookHeart size={20} color={Theme.colors.secondary} />
+        <TouchableOpacity style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={onPress} activeOpacity={0.9}>
+            <View style={[styles.iconWrap, { backgroundColor: colors.secondaryLight }]}>
+                <BookHeart size={20} color={colors.secondary} />
             </View>
             <View style={styles.content}>
-                <Text style={styles.label}>Reflection</Text>
-                <Text style={styles.prompt}>{prompt}</Text>
+                <Text style={[styles.label, { color: colors.secondary }]}>{t('reflectionTitle')}</Text>
+                <Text style={[styles.prompt, { color: colors.textMain }]}>{prompt}</Text>
             </View>
         </TouchableOpacity>
     );

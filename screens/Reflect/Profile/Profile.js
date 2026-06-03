@@ -1,17 +1,21 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Theme } from '../../components/components';
-import { User, Settings, PieChart, Trophy, LogOut } from 'lucide-react-native';
-import { useAuth } from '../../context/AuthContext';
+import { Theme } from '../../../components/components';
+import { User, Settings, Trophy, LogOut } from 'lucide-react-native';
+import { useAuth } from '../../../context/AuthContext';
 import { signOut } from 'firebase/auth';
-import { auth } from '../../config/firebase';
-import { useTasks } from '../../hooks/useTasks';
-import { useGoals } from '../../hooks/useGoals';
-import { useDiary } from '../../hooks/useDiary';
-import { getUserDisplayName, getJourneyStats } from '../../utils/journeyHelpers';
+import { auth } from '../../../config/firebase';
+import { useTasks } from '../../../hooks/useTasks';
+import { useGoals } from '../../../hooks/useGoals';
+import { useDiary } from '../../../hooks/useDiary';
+import { getUserDisplayName, getJourneyStats } from '../../../utils/journeyHelpers';
+import { useAppTheme } from '../../../context/ThemeContext';
+import { useLanguage } from '../../../context/LanguageContext';
 
 export default function Profile({ navigation }) {
+    const { colors } = useAppTheme();
+    const { t } = useLanguage();
     const { user } = useAuth();
     const { tasks } = useTasks();
     const { goals } = useGoals();
@@ -29,75 +33,75 @@ export default function Profile({ navigation }) {
     };
 
     const menuItems = [
-        { label: 'Journey Insights', icon: PieChart, route: 'AnalyticsDashboard' },
-        { label: 'Celebration Wall', icon: Trophy, route: 'CelebrationWall' },
-        { label: 'Settings', icon: Settings, route: 'Settings' },
+        { label: t('celebrationWall'), icon: Trophy, route: 'CelebrationWall' },
+        { label: t('settings'), icon: Settings, route: 'Settings' },
     ];
 
-    const summaryText = `You've completed ${stats.tasksCompleted} steps and reached ${stats.milestonesReached} pit stops since beginning your journey.`;
+    const summaryText = t('journeySummary').replace('{0}', stats.tasksCompleted).replace('{1}', stats.milestonesReached);
+    const diariesWrittenText = t('diariesWrittenText').replace('{0}', stats.diariesWritten).replace('{1}', stats.momentum);
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Me</Text>
+                <Text style={[styles.headerTitle, { color: colors.textMain }]}>{t('me')}</Text>
                 <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
-                    <Settings size={24} color={Theme.colors.textMain} />
+                    <Settings size={24} color={colors.textMain} />
                 </TouchableOpacity>
             </View>
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <View style={styles.profileCard}>
-                    <View style={styles.avatar}>
-                        <User size={40} color={Theme.colors.primary} />
+                <View style={[styles.profileCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <View style={[styles.avatar, { backgroundColor: colors.primaryLight, borderColor: colors.primaryBorder }]}>
+                        <User size={40} color={colors.primary} />
                     </View>
-                    <Text style={styles.userName}>{displayName}</Text>
-                    <Text style={styles.userEmail}>{user?.email}</Text>
+                    <Text style={[styles.userName, { color: colors.textMain }]}>{displayName}</Text>
+                    <Text style={[styles.userEmail, { color: colors.textSecondary }]}>{user?.email}</Text>
 
                     <View style={styles.statsRow}>
                         <View style={styles.stat}>
-                            <Text style={styles.statValue}>{stats.goalsCompleted}</Text>
-                            <Text style={styles.statLabel}>Destinations</Text>
+                            <Text style={[styles.statValue, { color: colors.primary }]}>{stats.goalsCompleted}</Text>
+                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('goals')}</Text>
                         </View>
-                        <View style={styles.statDivider} />
+                        <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
                         <View style={styles.stat}>
-                            <Text style={styles.statValue}>{stats.milestonesReached}</Text>
-                            <Text style={styles.statLabel}>Pit Stops</Text>
+                            <Text style={[styles.statValue, { color: colors.primary }]}>{stats.milestonesReached}</Text>
+                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('tasks')}</Text>
                         </View>
-                        <View style={styles.statDivider} />
+                        <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
                         <View style={styles.stat}>
-                            <Text style={styles.statValue}>{stats.tasksCompleted}</Text>
-                            <Text style={styles.statLabel}>Steps</Text>
+                            <Text style={[styles.statValue, { color: colors.primary }]}>{stats.tasksCompleted}</Text>
+                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('steps')}</Text>
                         </View>
                     </View>
                 </View>
 
-                <View style={styles.summaryCard}>
-                    <Text style={styles.summaryLabel}>Personal Journey Summary</Text>
-                    <Text style={styles.summaryText}>{summaryText}</Text>
-                    <Text style={styles.summarySub}>
-                        {stats.reflectionsWritten} reflections written · {stats.momentum}% momentum
+                <View style={[styles.summaryCard, { backgroundColor: colors.primaryLight, borderColor: colors.primaryBorder }]}>
+                    <Text style={[styles.summaryLabel, { color: colors.primary }]}>{t('personalJourney')}</Text>
+                    <Text style={[styles.summaryText, { color: colors.textMain }]}>{summaryText}</Text>
+                    <Text style={[styles.summarySub, { color: colors.textSecondary }]}>
+                        {diariesWrittenText}
                     </Text>
                 </View>
 
-                <Text style={styles.sectionTitle}>Menu</Text>
-                <View style={styles.menuContainer}>
+                <Text style={[styles.sectionTitle, { color: colors.textMain }]}>{t('menu')}</Text>
+                <View style={[styles.menuContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     {menuItems.map((item, index) => (
                         <TouchableOpacity
                             key={index}
-                            style={[styles.menuItem, index === menuItems.length - 1 && { borderBottomWidth: 0 }]}
+                            style={[styles.menuItem, { borderBottomColor: colors.border }, index === menuItems.length - 1 && { borderBottomWidth: 0 }]}
                             onPress={() => item.route && navigation.navigate(item.route)}
                         >
-                            <View style={styles.menuIcon}>
-                                <item.icon size={20} color={Theme.colors.primary} />
+                            <View style={[styles.menuIcon, { backgroundColor: colors.background }]}>
+                                <item.icon size={20} color={colors.primary} />
                             </View>
-                            <Text style={styles.menuLabel}>{item.label}</Text>
+                            <Text style={[styles.menuLabel, { color: colors.textMain }]}>{item.label}</Text>
                         </TouchableOpacity>
                     ))}
                 </View>
 
                 <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
-                    <LogOut size={20} color={Theme.colors.error} style={{ marginRight: 12 }} />
-                    <Text style={styles.signOutText}>Sign Out</Text>
+                    <LogOut size={20} color={colors.error} style={{ marginRight: 12 }} />
+                    <Text style={[styles.signOutText, { color: colors.error }]}>{t('signOut')}</Text>
                 </TouchableOpacity>
             </ScrollView>
         </SafeAreaView>

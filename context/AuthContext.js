@@ -1,7 +1,9 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '../config/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore'; const AuthContext = createContext({});
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore'; 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+const AuthContext = createContext({});
 
 export const useAuth = () => useContext(AuthContext);
 
@@ -14,8 +16,19 @@ export function AuthProvider({ children }) {
   };
 
   useEffect(() => {
+    let isInitialLoad = true;
     const unsub = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
+        if (isInitialLoad) {
+            const rem = await AsyncStorage.getItem('rememberMe');
+            if (rem === 'false') {
+                await signOut(auth);
+                setUser(null);
+                setLoading(false);
+                isInitialLoad = false;
+                return;
+            }
+        }
         try {
           const userDoc = await getDoc(doc(db, "users", currentUser.uid));
           if (userDoc.exists()) {
@@ -30,6 +43,7 @@ export function AuthProvider({ children }) {
       } else {
         setUser(null);
       }
+      isInitialLoad = false;
       setLoading(false);
     });
     return unsub;

@@ -8,6 +8,7 @@ import {
   Inter_400Regular,
   Inter_600SemiBold
 } from '@expo-google-fonts/inter';
+
 import {
   Poppins_500Medium,
   Poppins_600SemiBold
@@ -15,6 +16,8 @@ import {
 
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
+import { AppThemeProvider } from './context/ThemeContext';
 import LoginScreen from './screens/login';
 import SignUpScreen from './screens/SignUp';
 import ForgotPassword from './screens/ForgotPassword';
@@ -29,16 +32,20 @@ import { Compass, Map, Route, BookHeart, UserCircle } from 'lucide-react-native'
 import { Theme } from './components/components';
 import { JourneyCopy } from './constants/JourneyCopy';
 
+import { useAppTheme } from './context/ThemeContext';
+
 const Tab = createBottomTabNavigator();
 
 function MainTabs() {
+  const { colors } = useAppTheme();
+  const { t } = useLanguage();
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: Theme.colors.surface,
-          borderTopColor: Theme.colors.border,
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
           borderTopWidth: 1,
           height: Platform.OS === 'ios' ? 88 : 72,
           paddingBottom: Platform.OS === 'ios' ? 28 : 12,
@@ -49,8 +56,8 @@ function MainTabs() {
           shadowOpacity: 0.06,
           shadowRadius: 12,
         },
-        tabBarActiveTintColor: Theme.colors.primary,
-        tabBarInactiveTintColor: Theme.colors.textSecondary,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarLabelStyle: {
           fontFamily: Theme.typography.body,
           fontSize: 11,
@@ -62,7 +69,7 @@ function MainTabs() {
         name="HomeTab"
         component={HomeScreen}
         options={{
-          tabBarLabel: JourneyCopy.tabs.companion,
+          tabBarLabel: t('homeTab'),
           tabBarIcon: ({ color }) => <Compass size={22} color={color} />,
         }}
       />
@@ -70,7 +77,7 @@ function MainTabs() {
         name="GoalsTab"
         component={require('./screens/Goals/GoalList').default}
         options={{
-          tabBarLabel: JourneyCopy.tabs.journey,
+          tabBarLabel: t('goalsTab'),
           tabBarIcon: ({ color }) => <Map size={22} color={color} />,
         }}
       />
@@ -78,7 +85,7 @@ function MainTabs() {
         name="PlanTab"
         component={require('./screens/Plan/PlanScreen').default}
         options={{
-          tabBarLabel: JourneyCopy.tabs.plan,
+          tabBarLabel: t('planTab'),
           tabBarIcon: ({ color }) => <Route size={22} color={color} />,
         }}
       />
@@ -86,15 +93,15 @@ function MainTabs() {
         name="ReflectTab"
         component={require('./screens/Reflect/ReflectScreen').default}
         options={{
-          tabBarLabel: JourneyCopy.tabs.reflect,
+          tabBarLabel: t('diaryTab'),
           tabBarIcon: ({ color }) => <BookHeart size={22} color={color} />,
         }}
       />
       <Tab.Screen
         name="ProfileTab"
-        component={require('./screens/Profile/Profile').default}
+        component={require('./screens/Reflect/Profile/Profile').default}
         options={{
-          tabBarLabel: JourneyCopy.tabs.me,
+          tabBarLabel: t('me'),
           tabBarIcon: ({ color }) => <UserCircle size={22} color={color} />,
         }}
       />
@@ -122,10 +129,8 @@ function RootNavigator() {
             <Stack.Screen name="DiaryForm" component={require('./screens/Diary/DiaryForm').default} />
 
             <Stack.Screen name="AIChat" component={require('./screens/AI/AIChat').default} />
-            <Stack.Screen name="AIInsights" component={require('./screens/AI/AIInsights').default} />
 
-            <Stack.Screen name="Settings" component={require('./screens/Profile/Settings').default} />
-            <Stack.Screen name="AnalyticsDashboard" component={require('./screens/Analytics/AnalyticsDashboard').default} />
+            <Stack.Screen name="Settings" component={require('./screens/Reflect/Profile/Settings').default} />
             <Stack.Screen name="CelebrationWall" component={require('./screens/Celebration/CelebrationWall').default} />
           </>
         ) : (
@@ -165,13 +170,17 @@ export default function App() {
 
   return (
     <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-      <AuthProvider>
-        <NotificationProvider>
-          <NavigationContainer>
-            <RootNavigator />
-          </NavigationContainer>
-        </NotificationProvider>
-      </AuthProvider>
+      <AppThemeProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <NotificationProvider>
+              <NavigationContainer>
+                <RootNavigator />
+              </NavigationContainer>
+            </NotificationProvider>
+          </AuthProvider>
+        </LanguageProvider>
+      </AppThemeProvider>
     </View>
   );
 }

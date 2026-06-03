@@ -6,9 +6,13 @@ import { ArrowLeft, Trophy, Flag, Star } from 'lucide-react-native';
 import { useTasks } from '../../hooks/useTasks';
 import { useGoals } from '../../hooks/useGoals';
 import { useDiary } from '../../hooks/useDiary';
+import { useAppTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { EmptyState } from '../../components/ui/EmptyState';
 
 export default function CelebrationWall({ navigation }) {
+    const { colors } = useAppTheme();
+    const { t } = useLanguage();
     const { tasks } = useTasks();
     const { goals } = useGoals();
     const { entries } = useDiary();
@@ -29,32 +33,32 @@ export default function CelebrationWall({ navigation }) {
     const hasWins = completedGoals.length > 0 || completedMilestones.length > 0 || positiveEntries.length > 0;
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
-                    <ArrowLeft size={24} color={Theme.colors.textMain} />
+                    <ArrowLeft size={24} color={colors.textMain} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Celebration Wall</Text>
+                <Text style={[styles.headerTitle, { color: colors.textMain }]}>{t('celebrationWall')}</Text>
                 <View style={{ width: 24 }} />
             </View>
 
             {!hasWins ? (
                 <EmptyState
-                    title="Your wins are waiting."
-                    subtitle="Complete a step or reach a destination to see them here."
+                    title={t('winsWaiting')}
+                    subtitle={t('winsWaitingSub')}
                     icon={Trophy}
                 />
             ) : (
                 <ScrollView contentContainerStyle={styles.content}>
                     {completedGoals.length > 0 && (
                         <>
-                            <Text style={styles.sectionTitle}>Destinations Reached</Text>
+                            <Text style={[styles.sectionTitle, { color: colors.textMain }]}>{t('destinationsReached')}</Text>
                             {completedGoals.map(g => (
-                                <View key={g.id} style={styles.winCard}>
-                                    <Trophy size={22} color={Theme.colors.primary} />
+                                <View key={g.id} style={[styles.winCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                                    <Trophy size={22} color={colors.primary} />
                                     <View style={styles.winText}>
-                                        <Text style={styles.winTitle}>{g.title}</Text>
-                                        <Text style={styles.winSub}>Goal completed</Text>
+                                        <Text style={[styles.winTitle, { color: colors.textMain }]}>{g.title}</Text>
+                                        <Text style={[styles.winSub, { color: colors.textSecondary }]}>{t('goalCompleted')}</Text>
                                     </View>
                                 </View>
                             ))}
@@ -63,13 +67,13 @@ export default function CelebrationWall({ navigation }) {
 
                     {completedMilestones.length > 0 && (
                         <>
-                            <Text style={styles.sectionTitle}>Pit Stops Reached</Text>
-                            {completedMilestones.slice(0, 10).map(t => (
-                                <View key={t.id} style={styles.winCard}>
-                                    <Flag size={22} color={Theme.colors.success} />
+                            <Text style={[styles.sectionTitle, { color: colors.textMain }]}>{t('pitStopsReached')}</Text>
+                            {completedMilestones.slice(0, 10).map(task => (
+                                <View key={task.id} style={[styles.winCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                                    <Flag size={22} color={colors.success} />
                                     <View style={styles.winText}>
-                                        <Text style={styles.winTitle}>{t.title}</Text>
-                                        <Text style={styles.winSub}>Milestone completed</Text>
+                                        <Text style={[styles.winTitle, { color: colors.textMain }]}>{task.title}</Text>
+                                        <Text style={[styles.winSub, { color: colors.textSecondary }]}>{t('milestoneCompleted')}</Text>
                                     </View>
                                 </View>
                             ))}
@@ -78,13 +82,13 @@ export default function CelebrationWall({ navigation }) {
 
                     {positiveEntries.length > 0 && (
                         <>
-                            <Text style={styles.sectionTitle}>Positive Memories</Text>
+                            <Text style={[styles.sectionTitle, { color: colors.textMain }]}>{t('positiveMemories')}</Text>
                             {positiveEntries.map(e => (
-                                <View key={e.id} style={styles.winCard}>
-                                    <Star size={22} color={Theme.colors.warning} />
+                                <View key={e.id} style={[styles.winCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                                    <Star size={22} color={colors.warning} />
                                     <View style={styles.winText}>
-                                        <Text style={styles.winTitle}>{e.title || 'Reflection'}</Text>
-                                        <Text style={styles.winSub} numberOfLines={2}>{e.content}</Text>
+                                        <Text style={[styles.winTitle, { color: colors.textMain }]}>{e.title || t('reflection')}</Text>
+                                        <Text style={[styles.winSub, { color: colors.textSecondary }]} numberOfLines={2}>{e.content}</Text>
                                     </View>
                                 </View>
                             ))}

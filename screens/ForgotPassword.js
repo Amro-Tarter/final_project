@@ -5,8 +5,10 @@ import { Mail, ArrowLeft } from "lucide-react-native";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../config/firebase";
 import { MyButton, MyInput, LogoHeader, Theme, MyCustomAlert } from "../components/components";
+import { useAppTheme } from "../context/ThemeContext";
 
 export default function ForgotPasswordScreen({ navigation }) {
+  const { colors } = useAppTheme();
   const [email, setEmail] = useState('');
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState('');
@@ -33,9 +35,9 @@ export default function ForgotPasswordScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-        <ArrowLeft size={24} color={Theme.colors.textMain} />
+        <ArrowLeft size={24} color={colors.textMain} />
       </TouchableOpacity>
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>

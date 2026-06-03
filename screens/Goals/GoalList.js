@@ -1,16 +1,21 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../../components/components';
 import { Plus, Map } from 'lucide-react-native';
 import { useGoals } from '../../hooks/useGoals';
 import { useTasks } from '../../hooks/useTasks';
-import { DestinationCard } from '../../components/ui/JourneyCards';
+import { GoalCard } from '../../components/ui/JourneyCards';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { JourneyCopy } from '../../constants/JourneyCopy';
-import { getCurrentPitStop, getGoalTasks } from '../../utils/journeyHelpers';
+import { getCurrentTask, getGoalTasks } from '../../utils/journeyHelpers';
+import { useAppTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function GoalList({ navigation }) {
+    const { colors } = useAppTheme();
+    const { t } = useLanguage();
     const { goals, loading } = useGoals();
     const { tasks } = useTasks();
 
@@ -20,31 +25,38 @@ export default function GoalList({ navigation }) {
     );
 
     const renderItem = ({ item }) => {
-        const pitStop = getCurrentPitStop(tasks, item.id);
+        const currentTask = getCurrentTask(tasks, item.id);
         const remaining = getGoalTasks(tasks, item.id).filter(t => t.status === 'pending').length;
 
         return (
-            <DestinationCard
+            <GoalCard
                 goal={item}
-                pitStop={pitStop?.title}
-                remainingStops={remaining}
+                currentTask={currentTask?.title}
+                remainingTasks={remaining}
                 onPress={() => navigation.navigate('GoalDetails', { goalId: item.id })}
             />
         );
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
             <View style={styles.header}>
                 <View>
-                    <Text style={styles.headerTitle}>Your Journey</Text>
-                    <Text style={styles.headerSub}>Destinations you're heading toward</Text>
+                    <Text style={[styles.headerTitle, { color: colors.textMain }]}>{t('yourJourney')}</Text>
+                    <Text style={[styles.headerSub, { color: colors.textSecondary }]}>{t('goalsHeading')}</Text>
                 </View>
                 <TouchableOpacity
-                    style={styles.addButton}
+                    style={styles.addButtonWrapper}
                     onPress={() => navigation.navigate('GoalForm')}
                 >
-                    <Plus size={24} color={Theme.colors.primary} />
+                    <LinearGradient
+                        colors={Theme.gradients.hero}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.addButtonGradient}
+                    >
+                        <Plus size={24} color="#fff" />
+                    </LinearGradient>
                 </TouchableOpacity>
             </View>
 
@@ -56,7 +68,7 @@ export default function GoalList({ navigation }) {
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
                     loading ? (
-                        <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginTop: 60 }} />
+                        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 60 }} />
                     ) : (
                         <EmptyState
                             title={JourneyCopy.empty.goals.title}
@@ -95,11 +107,14 @@ const styles = StyleSheet.create({
         color: Theme.colors.textSecondary,
         marginTop: 4,
     },
-    addButton: {
+    addButtonWrapper: {
+        borderRadius: 22,
+        ...Theme.shadows.glow,
+    },
+    addButtonGradient: {
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: Theme.colors.primaryLight,
         alignItems: 'center',
         justifyContent: 'center',
     },

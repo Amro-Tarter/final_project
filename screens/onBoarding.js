@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Text, ScrollView } from "react-native";
+import { View, StyleSheet, Text, ScrollView, ActivityIndicator } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Theme,
@@ -10,6 +10,7 @@ import {
 import { db } from "../config/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
+import { useAppTheme } from "../context/ThemeContext";
 
 const QUESTIONS = [
   {
@@ -59,9 +60,11 @@ const QUESTIONS = [
 ];
 
 export default function OnboardingScreen({ navigation }) {
+  const { colors } = useAppTheme();
   const { user, updateUser } = useAuth();
   const [isStarted, setIsStarted] = useState(false);
   const [step, setStep] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [answers, setAnswers] = useState({
     coreProblem: null,
@@ -107,6 +110,7 @@ export default function OnboardingScreen({ navigation }) {
   const handleFinish = async () => {
     try {
       if (user) {
+        setIsSubmitting(true);
         const userRef = doc(db, "users", user.uid);
         await updateDoc(userRef, {
           onboardingAnswers: answers,
@@ -117,12 +121,13 @@ export default function OnboardingScreen({ navigation }) {
       }
     } catch (error) {
       console.error("Error saving onboarding: ", error);
+      setIsSubmitting(false);
     }
   };
 
   if (!isStarted) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.contentContainer}>
           <LogoHeader
             title="Welcome, Traveler"
@@ -130,10 +135,10 @@ export default function OnboardingScreen({ navigation }) {
             style={{ marginTop: Theme.spacing.xxl }}
           />
           <View style={styles.welcomeBox}>
-            <Text style={styles.welcomeText}>
+            <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>
               A few gentle questions help Nova understand how you move through your days.
             </Text>
-            <Text style={styles.welcomeText}>
+            <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>
               Your answers shape reminders, support style, and how we handle overdue steps.
             </Text>
           </View>
@@ -149,7 +154,7 @@ export default function OnboardingScreen({ navigation }) {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <LogoHeader
           title={current.title}
@@ -158,34 +163,45 @@ export default function OnboardingScreen({ navigation }) {
         />
 
         <View style={styles.options}>
-          {current.type === "single" && current.options.map((option) => (
-            <MyButton
-              key={option}
-              title={option}
-              type="secondary" // Use secondary for options to look cleaner
-              style={[
-                styles.optionBtn,
-                answers[current.key] === option && styles.optionBtnSelected
-              ]}
-              onPress={() => handleSingleSelect(option)}
-            />
-          ))}
+          {isSubmitting ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Saving your profile...</Text>
+            </View>
+          ) : (
+            <>
+              {current.type === "single" && current.options.map((option) => (
+                <MyButton
+                  key={option}
+                  title={option}
+                  type="secondary"
+                  style={[
+                    styles.optionBtn,
+                    answers[current.key] === option && [styles.optionBtnSelected, { borderColor: colors.primary, backgroundColor: colors.primaryLightAlt }]
+                  ]}
+                  disabled={isSubmitting}
+                  onPress={() => handleSingleSelect(option)}
+                />
+              ))}
 
-          {current.type === "multi" && current.options.map((option) => (
-            <MyCheckbox
-              key={option}
-              label={option}
-              checked={answers[current.key]?.includes(option)}
-              onPress={() => handleMultiToggle(option)}
-            />
-          ))}
+              {current.type === "multi" && current.options.map((option) => (
+                <MyCheckbox
+                  key={option}
+                  label={option}
+                  checked={answers[current.key]?.includes(option)}
+                  onPress={() => handleMultiToggle(option)}
+                />
+              ))}
+            </>
+          )}
         </View>
 
         {current.type === "multi" && (
           <MyButton
-            title={step === QUESTIONS.length - 1 ? "Finish" : "Next"}
+            title={step === QUESTIONS.length - 1 ? (isSubmitting ? "Saving..." : "Finish") : "Next"}
             onPress={handleNext}
             style={styles.nextBtn}
+            disabled={isSubmitting}
           />
         )}
       </ScrollView>
@@ -233,4 +249,15 @@ const styles = StyleSheet.create({
   nextBtn: {
     marginTop: Theme.spacing.xl
   },
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontFamily: Theme.typography.subHeader,
+    color: Theme.colors.textSecondary,
+    fontSize: 16,
+  }
 });

@@ -1,49 +1,61 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../../components/components';
 import { Plus, BookOpen } from 'lucide-react-native';
 import { useDiary } from '../../hooks/useDiary';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { JourneyCopy } from '../../constants/JourneyCopy';
 import { getMoodEmoji } from '../../utils/journeyHelpers';
+import { useAppTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
-export default function DiaryTimeline({ navigation, embedded = false }) {
+export default function DiaryTimeline({ navigation, embedded = false, customHeader }) {
+    const { colors } = useAppTheme();
+    const { t, language } = useLanguage();
     const { entries, loading } = useDiary();
 
     const renderItem = ({ item }) => {
         const wordCount = (item.content || '').split(/\s+/).filter(Boolean).length;
         const dateStr = item.createdAt?.toDate
-            ? item.createdAt.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-            : 'Just now';
+            ? item.createdAt.toDate().toLocaleDateString(language, { month: 'short', day: 'numeric', year: 'numeric' })
+            : t('justNow');
 
         return (
             <TouchableOpacity
-                style={styles.card}
+                style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 onPress={() => navigation.navigate('DiaryEntry', { entryId: item.id })}
                 activeOpacity={0.85}
             >
                 <View style={styles.cardTop}>
                     <Text style={styles.emoji}>{getMoodEmoji(item.mood)}</Text>
                     <View style={styles.cardMeta}>
-                        <Text style={styles.date}>{dateStr}</Text>
-                        <Text style={styles.length}>{wordCount} words</Text>
+                        <Text style={[styles.date, { color: colors.textSecondary }]}>{dateStr}</Text>
+                        <Text style={[styles.length, { color: colors.textSecondary }]}>{wordCount} {t('words')}</Text>
                     </View>
                 </View>
-                <Text style={styles.title}>{item.title || 'Reflection'}</Text>
-                <Text style={styles.preview} numberOfLines={3}>{item.content}</Text>
+                <Text style={[styles.title, { color: colors.textMain }]}>{item.title || t('diaryEntryDefault')}</Text>
+                <Text style={[styles.preview, { color: colors.textSecondary }]} numberOfLines={3}>{item.content}</Text>
             </TouchableOpacity>
         );
     };
 
-    const listHeader = embedded ? null : (
+    const listHeader = embedded ? customHeader : (
         <View style={styles.header}>
             <View>
-                <Text style={styles.headerTitle}>Travel Log</Text>
-                <Text style={styles.headerSub}>Your reflections along the way</Text>
+                <Text style={[styles.headerTitle, { color: colors.textMain }]}>{t('diaryLabel')}</Text>
+                <Text style={[styles.headerSub, { color: colors.textSecondary }]}>{t('diarySub')}</Text>
             </View>
-            <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('DiaryForm')}>
-                <Plus size={24} color={Theme.colors.primary} />
+            <TouchableOpacity style={styles.addButtonWrapper} onPress={() => navigation.navigate('DiaryForm')}>
+                <LinearGradient
+                    colors={Theme.gradients.hero}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.addButtonGradient}
+                >
+                    <Plus size={24} color="#fff" />
+                </LinearGradient>
             </TouchableOpacity>
         </View>
     );
@@ -51,7 +63,7 @@ export default function DiaryTimeline({ navigation, embedded = false }) {
     if (loading && entries.length === 0) {
         return (
             <View style={styles.loadingWrap}>
-                <ActivityIndicator size="large" color={Theme.colors.primary} />
+                <ActivityIndicator size="large" color={colors.primary} />
             </View>
         );
     }
@@ -81,7 +93,7 @@ export default function DiaryTimeline({ navigation, embedded = false }) {
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
             {content}
         </SafeAreaView>
     );
@@ -116,11 +128,14 @@ const styles = StyleSheet.create({
         color: Theme.colors.textSecondary,
         marginTop: 4,
     },
-    addButton: {
+    addButtonWrapper: {
+        borderRadius: 22,
+        ...Theme.shadows.glow,
+    },
+    addButtonGradient: {
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: Theme.colors.primaryLight,
         alignItems: 'center',
         justifyContent: 'center',
     },
