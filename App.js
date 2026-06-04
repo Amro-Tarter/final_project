@@ -28,7 +28,7 @@ import OnboardingScreen from './screens/onBoarding';
 const Stack = createNativeStackNavigator();
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Compass, Map, Route, BookHeart, UserCircle } from 'lucide-react-native';
+import { Compass, BookHeart, UserCircle, Map, Repeat, CheckCircle2 } from 'lucide-react-native';
 import { Theme } from './components/components';
 import { JourneyCopy } from './constants/JourneyCopy';
 
@@ -82,11 +82,11 @@ function MainTabs() {
         }}
       />
       <Tab.Screen
-        name="PlanTab"
-        component={require('./screens/Plan/PlanScreen').default}
+        name="TasksTab"
+        component={require('./screens/Tasks/TasksScreen').default}
         options={{
-          tabBarLabel: t('planTab'),
-          tabBarIcon: ({ color }) => <Route size={22} color={color} />,
+          tabBarLabel: t('tasks') || 'Tasks',
+          tabBarIcon: ({ color }) => <CheckCircle2 size={22} color={color} />,
         }}
       />
       <Tab.Screen
@@ -119,11 +119,15 @@ function RootNavigator() {
           <>
             <Stack.Screen name="MainTabs" component={MainTabs} />
 
+            <Stack.Screen name="TaskList" component={require('./screens/Tasks/TaskList').default} />
             <Stack.Screen name="TaskDetails" component={require('./screens/Tasks/TaskDetails').default} />
             <Stack.Screen name="TaskForm" component={require('./screens/Tasks/TaskForm').default} />
 
             <Stack.Screen name="GoalDetails" component={require('./screens/Goals/GoalDetails').default} />
             <Stack.Screen name="GoalForm" component={require('./screens/Goals/GoalForm').default} />
+
+            <Stack.Screen name="HabitDetails" component={require('./screens/Habits/HabitDetails').default} />
+            <Stack.Screen name="HabitForm" component={require('./screens/Habits/HabitForm').default} />
 
             <Stack.Screen name="DiaryEntry" component={require('./screens/Diary/DiaryEntry').default} />
             <Stack.Screen name="DiaryForm" component={require('./screens/Diary/DiaryForm').default} />

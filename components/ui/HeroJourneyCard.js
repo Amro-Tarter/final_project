@@ -57,7 +57,7 @@ export function HeroJourneyCard({
                 style={styles.shadowWrap}
             >
                 <LinearGradient
-                    colors={['#4F46E5', '#6366F1', '#818CF8']}
+                    colors={colors.heroGradient || ['#4F46E5', '#6366F1', '#818CF8']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.card}

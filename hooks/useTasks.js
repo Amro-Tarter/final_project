@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
     collection,
     addDoc,
@@ -15,15 +15,17 @@ import {
 import { db } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
-import { useWorkflow } from './useWorkflow';
+
+// ─── Constants ───
+const MAX_FOCUS_PER_DAY = 3;
 
 export function useTasks() {
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
     const { user } = useAuth();
     const { scheduleSystemNotification, cancelSystemNotification } = useNotifications();
-    const { isAutoReschedule } = useWorkflow();
 
+    // ─── Real-time listener ───
     useEffect(() => {
         if (!user) {
             setTasks([]);
@@ -31,7 +33,6 @@ export function useTasks() {
             return;
         }
 
-        // Query tasks collection for the current user
         const q = query(
             collection(db, 'tasks'),
             where('userId', '==', user.uid),
@@ -53,56 +54,123 @@ export function useTasks() {
         return () => unsubscribe();
     }, [user]);
 
-    // Auto-reschedule protocol implementation
-    useEffect(() => {
-        if (!isAutoReschedule || tasks.length === 0 || loading) return;
-        
-        const todayStr = new Date().toISOString().split('T')[0];
-        const todayDate = new Date();
-        todayDate.setHours(0, 0, 0, 0);
+    // ─── Computed: overdue detection ───
+    const todayStr = new Date().toISOString().split('T')[0];
 
-        tasks.forEach(async (task) => {
+    const tasksWithOverdue = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        return tasks.map(task => {
             if (task.status === 'pending' && task.due) {
-                const dueDateObj = new Date(task.due);
-                dueDateObj.setHours(0, 0, 0, 0);
-                
-                if (dueDateObj < todayDate) {
-                    // Task is overdue, automatically bump to today. No guilt!
-                    try {
-                        const taskRef = doc(db, 'tasks', task.id);
-                        await updateDoc(taskRef, { due: todayStr });
-                    } catch (err) {
-                        console.error('Failed to auto-reschedule task:', err);
-                    }
+                const dueDate = new Date(task.due);
+                dueDate.setHours(0, 0, 0, 0);
+                if (dueDate < today) {
+                    return { ...task, isOverdue: true };
                 }
             }
+            return { ...task, isOverdue: false };
         });
-    }, [tasks, isAutoReschedule, loading]);
+    }, [tasks]);
 
+    // ─── Computed: sorted tasks (focus + overdue priority) ───
+    const sortedTasks = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayStr = today.toISOString().split('T')[0];
+
+        return [...tasksWithOverdue].sort((a, b) => {
+            // Completed tasks always go to bottom
+            if (a.status === 'completed' && b.status !== 'completed') return 1;
+            if (b.status === 'completed' && a.status !== 'completed') return -1;
+            if (a.status === 'completed' && b.status === 'completed') return 0;
+
+            // Priority order for pending tasks:
+            // 1. Focus + Overdue
+            // 2. Focus + Today
+            // 3. Normal + Overdue
+            // 4. Normal + Today
+            // 5. Upcoming
+            const aIsFocus = a.priority === 'Focus';
+            const bIsFocus = b.priority === 'Focus';
+            const aIsOverdue = a.isOverdue;
+            const bIsOverdue = b.isOverdue;
+            const aIsToday = a.due === todayStr;
+            const bIsToday = b.due === todayStr;
+
+            const getWeight = (isFocus, isOverdue, isToday) => {
+                if (isFocus && isOverdue) return 0;
+                if (isFocus && isToday) return 1;
+                if (isFocus) return 2;
+                if (isOverdue) return 3;
+                if (isToday) return 4;
+                return 5;
+            };
+
+            const weightA = getWeight(aIsFocus, aIsOverdue, aIsToday);
+            const weightB = getWeight(bIsFocus, bIsOverdue, bIsToday);
+
+            if (weightA !== weightB) return weightA - weightB;
+
+            // Within same weight, sort by due date ascending
+            if (a.due && b.due) return a.due.localeCompare(b.due);
+            if (a.due) return -1;
+            if (b.due) return 1;
+            return 0;
+        });
+    }, [tasksWithOverdue]);
+
+    // ─── Focus limit check ───
+    const getFocusCountForDate = (date) => {
+        const dateStr = typeof date === 'string' ? date : date.toISOString().split('T')[0];
+        return tasksWithOverdue.filter(
+            t => t.due === dateStr && t.priority === 'Focus' && t.status !== 'completed'
+        ).length;
+    };
+
+    const canAddFocusForDate = (date) => {
+        return getFocusCountForDate(date) < MAX_FOCUS_PER_DAY;
+    };
+
+    // ─── Add task ───
     const addTask = async (taskData) => {
         if (!user) return;
         try {
             let notificationId = null;
-            if (taskData.due && taskData.reminder && taskData.reminder.type !== 'none' && taskData.status === 'pending') {
-                const reminderDate = calculateReminderDate(taskData.due, taskData.reminder);
-                if (reminderDate) {
-                    notificationId = await scheduleSystemNotification(
-                        null, // Generate a new ID later
-                        "Task Reminder 🔔",
-                        `Don't forget: ${taskData.title}`,
-                        reminderDate,
-                        'task'
-                    );
+
+            // Schedule notifications based on priority
+            if (taskData.due && taskData.status === 'pending') {
+                if (taskData.priority === 'Focus') {
+                    // Focus tasks get 3 notifications: 1hr, 15min, due time
+                    const notifications = await scheduleFocusNotifications(taskData);
+                    notificationId = notifications; // Store array of IDs
+                } else if (taskData.reminder && taskData.reminder.type !== 'none') {
+                    const reminderDate = calculateReminderDate(taskData.due, taskData.reminder);
+                    if (reminderDate && reminderDate > new Date()) {
+                        notificationId = await scheduleSystemNotification(
+                            null,
+                            "Task Reminder 🔔",
+                            `Don't forget: ${taskData.title}`,
+                            reminderDate,
+                            'task'
+                        );
+                    }
                 }
             }
 
             const docRef = await addDoc(collection(db, 'tasks'), {
-                ...taskData,
+                title: taskData.title,
+                desc: taskData.desc || '',
+                due: taskData.due || null,
+                priority: taskData.priority || 'Normal', // 'Normal' or 'Focus'
+                status: 'pending',
+                goalId: taskData.goalId || null,
+                reminder: taskData.reminder || null,
                 userId: user.uid,
                 createdAt: serverTimestamp(),
-                status: 'pending', // default status
-                notificationId
+                notificationId,
             });
+
             if (taskData.goalId) {
                 await recalculateGoalProgress(taskData.goalId);
             }
@@ -113,36 +181,51 @@ export function useTasks() {
         }
     };
 
+    // ─── Update task ───
     const updateTask = async (taskId, updates, oldGoalId = null) => {
         if (!user) return;
         try {
             const taskRef = doc(db, 'tasks', taskId);
 
-            // Check if we need to reschedule notification
-            if (updates.due !== undefined || updates.reminder !== undefined || updates.title !== undefined) {
-                // Find existing task to get old notificationId
+            // Handle notification rescheduling
+            if (updates.due !== undefined || updates.reminder !== undefined || updates.title !== undefined || updates.priority !== undefined) {
                 const taskToUpdate = tasks.find(t => t.id === taskId);
-                if (taskToUpdate && taskToUpdate.notificationId) {
-                    await cancelSystemNotification(taskToUpdate.notificationId);
+
+                // Cancel old notifications
+                if (taskToUpdate?.notificationId) {
+                    if (Array.isArray(taskToUpdate.notificationId)) {
+                        for (const nid of taskToUpdate.notificationId) {
+                            await cancelSystemNotification(nid);
+                        }
+                    } else {
+                        await cancelSystemNotification(taskToUpdate.notificationId);
+                    }
                     updates.notificationId = null;
                 }
 
-                // If it's still pending, schedule a new one
+                // Schedule new notifications if still pending
                 const finalDue = updates.due !== undefined ? updates.due : taskToUpdate?.due;
                 const finalReminder = updates.reminder !== undefined ? updates.reminder : taskToUpdate?.reminder;
                 const finalTitle = updates.title !== undefined ? updates.title : taskToUpdate?.title;
                 const finalStatus = updates.status !== undefined ? updates.status : taskToUpdate?.status;
+                const finalPriority = updates.priority !== undefined ? updates.priority : taskToUpdate?.priority;
 
-                if (finalDue && finalReminder && finalReminder.type !== 'none' && finalStatus === 'pending') {
-                    const reminderDate = calculateReminderDate(finalDue, finalReminder);
-                    if (reminderDate && reminderDate > new Date()) {
-                        updates.notificationId = await scheduleSystemNotification(
-                            null,
-                            "Task Reminder 🔔",
-                            `Don't forget: ${finalTitle}`,
-                            reminderDate,
-                            'task'
-                        );
+                if (finalDue && finalStatus === 'pending') {
+                    if (finalPriority === 'Focus') {
+                        updates.notificationId = await scheduleFocusNotifications({
+                            title: finalTitle, due: finalDue
+                        });
+                    } else if (finalReminder && finalReminder.type !== 'none') {
+                        const reminderDate = calculateReminderDate(finalDue, finalReminder);
+                        if (reminderDate && reminderDate > new Date()) {
+                            updates.notificationId = await scheduleSystemNotification(
+                                null,
+                                "Task Reminder 🔔",
+                                `Don't forget: ${finalTitle}`,
+                                reminderDate,
+                                'task'
+                            );
+                        }
                     }
                 }
             }
@@ -161,11 +244,18 @@ export function useTasks() {
         }
     };
 
+    // ─── Delete task ───
     const deleteTask = async (taskId, goalId = null, existingNotificationId = null) => {
         if (!user) return;
         try {
             if (existingNotificationId) {
-                await cancelSystemNotification(existingNotificationId);
+                if (Array.isArray(existingNotificationId)) {
+                    for (const nid of existingNotificationId) {
+                        await cancelSystemNotification(nid);
+                    }
+                } else {
+                    await cancelSystemNotification(existingNotificationId);
+                }
             }
             const taskRef = doc(db, 'tasks', taskId);
             await deleteDoc(taskRef);
@@ -179,39 +269,61 @@ export function useTasks() {
         }
     };
 
+    // ─── Recalculate goal progress (blended: tasks + habits) ───
     const recalculateGoalProgress = async (goalId) => {
         if (!goalId) return;
         try {
-            // Get all tasks for this goal
+            // Get tasks for this goal
             const tasksQuery = query(collection(db, 'tasks'), where('goalId', '==', goalId));
             const tasksSnapshot = await getDocs(tasksQuery);
 
             const totalTasks = tasksSnapshot.size;
-            if (totalTasks === 0) {
-                await updateDoc(doc(db, 'goals', goalId), { progress: 0 });
-                return;
-            }
-
             let completedCount = 0;
             tasksSnapshot.forEach(doc => {
                 if (doc.data().status === 'completed') {
                     completedCount++;
                 }
             });
+            const taskProgress = totalTasks > 0 ? completedCount / totalTasks : -1;
 
-            const progress = completedCount / totalTasks;
+            // Get habits for this goal
+            const habitsQuery = query(collection(db, 'habits'), where('goalId', '==', goalId));
+            const habitsSnapshot = await getDocs(habitsQuery);
+
+            let habitProgress = -1;
+            if (habitsSnapshot.size > 0) {
+                let totalConsistency = 0;
+                habitsSnapshot.forEach(doc => {
+                    totalConsistency += (doc.data().consistencyRate || 0);
+                });
+                habitProgress = (totalConsistency / habitsSnapshot.size) / 100;
+            }
+
+            // Blended progress
+            let progress = 0;
+            if (taskProgress >= 0 && habitProgress >= 0) {
+                // Has both tasks and habits: 60% tasks, 40% habits
+                progress = (taskProgress * 0.6) + (habitProgress * 0.4);
+            } else if (taskProgress >= 0) {
+                // Only tasks
+                progress = taskProgress;
+            } else if (habitProgress >= 0) {
+                // Only habits
+                progress = habitProgress;
+            }
+
             await updateDoc(doc(db, 'goals', goalId), { progress });
         } catch (error) {
             console.error("Error recalculating goal progress:", error);
         }
     };
 
+    // ─── Toggle task status (simplified — no recurrence) ───
     const toggleTaskStatus = async (task) => {
         if (!user) return;
 
-        // Date calculation helpers
         const today = new Date();
-        today.setHours(0, 0, 0, 0); // Normalize to start of day
+        today.setHours(0, 0, 0, 0);
 
         let dueDateObj = null;
         if (task.due) {
@@ -226,7 +338,6 @@ export function useTasks() {
         if (isMarkingCompleted) {
             completionData.completedAt = serverTimestamp();
             if (dueDateObj && today > dueDateObj) {
-                // Calculate days late
                 const diffTime = Math.abs(today - dueDateObj);
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                 completionData.completedLate = true;
@@ -235,90 +346,26 @@ export function useTasks() {
                 completionData.completedLate = false;
                 completionData.lateByDays = 0;
             }
+
+            // Cancel notifications when completing
+            if (task.notificationId) {
+                if (Array.isArray(task.notificationId)) {
+                    for (const nid of task.notificationId) {
+                        await cancelSystemNotification(nid);
+                    }
+                } else {
+                    await cancelSystemNotification(task.notificationId);
+                }
+                completionData.notificationId = null;
+            }
         } else {
             // Un-completing
+            completionData.completedAt = null;
             completionData.completedLate = false;
             completionData.lateByDays = 0;
         }
 
-        // Logic for Recurrence
-        if (task.status === 'pending' && task.recurrence && typeof task.recurrence === 'object' && task.recurrence.type !== 'none') {
-            // It is a recurring task being marked as done
-
-            // 2. Clone and create a NEW task for the next occurrence
-            const nextDate = new Date();
-            // We use today as the base for the next interval so it doesn't drift if they are late
-            // (or use task.due if strict schedule preferred - usually 'from completion' is friendlier)
-
-            const interval = task.recurrence.interval || 1;
-
-            if (task.recurrence.type === 'daily') {
-                nextDate.setDate(nextDate.getDate() + 1);
-            } else if (task.recurrence.type === 'weekly') {
-                nextDate.setDate(nextDate.getDate() + 7);
-            } else if (task.recurrence.type === 'custom') {
-                nextDate.setDate(nextDate.getDate() + interval);
-            }
-
-            const nextDueStr = nextDate.toISOString().split('T')[0];
-
-            // Create the new task
-            const newDocRef = await addDoc(collection(db, 'tasks'), {
-                title: task.title,
-                desc: task.desc || '',
-                priority: task.priority || 'Normal',
-                userId: user.uid,
-                createdAt: serverTimestamp(),
-                status: 'pending',
-                due: nextDueStr,
-                recurrence: task.recurrence,
-                reminder: task.reminder || null
-            });
-
-            // 1. Mark the current task as completed (preserve history) AND LINK the next one
-            await updateTask(task.id, {
-                status: 'completed',
-                nextOccurrenceId: newDocRef.id,
-                ...completionData
-            }, task.goalId);
-
-            if (task.goalId) {
-                await recalculateGoalProgress(task.goalId);
-            }
-            return;
-        }
-
-        // Logic for UNDOING a recurring task completion
-        // If we are marking a completed task as pending, check if it spawned a next occurrence.
-        if (task.status === 'completed' && task.nextOccurrenceId) {
-            try {
-                // Delete the future task that was created automatically
-                await deleteTask(task.nextOccurrenceId);
-            } catch (e) {
-                console.log("Could not delete next occurrence (maybe already deleted):", e);
-            }
-
-            // Unmark the current task and clear the link
-            await updateTask(task.id, {
-                status: 'pending',
-                nextOccurrenceId: null,
-                ...completionData
-            }, task.goalId);
-
-            if (task.goalId) {
-                await recalculateGoalProgress(task.goalId);
-            }
-            return;
-        }
-
-        if (isMarkingCompleted) {
-            if (task.notificationId) {
-                await cancelSystemNotification(task.notificationId);
-                completionData.notificationId = null;
-            }
-        }
-
-        const newStatus = task.status === 'completed' ? 'pending' : 'completed';
+        const newStatus = isMarkingCompleted ? 'completed' : 'pending';
         await updateTask(task.id, {
             status: newStatus,
             ...completionData
@@ -329,7 +376,52 @@ export function useTasks() {
         }
     };
 
-    // Helper to calculate the exact Date object for a reminder
+    // ─── Schedule focus notifications (1hr, 15min, due) ───
+    const scheduleFocusNotifications = async (taskData) => {
+        if (!taskData.due) return null;
+
+        const ids = [];
+        const dueDate = new Date(taskData.due);
+        // Default due time is 9 AM if no specific time
+        dueDate.setHours(9, 0, 0, 0);
+
+        const oneHourBefore = new Date(dueDate.getTime() - 60 * 60 * 1000);
+        const fifteenMinBefore = new Date(dueDate.getTime() - 15 * 60 * 1000);
+        const now = new Date();
+
+        try {
+            if (oneHourBefore > now) {
+                const id = await scheduleSystemNotification(
+                    null, "🔥 Focus Task in 1 hour",
+                    `${taskData.title} — time to prepare`,
+                    oneHourBefore, 'task'
+                );
+                if (id) ids.push(id);
+            }
+            if (fifteenMinBefore > now) {
+                const id = await scheduleSystemNotification(
+                    null, "🔥 Focus Task in 15 min",
+                    `${taskData.title} — almost time!`,
+                    fifteenMinBefore, 'task'
+                );
+                if (id) ids.push(id);
+            }
+            if (dueDate > now) {
+                const id = await scheduleSystemNotification(
+                    null, "🔥 Focus Task Due Now",
+                    `${taskData.title} — it's time!`,
+                    dueDate, 'task'
+                );
+                if (id) ids.push(id);
+            }
+        } catch (e) {
+            console.error('Error scheduling focus notifications:', e);
+        }
+
+        return ids.length > 0 ? ids : null;
+    };
+
+    // ─── Helper: calculate reminder date ───
     const calculateReminderDate = (dueDateStr, reminder) => {
         if (!dueDateStr || !reminder) return null;
         const [year, month, day] = dueDateStr.split('-').map(Number);
@@ -348,12 +440,15 @@ export function useTasks() {
     };
 
     return {
-        tasks,
+        tasks: sortedTasks,
         loading,
         addTask,
         updateTask,
         deleteTask,
         toggleTaskStatus,
-        recalculateGoalProgress
+        recalculateGoalProgress,
+        getFocusCountForDate,
+        canAddFocusForDate,
+        MAX_FOCUS_PER_DAY,
     };
 }

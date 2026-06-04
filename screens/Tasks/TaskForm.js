@@ -17,7 +17,7 @@ export default function TaskForm({ navigation, route }) {
     // If editing, we passed the full task object
     const taskToEdit = route.params?.task;
     const isEditing = !!taskToEdit;
-    const { addTask, updateTask } = useTasks();
+    const { addTask, updateTask, canAddFocusForDate, MAX_FOCUS_PER_DAY } = useTasks();
     const { goals } = useGoals();
     const { showNotification } = useNotifications();
     const [submitting, setSubmitting] = useState(false);
@@ -25,15 +25,11 @@ export default function TaskForm({ navigation, route }) {
     const [title, setTitle] = useState(taskToEdit?.title || '');
     const [desc, setDesc] = useState(taskToEdit?.desc || '');
     const [dueDate, setDueDate] = useState(taskToEdit?.due || route.params?.prefilledDate || '');
-    const [isHighPriority, setIsHighPriority] = useState(taskToEdit?.priority === 'High');
-
-    // Recurrence State
-    const [recurrenceType, setRecurrenceType] = useState(taskToEdit?.recurrence?.type || 'none'); // none, daily, weekly, custom
-    const [customInterval, setCustomInterval] = useState(taskToEdit?.recurrence?.interval?.toString() || '1');
+    const [isFocus, setIsFocus] = useState(taskToEdit?.priority === 'Focus');
 
     // Reminder State
-    const [reminderType, setReminderType] = useState(taskToEdit?.reminder?.type || 'none'); // none, time, period
-    const [reminderValue, setReminderValue] = useState(taskToEdit?.reminder?.value || ''); // "09:00" or "morning"
+    const [reminderType, setReminderType] = useState(taskToEdit?.reminder?.type || 'none');
+    const [reminderValue, setReminderValue] = useState(taskToEdit?.reminder?.value || '');
 
     // Goal Link State
     const [selectedGoalId, setSelectedGoalId] = useState(taskToEdit?.goalId || route.params?.prefilledGoalId || null);
@@ -54,16 +50,13 @@ export default function TaskForm({ navigation, route }) {
         if (dueDate) {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            const selectedDate = new Date(dueDate);
+            const [year, month, day] = dueDate.split('-').map(Number);
+            const selectedDate = new Date(year, month - 1, day);
+            selectedDate.setHours(0, 0, 0, 0);
             if (selectedDate < today) {
                 showNotification('error', t('taskFutureDateRequired'));
                 return;
             }
-        }
-
-        if (recurrenceType === 'custom' && (!customInterval || Number(customInterval) < 1)) {
-            showNotification('warning', t('taskRepeatInvalid'));
-            return;
         }
 
         if (reminderType !== 'none' && !reminderValue) {
@@ -71,13 +64,16 @@ export default function TaskForm({ navigation, route }) {
             return;
         }
 
+        // Focus limit check
+        if (isFocus && dueDate && !isEditing) {
+            if (!canAddFocusForDate(dueDate)) {
+                showNotification('warning', t('focusLimitReached'));
+                return;
+            }
+        }
+
         setSubmitting(true);
         try {
-            const recurrence = recurrenceType === 'none' ? null : {
-                type: recurrenceType,
-                interval: recurrenceType === 'custom' ? parseInt(customInterval) : 1,
-            };
-
             const reminder = reminderType === 'none' ? null : {
                 type: reminderType,
                 value: reminderValue
@@ -87,9 +83,8 @@ export default function TaskForm({ navigation, route }) {
                 title: title.trim(),
                 desc: desc.trim(),
                 due: dueDate,
-                priority: isHighPriority ? 'High' : 'Normal',
+                priority: isFocus ? 'Focus' : 'Normal',
                 status: taskToEdit?.status || 'pending',
-                recurrence,
                 reminder,
                 goalId: selectedGoalId
             };
@@ -189,22 +184,16 @@ export default function TaskForm({ navigation, route }) {
                     minimumDate={new Date()}
                 />
 
-                {/* Recurrence Section */}
-                <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>{t('repetition')}</Text>
+                {/* Priority: Focus / Normal */}
+                <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>{t('priority')}</Text>
                 <View style={styles.chipRow}>
-                    <OptionChip label={t('none')} selected={recurrenceType === 'none'} onPress={() => setRecurrenceType('none')} />
-                    <OptionChip label={t('daily')} selected={recurrenceType === 'daily'} onPress={() => setRecurrenceType('daily')} />
-                    <OptionChip label={t('weekly')} selected={recurrenceType === 'weekly'} onPress={() => setRecurrenceType('weekly')} />
-                    <OptionChip label={t('custom')} selected={recurrenceType === 'custom'} onPress={() => setRecurrenceType('custom')} />
+                    <OptionChip label={t('normal')} selected={!isFocus} onPress={() => setIsFocus(false)} />
+                    <OptionChip label={`🔥 ${t('focus')}`} selected={isFocus} onPress={() => setIsFocus(true)} />
                 </View>
-                {recurrenceType === 'custom' && (
-                    <MyInput
-                        label={t('everyXDays')}
-                        placeholder="e.g. 3"
-                        value={customInterval}
-                        onChangeText={setCustomInterval}
-                        keyboardType="numeric"
-                    />
+                {isFocus && (
+                    <Text style={[styles.focusHint, { color: colors.textSecondary }]}>
+                        {t('focusHint')}
+                    </Text>
                 )}
 
                 {/* Reminder Section */}
@@ -261,14 +250,6 @@ export default function TaskForm({ navigation, route }) {
                         </ScrollView>
                     </>
                 )}
-
-                <View style={{ marginVertical: Theme.spacing.md }}>
-                    <MyCheckbox
-                        label={t('high')}
-                        checked={isHighPriority}
-                        onPress={() => setIsHighPriority(!isHighPriority)}
-                    />
-                </View>
 
                 </MotiView>
 

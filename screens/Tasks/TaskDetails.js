@@ -66,11 +66,7 @@ export default function TaskDetails({ navigation, route }) {
         try {
             await toggleTaskStatus(item);
             if (item.status === 'pending') {
-                if (item.recurrence?.type && item.recurrence.type !== 'none') {
-                    showNotification('success', t('taskCompletedRecurring'), 2);
-                } else {
-                    showNotification('success', t('taskCompleted'), 3);
-                }
+                showNotification('success', t('taskCompleted'), 3);
             } else {
                 showNotification('warning', t('taskPending'), 1);
             }
@@ -150,6 +146,11 @@ export default function TaskDetails({ navigation, route }) {
                                         {isOverdue ? t('overdueStatus') : (isCompleted ? t('done').toUpperCase() : t('pending').toUpperCase())}
                                     </Text>
                                 </View>
+                                {item.priority === 'Focus' && (
+                                    <View style={[styles.statusBadge, { backgroundColor: 'rgba(255,255,255,0.2)', marginTop: 8 }]}>
+                                        <Text style={styles.statusText}>🔥 {t('focus').toUpperCase()}</Text>
+                                    </View>
+                                )}
                             </View>
                         </View>
                     </LinearGradient>
@@ -204,19 +205,7 @@ export default function TaskDetails({ navigation, route }) {
                         </View>
                     )}
 
-                    {item.recurrence && item.recurrence.type !== 'none' && (
-                        <View style={styles.row}>
-                            <RotateCw size={20} color={colors.secondary} />
-                            <View style={styles.infoRow}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>{t('repeatsLabel')}</Text>
-                                <Text style={[styles.value, { color: colors.textMain }]}>
-                                    {item.recurrence.type === 'daily' ? t('daily') :
-                                        item.recurrence.type === 'weekly' ? t('weekly') :
-                                            item.recurrence.type === 'custom' ? `${t('every')} ${item.recurrence.interval} ${t('days')}` : ''}
-                                </Text>
-                            </View>
-                        </View>
-                    )}
+
 
                     <View style={styles.row}>
                         <Bell size={20} color={item.reminder && item.reminder.type !== 'none' ? colors.primary : colors.textSecondary} />
@@ -227,10 +216,12 @@ export default function TaskDetails({ navigation, route }) {
                     </View>
 
                     <View style={styles.row}>
-                        <Flag size={20} color={item.priority === 'High' ? colors.error : colors.textSecondary} />
+                        <Flag size={20} color={item.priority === 'Focus' ? colors.warning : colors.textSecondary} />
                         <View style={styles.infoRow}>
                             <Text style={[styles.label, { color: colors.textSecondary }]}>{t('priorityLabel')}</Text>
-                            <Text style={[styles.value, { color: colors.textMain }]}>{item.priority === 'High' ? t('high') : t('normal')}</Text>
+                            <Text style={[styles.value, { color: colors.textMain }]}>
+                                {item.priority === 'Focus' ? `🔥 ${t('focus')}` : t('normal')}
+                            </Text>
                         </View>
                     </View>
                 </MotiView>

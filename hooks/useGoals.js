@@ -79,6 +79,8 @@ export function useGoals() {
                 createdAt: serverTimestamp(),
                 status: 'active',
                 progress: 0,
+                emoji: goalData.emoji || '🎯',
+                health: 'healthy', // healthy, at_risk, off_track
                 notificationId
             });
             return {

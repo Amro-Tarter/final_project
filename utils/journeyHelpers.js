@@ -180,6 +180,9 @@ export function filterTasksByPlanTab(tasks, tab) {
     if (tab === 'Today') {
         return tasks.filter(t => t.status === 'pending' && (t.due === today || !t.due));
     }
+    if (tab === 'Overdue') {
+        return tasks.filter(t => t.status === 'pending' && t.due && t.due < today);
+    }
     if (tab === 'Upcoming') {
         return tasks.filter(t => t.status === 'pending' && t.due && t.due > today);
     }

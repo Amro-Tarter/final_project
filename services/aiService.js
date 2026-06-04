@@ -1,4 +1,5 @@
 import { OPENAI_API_KEY } from '@env';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const OPENAI_RESPONSES_API_URL = 'https://api.openai.com/v1/responses';
 const PRIMARY_MODEL = 'gpt-5-mini';
@@ -9,7 +10,10 @@ const TOOL_FORMATS = `
 [TOOL FORMATS]
 
 Goal:
-{"tool":"create_goal","title":"Goal Title","deadline":"YYYY-MM-DD"}
+{"tool":"create_goal","title":"Goal Title","deadline":"YYYY-MM-DD","emoji":"🎯"}
+
+Habit:
+{"tool":"create_habit","title":"Habit Title","frequency":"daily|weekly","targetGoal":"Optional Goal Title"}
 
 Task:
 {
@@ -17,12 +21,8 @@ Task:
   "title":"Task Title",
   "desc":"Detailed description or context",
   "dueDate":"YYYY-MM-DD",
-  "priority":"High|Normal|Low",
+  "priority":"High|Focus|Normal|Low",
   "targetGoal":"Optional Goal Title",
-  "recurrence":{
-    "type":"none|daily|weekly|custom",
-    "interval":1
-  },
   "reminder":{
     "type":"none|time|period",
     "value":"08:00|morning|"
@@ -33,21 +33,20 @@ Roadmap:
 {
   "tool":"create_roadmap",
   "goalTitle":"Goal Name",
+  "emoji":"🎯",
   "deadline":"YYYY-MM-DD",
   "tasks":[
     {
       "title":"Task 1",
       "desc":"Description",
       "dueDate":"YYYY-MM-DD",
-      "priority":"High|Normal|Low",
-      "recurrence":{
-        "type":"none|daily|weekly|custom",
-        "interval":1
-      },
-      "reminder":{
-        "type":"none|time|period",
-        "value":"08:00|morning|"
-      }
+      "priority":"High|Focus|Normal|Low"
+    }
+  ],
+  "habits":[
+    {
+      "title":"Habit 1",
+      "frequency":"daily"
     }
   ]
 }
@@ -169,6 +168,7 @@ function summarizeProfileData(profile) {
 
     const pendingNames = profile.tasks?.recentPending?.map(t => `"${t.title}"`).join(', ') || 'none';
     const overdueNames = profile.tasks?.overdueList?.map(t => `"${t}"`).join(', ') || 'none';
+    const habitNames = profile.habits?.activeList?.map(h => `"${h.title}" (Streak: ${h.streak})`).join(', ') || 'none';
 
     return {
         userName: profile.userName || 'Friend',
@@ -176,6 +176,7 @@ function summarizeProfileData(profile) {
         mainStruggle: profile.psychology?.coreProblem || 'none',
         motivationFuel: profile.psychology?.supportPreference || 'none',
         tasksSummary: `Pending: [${pendingNames}], Overdue: [${overdueNames}]`,
+        habitsSummary: `Habits: [${habitNames}]`,
         activeGoals: profile.goals?.activeList?.map(g => `"${g.title}"(${g.progress}%). Tasks: [${g.tasksLeft.join(', ')}]`).join(' | ') || 'none',
     };
 }
@@ -396,6 +397,8 @@ Roadmap:
 - goal title
 - deadline
 - task list (with desc, dueDate, priority, recurrence, reminder for each)
+- habit list (with title, frequency for each)
+- Always include BOTH tasks and habits in a roadmap
 
 Never invent missing dates unless the user implies "today" or "tomorrow".
 If the user's intent is very clear (e.g. "Remind me to call Mom tomorrow at 5pm"), do not ask endless clarification questions. Use your best judgment to fill in defaults and confirm action natively.
@@ -443,13 +446,23 @@ Never output tool JSON before confirmation.
 ROADMAP GENERATION RULES
 ━━━━━━━━━━━━━━━━━━━━
 
-When generating a roadmap (using the create_roadmap tool), you MUST adapt your strategy based on the user's Main Struggle (found in Private Background):
+When generating a roadmap (using the create_roadmap tool):
+
+Every goal can have BOTH tasks AND habits. When building a roadmap, ALWAYS include both:
+- Tasks for one-time milestones and action items
+- Habits for ongoing recurring behaviors that support the goal
+
+For example, if the goal is "Become healthier":
+- Tasks: "Book doctor appointment", "Buy running shoes", "Research healthy meal plans"
+- Habits: "Exercise 30 min daily", "Drink 8 glasses of water", "Sleep by 11pm"
+
+You MUST adapt your strategy based on the user's Main Struggle (found in Private Background):
 
 - If Main Struggle indicates OVERWHELM (e.g., "A blur. I'm constantly moving but getting nowhere."):
   Forbid complex timelines. Break the goal down into microscopic, laughably small tasks. Never give them more than 2-3 milestones to start with.
 
 - If Main Struggle indicates INCONSISTENCY (e.g., "A rollercoaster. Some days I'm on fire, others I do nothing."):
-  Enforce rest days. Limit high-priority or heavy tasks to only 3-4 days a week. Focus heavily on momentum and consistency over speed.
+  Enforce rest days. Limit high-priority or heavy tasks to only 3-4 days a week. Focus heavily on momentum and consistency over speed. Emphasize habits over tasks.
 
 - If Main Struggle indicates TIME PARALYSIS (e.g., "A puzzle. I'm always trying to fit more pieces into 24 hours."):
   Assign strict priorities and dependencies. Be clear about what NOT to do. Build a highly structured roadmap with clear daily assignments.
@@ -621,7 +634,15 @@ RESPOND ONLY WITH VALID JSON.`;
  * Gets personalized insights, advice, and a growth topic.
  */
 export async function getAIInsights(profile, language = 'en') {
+    const today = new Date().toISOString().split('T')[0];
+    const cacheKey = `@ai_insights_${today}`;
+
     try {
+        const cached = await AsyncStorage.getItem(cacheKey);
+        if (cached) {
+            return JSON.parse(cached);
+        }
+
         const systemPrompt = createInsightsPrompt(profile, language);
         const prompt = `${systemPrompt}\n\nGenerate a JSON response for ${profile?.userName || 'the user'}'s insights page. RESPOND ONLY WITH VALID JSON.`;
 
@@ -631,7 +652,22 @@ export async function getAIInsights(profile, language = 'en') {
         ], true);
 
         const raw = extractOpenAIResponseText(response);
-        return raw ? JSON.parse(raw) : {
+        if (raw) {
+            const parsedData = JSON.parse(raw);
+            // Cache the result for today
+            await AsyncStorage.setItem(cacheKey, JSON.stringify(parsedData));
+            
+            // Cleanup older cache keys
+            const keys = await AsyncStorage.getAllKeys();
+            const oldInsightKeys = keys.filter(k => k.startsWith('@ai_insights_') && k !== cacheKey);
+            if (oldInsightKeys.length > 0) {
+                await AsyncStorage.multiRemove(oldInsightKeys);
+            }
+            
+            return parsedData;
+        }
+
+        return {
             insights: [
                 { title: 'Keep Building', desc: 'Consistency is the key to achieving your long-term vision.', type: 'positive' }
             ],

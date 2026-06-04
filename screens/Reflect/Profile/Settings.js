@@ -127,12 +127,11 @@ export default function Settings({ navigation }) {
                     transition={{ type: 'timing', duration: 400, delay: 150 }}
                 >
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{t('language')}</Text>
-                    <View style={[styles.card, { padding: 0, backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <View style={[styles.card, { padding: 0, backgroundColor: colors.surface, borderColor: colors.border, overflow: 'hidden' }]}>
                         <TouchableOpacity
                             style={[
                                 styles.langBtn, 
-                                language === 'en' && [styles.langBtnActive, { backgroundColor: colors.primaryLight }],
-                                { borderTopLeftRadius: Theme.radii.lg, borderTopRightRadius: Theme.radii.lg }
+                                language === 'en' && [styles.langBtnActive, { backgroundColor: colors.primaryLight }]
                             ]}
                             onPress={() => changeLanguage('en')}
                         >
@@ -149,8 +148,7 @@ export default function Settings({ navigation }) {
                         <TouchableOpacity
                             style={[
                                 styles.langBtn, 
-                                language === 'ar' && [styles.langBtnActive, { backgroundColor: colors.primaryLight }],
-                                { borderBottomLeftRadius: Theme.radii.lg, borderBottomRightRadius: Theme.radii.lg }
+                                language === 'ar' && [styles.langBtnActive, { backgroundColor: colors.primaryLight }]
                             ]}
                             onPress={() => changeLanguage('ar')}
                         >
@@ -211,7 +209,7 @@ export default function Settings({ navigation }) {
                     style={styles.dangerZone}
                 >
                     <TouchableOpacity 
-                        style={[styles.dangerButton, { backgroundColor: 'transparent' }]}
+                        style={[styles.dangerButton, { backgroundColor: 'transparent', shadowOpacity: 0, elevation: 0 }]}
                         onPress={() => setAlertVisible(true)}
                     >
                         <Text style={[styles.dangerText, { color: colors.error }]}>{t('resetAccountData') || 'Reset Account Data'}</Text>
@@ -314,13 +312,15 @@ const styles = StyleSheet.create({
     color: Theme.colors.primary,
 },
     dangerButton: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    borderRadius: Theme.radii.md,
-    marginBottom: 12,
-},
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        backgroundColor: 'transparent',
+        borderRadius: Theme.radii.md,
+        marginBottom: 12,
+        shadowOpacity: 0,
+        elevation: 0,
+    },
     dangerText: {
     color: Theme.colors.error,
     fontFamily: Theme.typography.subHeader,

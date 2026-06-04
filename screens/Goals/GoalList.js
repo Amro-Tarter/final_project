@@ -4,8 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../../components/components';
 import { Plus, Map } from 'lucide-react-native';
-import { useGoals } from '../../hooks/useGoals';
 import { useTasks } from '../../hooks/useTasks';
+import { useHabits } from '../../hooks/useHabits';
+import { useGoals } from '../../hooks/useGoals';
 import { GoalCard } from '../../components/ui/JourneyCards';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { JourneyCopy } from '../../constants/JourneyCopy';
@@ -18,6 +19,7 @@ export default function GoalList({ navigation }) {
     const { t } = useLanguage();
     const { goals, loading } = useGoals();
     const { tasks } = useTasks();
+    const { habits } = useHabits();
 
     const activeGoals = useMemo(
         () => goals.filter(g => g.status !== 'completed'),
@@ -27,12 +29,14 @@ export default function GoalList({ navigation }) {
     const renderItem = ({ item }) => {
         const currentTask = getCurrentTask(tasks, item.id);
         const remaining = getGoalTasks(tasks, item.id).filter(t => t.status === 'pending').length;
+        const habitCount = habits.filter(h => h.goalId === item.id).length;
 
         return (
             <GoalCard
                 goal={item}
                 currentTask={currentTask?.title}
                 remainingTasks={remaining}
+                habitCount={habitCount}
                 onPress={() => navigation.navigate('GoalDetails', { goalId: item.id })}
             />
         );

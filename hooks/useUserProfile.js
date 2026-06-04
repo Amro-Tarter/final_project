@@ -19,14 +19,16 @@ export function useUserProfile() {
 
         try {
             // --- 1. Fetch raw data from Firestore ---
-            const [tasksSnap, goalsSnap, diariesSnap] = await Promise.all([
+            const [tasksSnap, goalsSnap, habitsSnap, diariesSnap] = await Promise.all([
                 getDocs(query(collection(db, 'tasks'), where('userId', '==', user.uid))),
                 getDocs(query(collection(db, 'goals'), where('userId', '==', user.uid))),
+                getDocs(query(collection(db, 'habits'), where('userId', '==', user.uid))),
                 getDocs(query(collection(db, 'diary_entries'), where('userId', '==', user.uid))),
             ]);
 
             const tasks = tasksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
             const goals = goalsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const habits = habitsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
             const diaries = diariesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
             // --- 2. Task Analytics ---
@@ -59,6 +61,13 @@ export function useUserProfile() {
             const avgGoalProgress = activeGoals.length > 0
                 ? Math.round(activeGoals.reduce((sum, g) => sum + (g.progress || 0), 0) / activeGoals.length * 100)
                 : 0;
+
+            // --- 3.5 Habit Analytics ---
+            const totalHabits = habits.length;
+            const avgHabitConsistency = totalHabits > 0
+                ? Math.round(habits.reduce((sum, h) => sum + (h.consistencyRate || 0), 0) / totalHabits)
+                : 0;
+            const highestStreak = habits.reduce((max, h) => Math.max(max, h.bestStreak || 0), 0);
 
             // --- 4. Diary / Mood Analytics ---
             const sortedDiaries = diaries
@@ -143,6 +152,18 @@ export function useUserProfile() {
                             tasksLeft: relatedTasks.length > 0 ? relatedTasks : ['None attached']
                         };
                     }),
+                },
+
+                // Habit behavior
+                habits: {
+                    total: totalHabits,
+                    avgConsistency: avgHabitConsistency,
+                    highestStreak: highestStreak,
+                    activeList: habits.map(h => ({
+                        title: h.title,
+                        streak: h.currentStreak || 0,
+                        consistency: h.consistencyRate || 0
+                    }))
                 },
 
                 // PUBLIC diary stats (can be referenced)

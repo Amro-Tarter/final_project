@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { I18nManager } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { translations } from '../constants/translations';
-import { MyCustomAlert } from '../components/components';
+import { Alert } from 'react-native';
 
 const LanguageContext = createContext();
 
@@ -36,14 +36,11 @@ export function LanguageProvider({ children }) {
             const isRTL = newLang === 'he' || newLang === 'ar';
             if (I18nManager.isRTL !== isRTL) {
                 I18nManager.forceRTL(isRTL);
-                setAlertData({
-                    title: t('languageChanged'),
-                    message: t('restartAppLayout'),
-                    onClose: () => {
-                        setAlertData(null);
-                        setLanguage(newLang);
-                    }
-                });
+                Alert.alert(
+                    t('languageChanged'),
+                    t('restartAppLayout'),
+                    [{ text: "OK", onPress: () => setLanguage(newLang) }]
+                );
             } else {
                 setLanguage(newLang);
             }
@@ -67,14 +64,6 @@ export function LanguageProvider({ children }) {
     return (
         <LanguageContext.Provider value={{ language, changeLanguage, t, isRTL: language === 'he' || language === 'ar' }}>
             {children}
-            {alertData && (
-                <MyCustomAlert
-                    visible={!!alertData}
-                    title={alertData.title}
-                    message={alertData.message}
-                    onClose={alertData.onClose}
-                />
-            )}
         </LanguageContext.Provider>
     );
 }

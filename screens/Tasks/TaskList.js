@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Theme, MyInput } from '../../components/components';
 import { useTasks } from '../../hooks/useTasks';
 import { useNotifications } from '../../context/NotificationContext';
-import { Plus, CheckCircle2, Circle, Search } from 'lucide-react-native';
+import { Plus, CheckCircle2, Circle, Search, ArrowLeft } from 'lucide-react-native';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { JourneyCopy } from '../../constants/JourneyCopy';
 import { filterTasksByPlanTab } from '../../utils/journeyHelpers';
@@ -59,7 +59,10 @@ export default function TaskList({ navigation, embedded = false }) {
     const content = (
         <>
             {!embedded && (
-                <View style={styles.header}>
+                <View style={[styles.header, { flexDirection: 'row', alignItems: 'center' }]}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 16 }}>
+                        <ArrowLeft size={24} color={colors.textMain} />
+                    </TouchableOpacity>
                     <View>
                         <Text style={[styles.headerTitle, { color: colors.textMain }]}>{t('planTitle')}</Text>
                         <Text style={[styles.headerSub, { color: colors.textSecondary }]}>{t('planSub')}</Text>
@@ -76,30 +79,34 @@ export default function TaskList({ navigation, embedded = false }) {
                 />
             </View>
 
-            <View style={styles.tabs}>
-                {['Today', 'Upcoming', 'Completed'].map(tab => {
-                    const tabText = tab === 'Today' ? t('today') : tab === 'Upcoming' ? t('upcoming') : t('done');
-                    return (
-                        <TouchableOpacity
-                            key={tab}
-                            style={filter !== tab ? [styles.tab, { backgroundColor: colors.surface, borderColor: colors.border }] : undefined}
-                            onPress={() => setFilter(tab)}
-                        >
-                            {filter === tab ? (
-                                <LinearGradient
-                                    colors={Theme.gradients.hero}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.tabActiveGradient}
-                                >
-                                    <Text style={styles.tabTextActive}>{tabText}</Text>
-                                </LinearGradient>
-                            ) : (
-                                <Text style={[styles.tabText, { color: colors.textSecondary }]}>{tabText}</Text>
-                            )}
-                        </TouchableOpacity>
-                    );
-                })}
+            <View style={styles.tabsContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsContent}>
+                    {['Today', 'Overdue', 'Upcoming', 'Completed'].map(tab => {
+                        const tabText = tab === 'Today' ? t('today') : 
+                                        tab === 'Overdue' ? t('overdueStatus') || 'Overdue' :
+                                        tab === 'Upcoming' ? t('upcoming') : t('done');
+                        return (
+                            <TouchableOpacity
+                                key={tab}
+                                style={filter !== tab ? [styles.tab, { backgroundColor: colors.surface, borderColor: colors.border }] : undefined}
+                                onPress={() => setFilter(tab)}
+                            >
+                                {filter === tab ? (
+                                    <LinearGradient
+                                        colors={Theme.gradients.hero}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={styles.tabActiveGradient}
+                                    >
+                                        <Text style={styles.tabTextActive}>{tabText}</Text>
+                                    </LinearGradient>
+                                ) : (
+                                    <Text style={[styles.tabText, { color: colors.textSecondary }]}>{tabText}</Text>
+                                )}
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
             </View>
 
             <FlatList
@@ -173,10 +180,12 @@ const styles = StyleSheet.create({
         paddingHorizontal: Theme.spacing.lg,
         marginBottom: Theme.spacing.sm,
     },
-    tabs: {
+    tabsContainer: {
+        marginBottom: Theme.spacing.md,
+    },
+    tabsContent: {
         flexDirection: 'row',
         paddingHorizontal: Theme.spacing.lg,
-        marginBottom: Theme.spacing.md,
         gap: 8,
     },
     tab: {

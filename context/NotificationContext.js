@@ -41,11 +41,9 @@ export const NotificationProvider = ({ children }) => {
 
         // If it's pure encouragement or a success with a degree, possibly grab a random message
         if (degree) {
-            // 50% chance to show an Encouragement Card instead of just "Success" if it's a success event
-            // Or if explicitly 'encouragement' type
             if (type === 'encouragement' || (type === 'success' && Math.random() > 0.3)) {
-                finalMessage = getRandomEncouragement(degree);
-                finalType = 'encouragement'; // Switch style to encouragement
+                // Keep the translated message from the caller, just update the style to encouragement
+                finalType = 'encouragement';
             }
         }
 

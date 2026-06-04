@@ -32,7 +32,7 @@ export function CelebrationModal({ visible, title, message, onClose }) {
     );
 }
 
-export function GoalCard({ goal, currentTask, remainingTasks, onPress }) {
+export function GoalCard({ goal, currentTask, remainingTasks, habitCount, onPress }) {
     const { colors } = useAppTheme();
     const { t } = useLanguage();
     const pct = Math.round((goal.progress || 0) * 100);
@@ -40,7 +40,9 @@ export function GoalCard({ goal, currentTask, remainingTasks, onPress }) {
     return (
         <TouchableOpacity style={[styles.destCard, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={onPress} activeOpacity={0.92}>
             <View style={styles.destHeader}>
-                <Text style={[styles.destName, { color: colors.textMain }]} numberOfLines={2}>{goal.title}</Text>
+                <Text style={[styles.destName, { color: colors.textMain }]} numberOfLines={2}>
+                    {goal.emoji ? `${goal.emoji} ` : ''}{goal.title}
+                </Text>
                 <Text style={[styles.destPct, { color: colors.primary }]}>{pct}%</Text>
             </View>
             {goal.deadline && (
@@ -52,7 +54,8 @@ export function GoalCard({ goal, currentTask, remainingTasks, onPress }) {
                 </Text>
             )}
             <Text style={[styles.destRemaining, { color: colors.textSecondary }]}>
-                {remainingTasks} {t('tasksRemaining')}
+                {remainingTasks > 0 ? `${remainingTasks} ${t('tasksRemaining')}` : ''}{remainingTasks > 0 && habitCount > 0 ? ' · ' : ''}{habitCount > 0 ? `${habitCount} ${t('habitsTab') || 'Habits'}` : ''}
+                {remainingTasks === 0 && habitCount === 0 ? t('noItemsYet') || 'No tasks or habits yet' : ''}
             </Text>
             <View style={[styles.destProgressTrack, { backgroundColor: colors.border }]}>
                 <LinearGradient

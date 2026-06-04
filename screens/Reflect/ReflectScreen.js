@@ -62,7 +62,7 @@ function InsightsPanel({ profile, weeklyData, momentum, burnoutSignal }) {
         return (
             <View style={styles.loadingWrap}>
                 <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>{t('Gathering diaries...')}</Text>
+                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>{t('loadingData') || 'Gathering data...'}</Text>
             </View>
         );
     }

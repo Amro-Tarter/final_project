@@ -11,12 +11,13 @@ import { Theme } from '../../components/components';
 import { ArrowLeft, Send, Sparkles, BarChart2, ArrowDown } from 'lucide-react-native';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { chatWithAI, summarizeConversation } from '../../services/aiService';
+import { extractIntent } from '../../services/intentParser';
 import { useAuth } from '../../context/AuthContext';
 import { collection, query, where, orderBy, limit, getDocs, addDoc, serverTimestamp, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useNotifications } from '../../context/NotificationContext';
-import { extractIntent } from '../../services/intentParser';
 import { useTasks } from '../../hooks/useTasks';
+import { useHabits } from '../../hooks/useHabits';
 import { useAppTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -49,11 +50,15 @@ const getCreationContext = (message) => {
         return 'The user is creating a goal. Stay in goal creation mode until the goal is saved or the user cancels. Gather the goal title and confirm before saving.';
     }
 
-    if (/\b(roadmap|road map)\b/.test(normalized)) {
-        return 'The user is creating a roadmap. Stay in roadmap creation mode until the roadmap is saved or the user cancels. Gather the goal, task list, due dates, recurrence choices, and reminder choices, then confirm before saving.';
+    if (/\b(habit|habits)\b/.test(normalized)) {
+        return 'The user is creating a habit. Stay in habit creation mode until the habit is saved or the user cancels. Gather the habit title and frequency (daily/weekly), then confirm before saving.';
     }
 
-    return 'The user is creating a task. Stay in task creation mode until the task is saved or the user cancels. Gather the title, due date, recurrence choice, and reminder choice, then confirm before saving.';
+    if (/\b(roadmap|road map)\b/.test(normalized)) {
+        return 'The user is creating a roadmap. Stay in roadmap creation mode until the roadmap is saved or the user cancels. Gather the goal, task list, habit list, due dates, and reminders, then confirm before saving.';
+    }
+
+    return 'The user is creating a task. Stay in task creation mode until the task is saved or the user cancels. Gather the title, due date, and reminder choice, then confirm before saving.';
 };
 
 const mayContainActionIntent = (message) => {
@@ -141,6 +146,7 @@ export default function AIChat({ navigation, route }) {
     const { profile, loading: profileLoading, refreshProfile } = useUserProfile();
     const { showNotification } = useNotifications();
     const { addTask } = useTasks();
+    const { addHabit } = useHabits();
     const isFreshPlanningChat = route.params?.freshChat;
     const planningType = route.params?.planningType;
     console.log('freshChat=', route.params?.freshChat);
@@ -363,6 +369,39 @@ export default function AIChat({ navigation, route }) {
             showNotification('success', t('taskSaved'));
         }
 
+        else if (toolCall.action === 'create_habit') {
+            console.log('[AI_DEBUG][AIChat:create_habit:data]', toolCall.data);
+
+            if (!toolCall.data?.title || !toolCall.data?.frequency) {
+                console.error('[AI_DEBUG][AIChat:create_habit:incomplete]', toolCall.data);
+                throw new Error('Incomplete habit requirements');
+            }
+
+            let targetGoalId = null;
+
+            if (toolCall.targetGoal) {
+                const goalsQuery = query(
+                    collection(db, 'goals'),
+                    where('userId', '==', user.uid),
+                    where('title', '==', toolCall.targetGoal)
+                );
+                const goalsSnap = await getDocs(goalsQuery);
+                if (!goalsSnap.empty) {
+                    targetGoalId = goalsSnap.docs[0].id;
+                }
+            }
+
+            const habitPayload = {
+                title: toolCall.data.title.trim(),
+                frequency: toolCall.data.frequency || 'daily',
+                goalId: targetGoalId,
+                status: 'active'
+            };
+
+            await addHabit(habitPayload);
+            showNotification('success', t('habitSaved') || 'Habit created!');
+        }
+
         else if (toolCall.action === 'create_roadmap') {
 
             if (!toolCall.goalTitle || !Array.isArray(toolCall.tasks) || toolCall.tasks.length === 0) {
@@ -378,6 +417,7 @@ export default function AIChat({ navigation, route }) {
                 userId: user.uid,
                 title: toolCall.goalTitle,
                 deadline: toolCall.deadline || null,
+                emoji: toolCall.emoji || '🎯',
                 status: 'active',
                 progress: 0,
                 createdAt: serverTimestamp()
@@ -387,7 +427,16 @@ export default function AIChat({ navigation, route }) {
                 addTask(buildTaskPayload(task, newGoalRef.id))
             );
 
-            await Promise.all(taskPromises);
+            const habitPromises = (toolCall.habits || []).map(habit =>
+                addHabit({
+                    title: habit.title.trim(),
+                    frequency: habit.frequency || 'daily',
+                    goalId: newGoalRef.id,
+                    status: 'active'
+                })
+            );
+
+            await Promise.all([...taskPromises, ...habitPromises]);
 
             showNotification(
                 'encouragement',
@@ -499,7 +548,7 @@ export default function AIChat({ navigation, route }) {
                 // So we execute immediately — no second confirmation needed.
                 try {
                     await executeToolCall(intent);
-                    if (['create_task', 'create_roadmap', 'create_goal', 'create_diary'].includes(intent.action)) {
+                    if (['create_task', 'create_habit', 'create_roadmap', 'create_goal', 'create_diary'].includes(intent.action)) {
                         activePlanningContextRef.current = '';
                     }
                 } catch (e) {
@@ -525,6 +574,8 @@ export default function AIChat({ navigation, route }) {
                         finalResponseText = `Your goal "${intent.data?.title}" is all set! Let's make it happen 🎯`;
                     } else if (intent.action === 'create_task') {
                         finalResponseText = `Done! I've added "${intent.data?.title}" to your tasks ✅`;
+                    } else if (intent.action === 'create_habit') {
+                        finalResponseText = `Done! I've added the habit "${intent.data?.title}" 🔁`;
                     } else if (intent.action === 'create_roadmap') {
                         finalResponseText = `Your "${intent.goalTitle}" roadmap is ready to go 🚀`;
                     } else {

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Theme, NovaButton, MyButton, MyInput, MyCheckbox, MyDatePicker } from '../../components/components';
 import { MotiView } from 'moti';
 import { ArrowLeft, Calendar, Sparkles } from 'lucide-react-native';
@@ -18,6 +19,8 @@ export default function GoalForm({ navigation, route }) {
     const [title, setTitle] = useState(goalToEdit?.title || '');
     const [motivation, setMotivation] = useState(goalToEdit?.motivation || '');
     const [deadline, setDeadline] = useState(goalToEdit?.deadline || route.params?.prefilledDate || '');
+
+    const [emoji, setEmoji] = useState(goalToEdit?.emoji || '🎯');
 
     const [submitting, setSubmitting] = useState(false);
 
@@ -38,7 +41,9 @@ export default function GoalForm({ navigation, route }) {
         if (deadline) {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            const selectedDate = new Date(deadline);
+            const [year, month, day] = deadline.split('-').map(Number);
+            const selectedDate = new Date(year, month - 1, day);
+            selectedDate.setHours(0, 0, 0, 0);
             if (selectedDate < today) {
                 showNotification('error', t('goalFutureDateRequired'));
                 return;
@@ -50,7 +55,8 @@ export default function GoalForm({ navigation, route }) {
             const goalData = {
                 title,
                 motivation,
-                deadline
+                deadline,
+                emoji: emoji || '🎯'
             };
 
             if (isEditing) {
@@ -88,6 +94,26 @@ export default function GoalForm({ navigation, route }) {
 
         });
     };
+
+    const OptionChip = ({ label, selected, onPress }) => (
+        <TouchableOpacity
+            style={selected ? styles.chipWrapper : [styles.chip, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={onPress}
+        >
+            {selected ? (
+                <LinearGradient
+                    colors={Theme.gradients.hero}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.chipSelectedGradient}
+                >
+                    <Text style={styles.chipTextSelected}>{label}</Text>
+                </LinearGradient>
+            ) : (
+                <Text style={[styles.chipText, { color: colors.textSecondary }]}>{label}</Text>
+            )}
+        </TouchableOpacity>
+    );
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -128,6 +154,16 @@ export default function GoalForm({ navigation, route }) {
                         onChangeText={setMotivation}
                         multiline
                         numberOfLines={4}
+                    />
+
+
+
+                    <MyInput
+                        label={t('emoji') || 'Emoji'}
+                        placeholder="🎯"
+                        value={emoji}
+                        onChangeText={setEmoji}
+                        maxLength={2}
                     />
 
                     <MyDatePicker
@@ -187,6 +223,45 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: Theme.colors.border,
         ...Theme.shadows.float,
+    },
+    sectionLabel: {
+        fontSize: 14,
+        fontFamily: Theme.typography.subHeader,
+        color: Theme.colors.textSecondary,
+        marginTop: 16,
+        marginBottom: 8,
+    },
+    chipRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        marginBottom: 16,
+        gap: 8,
+    },
+    chip: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: Theme.colors.surface,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+    },
+    chipWrapper: {
+        borderRadius: 20,
+        ...Theme.shadows.sm,
+    },
+    chipSelectedGradient: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+    },
+    chipText: {
+        fontSize: 14,
+        fontFamily: Theme.typography.body,
+        color: Theme.colors.textSecondary,
+    },
+    chipTextSelected: {
+        color: '#fff',
+        fontFamily: Theme.typography.subHeader,
     },
     aiButton: {
         flexDirection: 'row',

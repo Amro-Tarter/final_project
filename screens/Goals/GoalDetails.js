@@ -8,6 +8,7 @@ import { Theme, MyButton, NovaButton, MyConfirmAlert } from '../../components/co
 import { ArrowLeft, MapPin, Circle, Check, Target } from 'lucide-react-native';
 import { useGoals } from '../../hooks/useGoals';
 import { useTasks } from '../../hooks/useTasks';
+import { useHabits } from '../../hooks/useHabits';
 import { useNotifications } from '../../context/NotificationContext';
 import { CelebrationModal } from '../../components/ui/JourneyCards';
 import { ProgressBar } from '../../components/ui/ProgressRing';
@@ -24,9 +25,11 @@ export default function GoalDetails({ navigation, route }) {
 
     const { goals, updateGoal, deleteGoal } = useGoals();
     const { tasks, deleteTask } = useTasks();
+    const { habits } = useHabits();
     const { showNotification } = useNotifications();
 
     const goalTasks = tasks.filter(t => t.goalId === goalId);
+    const goalHabits = habits.filter(h => h.goalId === goalId);
     const hasTasks = goalTasks.length > 0;
     const allTasksCompleted = hasTasks && goalTasks.every(t => t.status === 'completed');
     const goal = goals.find(g => g.id === goalId);
@@ -84,13 +87,34 @@ export default function GoalDetails({ navigation, route }) {
                         transition={{ type: 'timing', duration: 600 }}
                     >
                         <LinearGradient
-                            colors={Theme.gradients.hero}
+                            colors={colors.heroGradient || Theme.gradients.hero}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 1 }}
                             style={styles.heroBanner}
                         >
                             <Text style={styles.heroLabel}>{t('goalLabel')}</Text>
-                            <Text style={styles.heroTitle}>{goal.title}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                <Text style={styles.heroTitle}>
+                                    {goal.emoji ? `${goal.emoji} ` : ''}{goal.title}
+                                </Text>
+                                {goal.health && (
+                                    <View style={[
+                                        styles.healthBadge,
+                                        goal.health === 'healthy' ? { backgroundColor: colors.successLight } :
+                                        goal.health === 'at_risk' ? { backgroundColor: colors.warningLight } :
+                                        { backgroundColor: colors.errorLight }
+                                    ]}>
+                                        <Text style={[
+                                            styles.healthText,
+                                            goal.health === 'healthy' ? { color: colors.success } :
+                                            goal.health === 'at_risk' ? { color: colors.warning } :
+                                            { color: colors.error }
+                                        ]}>
+                                            {t(goal.health) || goal.health.replace('_', ' ').toUpperCase()}
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
                             <Text style={styles.heroProgress}>{pct}% {t('ofTheJourney')}</Text>
                             <ProgressBar progress={pct} height={6} color="rgba(255,255,255,0.85)" />
                             {goal.deadline && (
@@ -99,93 +123,124 @@ export default function GoalDetails({ navigation, route }) {
                         </LinearGradient>
                     </MotiView>
 
+                    {/* HABITS SECTION — always shown */}
+                    <Text style={[styles.sectionTitle, { color: colors.textMain, marginTop: 24 }]}>{t('habitsTab') || 'Habits'}</Text>
+                    {goalHabits.length > 0 ? (
+                        goalHabits.map((habit) => (
+                            <TouchableOpacity
+                                key={habit.id}
+                                style={[styles.habitCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                                onPress={() => navigation.navigate('HabitDetails', { habitId: habit.id })}
+                            >
+                                <Text style={[styles.habitTitle, { color: colors.textMain }]}>{habit.title}</Text>
+                                <Text style={[styles.habitStats, { color: colors.textSecondary }]}>
+                                    🔥 {habit.currentStreak || 0} {t('streak') || 'streak'} • {habit.consistencyRate || 0}% {t('consistency') || 'consistency'}
+                                </Text>
+                            </TouchableOpacity>
+                        ))
+                    ) : (
+                        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{t('noHabitsYet') || 'No habits linked yet.'}</Text>
+                    )}
+                    
+                    <MyButton
+                        title={t('addHabit') || 'Add Habit'}
+                        type="secondary"
+                        onPress={() => navigation.navigate('HabitForm', { prefilledGoalId: goal.id })}
+                        style={{ marginTop: Theme.spacing.sm, marginBottom: 24 }}
+                    />
+
+                    {/* TASKS SECTION — always shown */}
                     <Text style={[styles.sectionTitle, { color: colors.textMain }]}>{t('yourRoute')}</Text>
 
-                    <View style={styles.timeline}>
-                        <View style={[styles.routeLine, { backgroundColor: colors.primaryBorder }]} />
+                    {goalTasks.length > 0 ? (
+                        <View style={styles.timeline}>
+                            <View style={[styles.routeLine, { backgroundColor: colors.primaryBorder }]} />
 
-                        {goalTasks.map((item, index) => {
-                            const state = getStopState(index, item);
-                            const isDone = state === 'completed';
-                            const isCurrent = state === 'current';
-                            return (
-                                <MotiView
-                                    key={item.id}
-                                    from={{ opacity: 0, translateX: -10 }}
-                                    animate={{ opacity: 1, translateX: 0 }}
-                                    transition={{ type: 'timing', duration: 400, delay: index * 100 + 300 }}
-                                >
-                                    <TouchableOpacity
-                                        style={styles.stopRow}
-                                        onPress={() => navigation.navigate('TaskDetails', { taskId: item.id })}
-                                        activeOpacity={0.85}
+                            {goalTasks.map((item, index) => {
+                                const state = getStopState(index, item);
+                                const isDone = state === 'completed';
+                                const isCurrent = state === 'current';
+                                return (
+                                    <MotiView
+                                        key={item.id}
+                                        from={{ opacity: 0, translateX: -10 }}
+                                        animate={{ opacity: 1, translateX: 0 }}
+                                        transition={{ type: 'timing', duration: 400, delay: index * 100 + 300 }}
                                     >
-                                        <View style={styles.markerCol}>
-                                            {isDone ? (
-                                                <MotiView
-                                                    from={{ scale: 0.8 }}
-                                                    animate={{ scale: 1 }}
-                                                    style={[styles.marker, styles.markerDone, { borderColor: colors.success, backgroundColor: colors.successLight }]}
-                                                >
-                                                    <Check size={18} color={colors.success} />
-                                                </MotiView>
-                                            ) : isCurrent ? (
-                                                <MotiView
-                                                    from={{ scale: 1 }}
-                                                    animate={{ scale: [1, 1.08, 1] }}
-                                                    transition={{ loop: true, type: 'timing', duration: 2000 }}
-                                                >
-                                                    <LinearGradient
-                                                        colors={Theme.gradients.hero}
-                                                        start={{ x: 0, y: 0 }}
-                                                        end={{ x: 1, y: 1 }}
-                                                        style={styles.markerGradient}
+                                        <TouchableOpacity
+                                            style={styles.stopRow}
+                                            onPress={() => navigation.navigate('TaskDetails', { taskId: item.id })}
+                                            activeOpacity={0.85}
+                                        >
+                                            <View style={styles.markerCol}>
+                                                {isDone ? (
+                                                    <MotiView
+                                                        from={{ scale: 0.8 }}
+                                                        animate={{ scale: 1 }}
+                                                        style={[styles.marker, styles.markerDone, { borderColor: colors.success, backgroundColor: colors.successLight }]}
                                                     >
-                                                        <MapPin size={18} color="#fff" />
-                                                    </LinearGradient>
-                                                </MotiView>
-                                            ) : (
-                                                <View style={[styles.marker, styles.markerFuture, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-                                                    <Circle size={20} color={colors.border} />
-                                                </View>
-                                            )}
-                                        </View>
+                                                        <Check size={18} color={colors.success} />
+                                                    </MotiView>
+                                                ) : isCurrent ? (
+                                                    <MotiView
+                                                        from={{ scale: 1 }}
+                                                        animate={{ scale: [1, 1.08, 1] }}
+                                                        transition={{ loop: true, type: 'timing', duration: 2000 }}
+                                                    >
+                                                        <LinearGradient
+                                                            colors={Theme.gradients.hero}
+                                                            start={{ x: 0, y: 0 }}
+                                                            end={{ x: 1, y: 1 }}
+                                                            style={styles.markerGradient}
+                                                        >
+                                                            <MapPin size={18} color="#fff" />
+                                                        </LinearGradient>
+                                                    </MotiView>
+                                                ) : (
+                                                    <View style={[styles.marker, styles.markerFuture, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+                                                        <Circle size={20} color={colors.border} />
+                                                    </View>
+                                                )}
+                                            </View>
 
-                                    <View style={[
-                                    styles.stopCard,
-                                    { backgroundColor: colors.surface, borderColor: colors.border },
-                                    state === 'current' && [styles.stopCardCurrent, { borderColor: colors.primary, backgroundColor: colors.primaryLightAlt }],
-                                    state === 'completed' && styles.stopCardDone,
-                                ]}>
-                                    <Text style={[styles.stopLabel, { color: colors.textSecondary }]}>
-                                        {state === 'completed' ? t('taskDone') : state === 'current' ? t('currentTask') : t('upcomingTask')}
-                                    </Text>
-                                    <Text style={[
-                                        styles.stopTitle,
-                                        { color: colors.textMain },
-                                        state === 'completed' && [styles.stopTitleDone, { color: colors.textSecondary }],
-                                    ]}>
-                                        {item.title}
-                                    </Text>
+                                            <View style={[
+                                                styles.stopCard,
+                                                { backgroundColor: colors.surface, borderColor: colors.border },
+                                                state === 'current' && [styles.stopCardCurrent, { borderColor: colors.primary, backgroundColor: colors.primaryLightAlt }],
+                                                state === 'completed' && styles.stopCardDone,
+                                            ]}>
+                                                <Text style={[styles.stopLabel, { color: colors.textSecondary }]}>
+                                                    {state === 'completed' ? t('taskDone') : state === 'current' ? t('currentTask') : t('upcomingTask')}
+                                                </Text>
+                                                <Text style={[
+                                                    styles.stopTitle,
+                                                    { color: colors.textMain },
+                                                    state === 'completed' && [styles.stopTitleDone, { color: colors.textSecondary }],
+                                                ]}>
+                                                    {item.title}
+                                                </Text>
+                                            </View>
+                                        </TouchableOpacity>
+                                    </MotiView>
+                                );
+                            })}
+
+                            <View style={styles.stopRow}>
+                                <View style={styles.markerCol}>
+                                    <View style={[styles.marker, styles.markerFinish, { borderColor: pct === 100 ? colors.success : colors.border, backgroundColor: pct === 100 ? colors.successLight : colors.surface }]}>
+                                        <Target size={20} color={pct === 100 ? colors.success : colors.textSecondary} />
+                                    </View>
                                 </View>
-                            </TouchableOpacity>
-                        </MotiView>
-                        );
-                    })}
-
-                    <View style={styles.stopRow}>
-                        <View style={styles.markerCol}>
-                            <View style={[styles.marker, styles.markerFinish, { borderColor: pct === 100 ? colors.success : colors.border, backgroundColor: pct === 100 ? colors.successLight : colors.surface }]}>
-                                <Target size={20} color={pct === 100 ? colors.success : colors.textSecondary} />
+                                <Text style={[styles.finishLabel, { color: colors.textMain }]}>{t('finishLine')}</Text>
                             </View>
                         </View>
-                        <Text style={[styles.finishLabel, { color: colors.textMain }]}>{t('finishLine')}</Text>
-                    </View>
-                </View>
+                    ) : (
+                        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{t('noTasksYet') || 'No tasks added yet.'}</Text>
+                    )}
 
                 <MyButton
                     title={goal.status === 'completed' ? t('journeyCompleted') : t('markGoalComplete')}
-                    disabled={goal.status === 'completed' || !allTasksCompleted}
+                    disabled={goal.status === 'completed' || (hasTasks && !allTasksCompleted)}
                     style={{
                         marginTop: Theme.spacing.lg,
                         backgroundColor: goal.status === 'completed' ? colors.success : colors.primary,
@@ -196,8 +251,8 @@ export default function GoalDetails({ navigation, route }) {
                 <NovaButton
                     title={t('planWithNova')}
                     onPress={() => {
-                        const intentText = `I want to plan the roadmap for my goal: "${goal.title}". Can we break it down into tasks?`;
-                        const hiddenContext = `The user wants to expand the roadmap for their existing goal "${goal.title}". DO NOT execute any tools yet. Analyze their progress and discuss adding structured tasks to help them finish. MUST FOLLOW ROADMAP GENERATION RULES based on their Main Struggle. ONLY use the create_roadmap tool after they explicitly agree. When you use the create_roadmap tool, use the goal name "${goal.title}".`;
+                        const intentText = `I want to plan the roadmap for my goal: "${goal.title}". Can we break it down into tasks and habits?`;
+                        const hiddenContext = `The user wants to expand the roadmap for their existing goal "${goal.title}". DO NOT execute any tools yet. Analyze their progress and discuss adding structured tasks AND habits to help them finish. A goal can have both tasks (one-time milestones) and habits (recurring behaviors). MUST FOLLOW ROADMAP GENERATION RULES based on their Main Struggle. ONLY use the create_roadmap tool after they explicitly agree. When you use the create_roadmap tool, use the goal name "${goal.title}".`;
                         navigation.navigate('AIChat', {
                             initialIntentText: intentText,
                             hiddenContext,
@@ -281,6 +336,28 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: Theme.spacing.lg,
         paddingVertical: Theme.spacing.md,
+    },
+    habitCard: {
+        padding: 16,
+        borderRadius: Theme.radii.md,
+        borderWidth: 1,
+        marginBottom: 12,
+        ...Theme.shadows.sm,
+    },
+    habitTitle: {
+        fontSize: 16,
+        fontFamily: Theme.typography.subHeader,
+        marginBottom: 4,
+    },
+    habitStats: {
+        fontSize: 12,
+        fontFamily: Theme.typography.body,
+    },
+    emptyText: {
+        fontSize: 14,
+        fontFamily: Theme.typography.body,
+        marginBottom: 16,
+        fontStyle: 'italic',
     },
     backButton: { padding: 8, marginLeft: -8 },
     headerTitle: {

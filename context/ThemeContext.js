@@ -24,6 +24,7 @@ export const LightColors = {
     warningText: "#C2410C",
     placeholder: "#94A3B8",
     overlay: "rgba(15, 23, 42, 0.4)",
+    heroGradient: ['#1E293B', '#334155', '#475569'], // Dark slate for light mode to provide high contrast
 };
 
 export const DarkColors = {
@@ -48,6 +49,7 @@ export const DarkColors = {
     warningText: "#FEF3C7",
     placeholder: "#64748B",
     overlay: "rgba(0, 0, 0, 0.6)",
+    heroGradient: ['#4F46E5', '#6366F1', '#818CF8'], // Original indigo for dark mode
 };
 
 const ThemeContext = createContext();
