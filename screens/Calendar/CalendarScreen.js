@@ -7,7 +7,8 @@ import { Calendar } from 'react-native-calendars';
 import { useTasks } from '../../hooks/useTasks';
 import { useGoals } from '../../hooks/useGoals';
 import { useDiary } from '../../hooks/useDiary';
-import { CheckCircle2, Circle, Target, BookOpen, Plus } from 'lucide-react-native';
+import { useHabits } from '../../hooks/useHabits';
+import { CheckCircle2, Circle, Target, BookOpen, Plus, Repeat } from 'lucide-react-native';
 import { useAppTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -17,6 +18,7 @@ export default function CalendarScreen({ navigation, embedded = false }) {
     const { tasks } = useTasks();
     const { goals } = useGoals();
     const { entries: diaries } = useDiary();
+    const { habits } = useHabits();
 
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -34,7 +36,7 @@ export default function CalendarScreen({ navigation, embedded = false }) {
                 marks[dateStr] = { dots: [] };
             }
             // Avoid duplicate colors on the same day if desired, or just push
-           if (!marks[dateStr].dots.find(d => d.type === dot.type)) {
+            if (!marks[dateStr].dots.find(d => d.type === dot.type)) {
                 marks[dateStr].dots.push(dot);
             }
         };
@@ -53,11 +55,11 @@ export default function CalendarScreen({ navigation, embedded = false }) {
         // 2. Goals (Deadlines)
         goals.forEach(goal => {
             if (goal.deadline) {
-            addMark(goal.deadline, {
-            key: 'goal',
-            type: 'goal',
-            color: colors.primary
-            });
+                addMark(goal.deadline, {
+                    key: 'goal',
+                    type: 'goal',
+                    color: colors.primary
+                });
             }
         });
 
@@ -136,8 +138,15 @@ export default function CalendarScreen({ navigation, embedded = false }) {
             }
         });
 
+        // Habits
+        (habits || []).forEach(habit => {
+            if (habit.status === 'active') {
+                items.push({ type: 'habit', data: habit });
+            }
+        });
+
         return items;
-    }, [tasks, goals, diaries, selectedDate]);
+    }, [tasks, goals, diaries, habits, selectedDate]);
 
     const renderAgendaItem = (item, index) => {
         if (item.type === 'task') {
@@ -219,6 +228,31 @@ export default function CalendarScreen({ navigation, embedded = false }) {
                 </MotiView>
             );
         }
+
+        if (item.type === 'habit') {
+            return (
+                <MotiView
+                    key={`agenda-habit-${index}`}
+                    from={{ opacity: 0, translateY: 10 }}
+                    animate={{ opacity: 1, translateY: 0 }}
+                    transition={{ type: 'timing', duration: 400, delay: index * 50 }}
+                >
+                    <TouchableOpacity
+                        style={[styles.agendaCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                        onPress={() => navigation.navigate('HabitForm', { habit: item.data })}
+                    >
+                        <View style={[styles.typeStrip, { backgroundColor: colors.warning }]} />
+                        <View style={styles.agendaContent}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Repeat size={16} color={colors.warning} style={{ marginRight: 8 }} />
+                                <Text style={[styles.agendaTitle, { color: colors.textMain }]}>{item.data.title}</Text>
+                            </View>
+                            <Text style={[styles.agendaSubtitle, { color: colors.textSecondary }]}>{t('habitsTab') || 'Habits'} · {item.data.frequency || 'Daily'}</Text>
+                        </View>
+                    </TouchableOpacity>
+                </MotiView>
+            );
+        }
     };
 
     const body = (
@@ -241,6 +275,10 @@ export default function CalendarScreen({ navigation, embedded = false }) {
                 <View style={styles.legendItem}>
                     <View style={[styles.legendDot, { backgroundColor: colors.secondary }]} />
                     <Text style={[styles.legendText, { color: colors.textSecondary }]}>{t('diariesTitle')}</Text>
+                </View>
+                <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: colors.warning }]} />
+                    <Text style={[styles.legendText, { color: colors.textSecondary }]}>{t('habitsTab') || 'Habits'}</Text>
                 </View>
             </View>
 
@@ -270,7 +308,7 @@ export default function CalendarScreen({ navigation, embedded = false }) {
                     textDayHeaderFontFamily: Theme.typography.subHeader,
                 }}
             />
-            
+
             <View style={[styles.agendaHeader, { backgroundColor: colors.background }]}>
                 <Text style={[styles.agendaHeaderText, { color: colors.textSecondary }]}>{t('on')} {selectedDate}</Text>
 

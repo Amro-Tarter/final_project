@@ -28,7 +28,7 @@ import OnboardingScreen from './screens/onBoarding';
 const Stack = createNativeStackNavigator();
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Compass, BookHeart, UserCircle, Map, Repeat, CheckCircle2 } from 'lucide-react-native';
+import { Home as HomeIcon, Map, CheckCircle2, UserCircle, BookHeart, Compass, Calendar } from 'lucide-react-native';
 import { Theme } from './components/components';
 import { JourneyCopy } from './constants/JourneyCopy';
 
@@ -87,6 +87,14 @@ function MainTabs() {
         options={{
           tabBarLabel: t('tasks') || 'Tasks',
           tabBarIcon: ({ color }) => <CheckCircle2 size={22} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="CalendarTab"
+        component={require('./screens/Calendar/CalendarScreen').default}
+        options={{
+          tabBarLabel: t('calendarTab') || 'Calendar',
+          tabBarIcon: ({ color }) => <Calendar size={22} color={color} />,
         }}
       />
       <Tab.Screen

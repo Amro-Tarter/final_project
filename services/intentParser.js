@@ -165,11 +165,28 @@ export const extractIntent = (response) => {
                 return intent;
             }
 
+            if (tool === 'create_habit') {
+                const intent = {
+                    action: 'create_habit',
+                    targetGoal: getFirstValue(payload.targetGoal, payload.goal, payload.goalTitle, null),
+                    data: {
+                        title: getFirstValue(payload.title, payload.name, payload.habit),
+                        frequency: getFirstValue(payload.frequency, 'daily')
+                    }
+                };
+                console.log('[AI_DEBUG][intentParser:intent]', intent);
+                return intent;
+            }
+
             if (tool === 'create_roadmap') {
                 return {
                     action: 'create_roadmap',
                     goalTitle: getFirstValue(payload.goalTitle, payload.title, payload.name),
-                    tasks: (payload.tasks || []).map(normalizeTask)
+                    tasks: (payload.tasks || []).map(normalizeTask),
+                    habits: (payload.habits || []).map(h => ({
+                        title: getFirstValue(h.title, h.name, h.habit),
+                        frequency: getFirstValue(h.frequency, 'daily')
+                    }))
                 };
             }
 

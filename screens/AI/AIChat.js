@@ -543,7 +543,7 @@ export default function AIChat({ navigation, route }) {
             const intent = extractIntent(rawResponse);
             console.log('[AI_DEBUG][AIChat:sendMessage:intent]', intent);
 
-            if (intent && !isFreshPlanningStart && (systemContextForRequest || isCreationRequest(text))) {
+            if (intent && !isFreshPlanningStart) {
                 // Nova's prompt ensures she only emits JSON AFTER the user has already confirmed.
                 // So we execute immediately — no second confirmation needed.
                 try {
@@ -560,8 +560,11 @@ export default function AIChat({ navigation, route }) {
                     showNotification('error', t('updateError'));
                 }
 
-                // Strip the JSON block from the raw response to show only conversational text
-                let cleanedText = rawResponse.replace(/\{[\s\S]*\}/g, '').trim();
+                // Strip markdown codeblocks, and the JSON block from the raw response to show only conversational text
+                let cleanedText = rawResponse
+                    .replace(/```(?:json)?\s*\{[\s\S]*?\}\s*```/gi, '')
+                    .replace(/\{[\s\S]*\}/g, '')
+                    .trim();
 
                 // If Nova included a friendly message alongside the JSON, use it.
                 // Otherwise, provide a context-appropriate confirmation.
@@ -688,7 +691,7 @@ export default function AIChat({ navigation, route }) {
                     end={{ x: 1, y: 1 }}
                     style={styles.userBubbleGradient}
                 >
-                    <Text style={styles.userText}>
+                    <Text style={styles.userText} selectable={true}>
                         {item.text}
                     </Text>
                 </LinearGradient>
@@ -697,7 +700,7 @@ export default function AIChat({ navigation, route }) {
                     <View style={[styles.aiIcon, { backgroundColor: colors.primaryLight }]}>
                         <Sparkles size={14} color={colors.primary} />
                     </View>
-                    <Text style={[styles.aiText, { color: colors.textMain }]}>
+                    <Text style={[styles.aiText, { color: colors.textMain }]} selectable={true}>
                         {item.text}
                     </Text>
                 </>

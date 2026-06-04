@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme, MyButton, MyConfirmAlert, MyCheckbox } from '../../components/components';
 import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Target, Repeat, Flame, Trophy, CalendarDays, Bell } from 'lucide-react-native';
+import { ArrowLeft, Target, Repeat, Flame, Trophy, CalendarDays, Bell, CheckCircle2 } from 'lucide-react-native';
 import { useHabits } from '../../hooks/useHabits';
 import { useGoals } from '../../hooks/useGoals';
 import { useNotifications } from '../../context/NotificationContext';
@@ -141,16 +141,18 @@ export default function HabitDetails({ navigation, route }) {
                                     {habit.title}
                                 </Text>
                                 
-                                <View style={styles.checkInRow}>
-                                    <Text style={styles.checkInText}>
+                                <TouchableOpacity 
+                                    style={[styles.checkInBtn, isCompletedToday ? styles.checkInBtnCompleted : styles.checkInBtnPending]} 
+                                    onPress={toggleTodayCheckIn}
+                                    activeOpacity={0.85}
+                                >
+                                    <CheckCircle2 size={20} color={'#fff'} style={{ marginRight: 8 }} />
+                                    <Text style={styles.checkInBtnText}>
                                         {isCompletedToday 
-                                            ? (t('completedToday') || "You've completed this today!") 
-                                            : (t('notCompletedToday') || "Have you done this today?")}
+                                            ? (t('completedToday') || "Completed Today!") 
+                                            : (t('markAsDone') || "Mark as Done Today")}
                                     </Text>
-                                    <View style={styles.checkInBox}>
-                                        <MyCheckbox checked={isCompletedToday} onPress={toggleTodayCheckIn} size={32} />
-                                    </View>
-                                </View>
+                                </TouchableOpacity>
                             </View>
                         </View>
                     </LinearGradient>
@@ -320,25 +322,30 @@ const styles = StyleSheet.create({
         color: '#fff',
         marginBottom: 24,
     },
-    checkInRow: {
+    checkInBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: 'rgba(255,255,255,0.15)',
-        padding: 16,
-        borderRadius: 12,
+        justifyContent: 'center',
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        borderRadius: 30, // pill shape
+        marginTop: 12,
     },
-    checkInText: {
+    checkInBtnPending: {
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.4)',
+    },
+    checkInBtnCompleted: {
+        backgroundColor: Theme.colors.success,
+        borderWidth: 1,
+        borderColor: Theme.colors.success,
+        ...Theme.shadows.float,
+    },
+    checkInBtnText: {
         color: '#fff',
         fontFamily: Theme.typography.subHeader,
-        fontSize: 14,
-        flex: 1,
-    },
-    checkInBox: {
-        backgroundColor: 'rgba(255,255,255,0.9)',
-        borderRadius: 8,
-        padding: 4,
-        marginLeft: 16,
+        fontSize: 16,
     },
     statsGrid: {
         flexDirection: 'row',
