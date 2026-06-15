@@ -2,22 +2,25 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
     View, Text, StyleSheet, FlatList, TextInput,
-    TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView
+    TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView, Dimensions, Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../../components/components';
-import { ArrowLeft, Send, Sparkles, BarChart2, ArrowDown } from 'lucide-react-native';
+import { ArrowLeft, Send, Sparkles, BarChart2, ArrowDown, Menu, Plus, X, MessageSquare, Trash2 } from 'lucide-react-native';
 import { useUserProfile } from '../../hooks/useUserProfile';
-import { chatWithAI, summarizeConversation } from '../../services/aiService';
+import { chatWithAI, summarizeConversation, generateChatTitle, updateGlobalKnowledge } from '../../services/aiService';
 import { extractIntent } from '../../services/intentParser';
+const { width } = Dimensions.get('window');
 import { useAuth } from '../../context/AuthContext';
-import { collection, query, where, orderBy, limit, getDocs, addDoc, serverTimestamp, doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, getDocs, addDoc, serverTimestamp, doc, getDoc, setDoc, writeBatch, deleteDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useNotifications } from '../../context/NotificationContext';
 import { useTasks } from '../../hooks/useTasks';
 import { useHabits } from '../../hooks/useHabits';
+import { useGoals } from '../../hooks/useGoals';
+import { useDiary } from '../../hooks/useDiary';
 import { useAppTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -145,8 +148,10 @@ export default function AIChat({ navigation, route }) {
     const { user } = useAuth();
     const { profile, loading: profileLoading, refreshProfile } = useUserProfile();
     const { showNotification } = useNotifications();
-    const { addTask } = useTasks();
-    const { addHabit } = useHabits();
+    const { addTask, updateTask, deleteTask } = useTasks();
+    const { addHabit, updateHabit, deleteHabit } = useHabits();
+    const { updateGoal, deleteGoal } = useGoals();
+    const { updateEntry, deleteEntry } = useDiary();
     const isFreshPlanningChat = route.params?.freshChat;
     const planningType = route.params?.planningType;
     console.log('freshChat=', route.params?.freshChat);
@@ -162,6 +167,9 @@ export default function AIChat({ navigation, route }) {
     useEffect(() => {
 
         if (!isFreshPlanningChat) return;
+
+        setCurrentSessionId(null);
+        setSessionSummary("");
 
         const starterMessages = {
             task: "let's create a new task.",
@@ -199,39 +207,156 @@ export default function AIChat({ navigation, route }) {
     const [loadingHistory, setLoadingHistory] = useState(true);
     const [inputText, setInputText] = useState('');
     const [isAiTyping, setIsAiTyping] = useState(false);
-    const [memorySummary, setMemorySummary] = useState('');
+    
+    // NEW STATES
+    const [globalKnowledge, setGlobalKnowledge] = useState('');
+    const [sessionSummary, setSessionSummary] = useState('');
+    const [currentSessionId, setCurrentSessionId] = useState(null);
+    const [sessions, setSessions] = useState([]);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
     const [showScrollDown, setShowScrollDown] = useState(false);
     const messageCountSinceSummaryRef = useRef(0);
     // Chat history format for AI context
     const chatHistoryRef = useRef([]);
     const activePlanningContextRef = useRef('');
     const flatListRef = useRef(null);
-    // Load initial history from Firestore
-    useEffect(() => {
-        if (isFreshPlanningChat) {
-            setLoadingHistory(false);
-            return;
-        }
-        if (!user || profileLoading || !profile) return;
 
-        const loadHistory = async () => {
+    const currentSessionIdRef = useRef(currentSessionId);
+    useEffect(() => { currentSessionIdRef.current = currentSessionId; }, [currentSessionId]);
+    const sessionSummaryRef = useRef(sessionSummary);
+    useEffect(() => { sessionSummaryRef.current = sessionSummary; }, [sessionSummary]);
+
+    // Migrate Legacy Chats
+    useEffect(() => {
+        if (!user) return;
+        const migrateLegacyChats = async () => {
             try {
                 const q = query(
                     collection(db, 'chat_messages'),
-                    where('userId', '==', user.uid),
-                    orderBy('createdAt', 'desc'),
-                    limit(50)
+                    where('userId', '==', user.uid)
                 );
+                const snapshot = await getDocs(q);
+                const legacyMessages = snapshot.docs.filter(d => !d.data().sessionId);
+                
+                if (legacyMessages.length === 0) return;
 
-                // Fetch long-term memory summary concurrently
-                const [snapshot, memDoc] = await Promise.all([
+                const sessQ = query(
+                    collection(db, 'chat_sessions'),
+                    where('userId', '==', user.uid)
+                );
+                const sessSnap = await getDocs(sessQ);
+                const legacySessionDoc = sessSnap.docs.find(d => d.data().title === 'Legacy Chat');
+                
+                let legacySessionId;
+                if (!legacySessionDoc) {
+                    const newRef = await addDoc(collection(db, 'chat_sessions'), {
+                        userId: user.uid,
+                        title: 'Legacy Chat',
+                        topicSummary: 'Legacy chats from before the tabs update.',
+                        createdAt: serverTimestamp(),
+                        updatedAt: serverTimestamp()
+                    });
+                    legacySessionId = newRef.id;
+                } else {
+                    legacySessionId = legacySessionDoc.id;
+                }
+
+                let batch = writeBatch(db);
+                let count = 0;
+                for (const docSnap of legacyMessages) {
+                    batch.update(docSnap.ref, { sessionId: legacySessionId });
+                    count++;
+                    if (count >= 400) {
+                        await batch.commit();
+                        batch = writeBatch(db);
+                        count = 0;
+                    }
+                }
+                if (count > 0) await batch.commit();
+
+                console.log('Legacy chats migrated successfully.');
+                showNotification('success', 'Old chats restored to Legacy Chat tab.');
+            } catch (error) {
+                console.error('Migration failed:', error);
+            }
+        };
+        migrateLegacyChats();
+    }, [user]);
+
+    // 1. Load Sessions and Global Knowledge
+    useEffect(() => {
+        if (!user) return;
+        const loadSessions = async () => {
+            try {
+                const q = query(
+                    collection(db, 'chat_sessions'),
+                    where('userId', '==', user.uid),
+                    orderBy('updatedAt', 'desc'),
+                    limit(20)
+                );
+                
+                const [snap, memDoc] = await Promise.all([
                     getDocs(q),
                     getDoc(doc(db, 'user_memory', user.uid))
                 ]);
 
                 if (memDoc.exists()) {
-                    setMemorySummary(memDoc.data().summary || "");
+                    setGlobalKnowledge(memDoc.data().globalKnowledge || "");
                 }
+
+                const loadedSessions = [];
+                snap.docs.forEach(d => loadedSessions.push({ id: d.id, ...d.data() }));
+                setSessions(loadedSessions);
+
+                if (isFreshPlanningChat) {
+                    setCurrentSessionId(null);
+                    setSessionSummary("");
+                } else if (loadedSessions.length > 0) {
+                    setCurrentSessionId(loadedSessions[0].id);
+                    setSessionSummary(loadedSessions[0].topicSummary || "");
+                } else {
+                    setCurrentSessionId(null);
+                    setSessionSummary("");
+                }
+            } catch (err) {
+                console.error("Failed to load sessions:", err);
+            }
+        };
+        loadSessions();
+    }, [user, isFreshPlanningChat]);
+
+    // 2. Load Messages when currentSessionId changes
+    useEffect(() => {
+        if (!user || profileLoading || !profile) return;
+        
+        if (!currentSessionId && !isFreshPlanningChat) {
+            const initial = INITIAL_MESSAGE(profile.userName, t);
+            setMessages([initial]);
+            chatHistoryRef.current = [{
+                role: 'assistant',
+                parts: [{ text: initial.text }]
+            }];
+            setLoadingHistory(false);
+            return;
+        }
+
+        if (isFreshPlanningChat && !currentSessionId) {
+             return; 
+        }
+
+        setLoadingHistory(true);
+        const loadMessages = async () => {
+            try {
+                const q = query(
+                    collection(db, 'chat_messages'),
+                    where('userId', '==', user.uid),
+                    where('sessionId', '==', currentSessionId),
+                    orderBy('createdAt', 'desc'),
+                    limit(50)
+                );
+                
+                const snapshot = await getDocs(q);
 
                 if (snapshot.empty) {
                     const initial = INITIAL_MESSAGE(profile.userName, t);
@@ -240,19 +365,12 @@ export default function AIChat({ navigation, route }) {
                         role: 'assistant',
                         parts: [{ text: initial.text }]
                     }];
-                    // Optionally save initial greeting
-                    addDoc(collection(db, 'chat_messages'), {
-                        userId: user.uid,
-                        text: initial.text,
-                        isUser: false,
-                        createdAt: serverTimestamp()
-                    }).catch(console.error);
                 } else {
                     const loadedMsgs = [];
                     const groqHist = [];
-                    snapshot.docs.forEach(doc => {
-                        const data = doc.data();
-                        loadedMsgs.unshift({ id: doc.id, text: data.text, isUser: data.isUser });
+                    snapshot.docs.forEach(d => {
+                        const data = d.data();
+                        loadedMsgs.unshift({ id: d.id, text: data.text, isUser: data.isUser });
                         groqHist.unshift({
                             role: data.isUser ? 'user' : 'assistant',
                             parts: [{ text: data.text }]
@@ -269,10 +387,10 @@ export default function AIChat({ navigation, route }) {
             }
         };
 
-        if (loadingHistory) {
-            loadHistory();
+        if (currentSessionId) {
+            loadMessages();
         }
-    }, [user, profile, profileLoading, loadingHistory]);
+    }, [currentSessionId, user, profile, profileLoading]);
 
     // Initial scroll to bottom after loading
     useEffect(() => {
@@ -324,7 +442,7 @@ export default function AIChat({ navigation, route }) {
 
         if (toolCall.action === 'create_goal') {
 
-            await addDoc(collection(db, 'goals'), {
+            const newGoalRef = await addDoc(collection(db, 'goals'), {
                 userId: user.uid,
                 title: toolCall.data.title,
                 deadline: toolCall.data.deadline || toolCall.deadline || null,
@@ -332,6 +450,25 @@ export default function AIChat({ navigation, route }) {
                 progress: 0,
                 createdAt: serverTimestamp()
             });
+
+            if (toolCall.data.tasks && toolCall.data.tasks.length > 0) {
+                const taskPromises = toolCall.data.tasks.map(task =>
+                    addTask(buildTaskPayload(task, newGoalRef.id))
+                );
+                await Promise.all(taskPromises);
+            }
+
+            if (toolCall.data.habits && toolCall.data.habits.length > 0) {
+                const habitPromises = toolCall.data.habits.map(habit =>
+                    addHabit({
+                        title: habit.title.trim(),
+                        frequency: habit.frequency || 'daily',
+                        goalId: newGoalRef.id,
+                        status: 'active'
+                    })
+                );
+                await Promise.all(habitPromises);
+            }
 
             showNotification('success', t('goalSaved'));
         }
@@ -404,13 +541,18 @@ export default function AIChat({ navigation, route }) {
 
         else if (toolCall.action === 'create_roadmap') {
 
-            if (!toolCall.goalTitle || !Array.isArray(toolCall.tasks) || toolCall.tasks.length === 0) {
-                throw new Error('Incomplete roadmap requirements');
+            const hasTasks = Array.isArray(toolCall.tasks) && toolCall.tasks.length > 0;
+            const hasHabits = Array.isArray(toolCall.habits) && toolCall.habits.length > 0;
+
+            if (!toolCall.goalTitle || (!hasTasks && !hasHabits)) {
+                throw new Error('Incomplete roadmap requirements: needs tasks or habits');
             }
 
-            const incompleteTask = (toolCall.tasks || []).find(task => !hasCompleteTaskDetails(task));
-            if (incompleteTask) {
-                throw new Error('Incomplete roadmap task requirements');
+            if (hasTasks) {
+                const incompleteTask = toolCall.tasks.find(task => !hasCompleteTaskDetails(task));
+                if (incompleteTask) {
+                    throw new Error('Incomplete roadmap task requirements');
+                }
             }
 
             const newGoalRef = await addDoc(collection(db, 'goals'), {
@@ -459,19 +601,87 @@ export default function AIChat({ navigation, route }) {
             showNotification('success', t('diarySaved'));
         }
 
+        else if (toolCall.action.startsWith('edit_') || toolCall.action.startsWith('delete_')) {
+            const collectionMap = {
+                'edit_task': 'tasks', 'delete_task': 'tasks',
+                'edit_goal': 'goals', 'delete_goal': 'goals',
+                'edit_habit': 'habits', 'delete_habit': 'habits',
+                'edit_diary': 'diary_entries', 'delete_diary': 'diary_entries'
+            };
+
+            const collectionName = collectionMap[toolCall.action];
+            const targetTitle = toolCall.targetTitle?.toLowerCase().trim();
+
+            if (!collectionName || !targetTitle) {
+                throw new Error("Invalid edit/delete request: missing targetTitle");
+            }
+
+            const q = query(collection(db, collectionName), where('userId', '==', user.uid));
+            const snap = await getDocs(q);
+            
+            let matchedDoc = null;
+            let highestMatchScore = -1;
+
+            snap.docs.forEach(d => {
+                const title = (d.data().title || d.data().name || '').toLowerCase().trim();
+                if (title === targetTitle) {
+                    matchedDoc = d;
+                    highestMatchScore = 100;
+                } else if (title.includes(targetTitle) && highestMatchScore < 50) {
+                    matchedDoc = d;
+                    highestMatchScore = 50;
+                }
+            });
+
+            if (!matchedDoc) {
+                throw new Error(`Could not find a ${collectionName.replace('_', ' ')} named '${toolCall.targetTitle}'`);
+            }
+
+            const isEdit = toolCall.action.startsWith('edit_');
+
+            if (toolCall.action === 'delete_task') {
+                await deleteTask(matchedDoc.id, matchedDoc.data().goalId, matchedDoc.data().notificationId);
+            } else if (toolCall.action === 'edit_task') {
+                await updateTask(matchedDoc.id, toolCall.updates || {}, matchedDoc.data().goalId);
+            } else if (toolCall.action === 'delete_habit') {
+                await deleteHabit(matchedDoc.id);
+            } else if (toolCall.action === 'edit_habit') {
+                await updateHabit(matchedDoc.id, toolCall.updates || {});
+            } else if (toolCall.action === 'delete_goal') {
+                await deleteGoal(matchedDoc.id);
+            } else if (toolCall.action === 'edit_goal') {
+                await updateGoal(matchedDoc.id, toolCall.updates || {});
+            } else if (toolCall.action === 'delete_diary') {
+                await deleteEntry(matchedDoc.id);
+            } else if (toolCall.action === 'edit_diary') {
+                await updateEntry(matchedDoc.id, toolCall.updates || {});
+            }
+
+            showNotification('success', isEdit ? 'Item updated successfully!' : 'Item deleted successfully!');
+        }
+
         refreshProfile(true);
     };
 
     const sendMessage = async (text, hiddenContext = null, isSilent = false) => {
         if (!text || isAiTyping || !user) return;
-        console.log('[AI_DEBUG][AIChat:sendMessage:start]', {
-            text,
-            isSilent,
-            hasHiddenContext: !!hiddenContext,
-            hasUser: !!user,
-            isAiTyping,
-            activePlanningContext: activePlanningContextRef.current
-        });
+        
+        let activeSessionId = currentSessionIdRef.current;
+        if (!activeSessionId) {
+            const title = await generateChatTitle(text);
+            const newSessionRef = await addDoc(collection(db, 'chat_sessions'), {
+                userId: user.uid,
+                title: title,
+                topicSummary: "",
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            });
+            activeSessionId = newSessionRef.id;
+            setCurrentSessionId(activeSessionId);
+            setSessions(prev => [{ id: activeSessionId, title, topicSummary: "", createdAt: new Date() }, ...prev]);
+        } else {
+            setDoc(doc(db, 'chat_sessions', activeSessionId), { updatedAt: serverTimestamp() }, { merge: true });
+        }
 
         if (!isSilent) {
             const userMsg = { id: Date.now().toString(), text, isUser: true };
@@ -480,6 +690,7 @@ export default function AIChat({ navigation, route }) {
 
             addDoc(collection(db, 'chat_messages'), {
                 userId: user.uid,
+                sessionId: activeSessionId,
                 text,
                 isUser: true,
                 createdAt: serverTimestamp()
@@ -529,7 +740,8 @@ export default function AIChat({ navigation, route }) {
                 profile,
                 requestHistory.slice(-25),
                 text,
-                memorySummary,
+                globalKnowledge,
+                sessionSummaryRef.current,
                 systemContextForRequest,
                 language
             );
@@ -620,27 +832,28 @@ export default function AIChat({ navigation, route }) {
 
             addDoc(collection(db, 'chat_messages'), {
                 userId: user.uid,
+                sessionId: activeSessionId,
                 text: finalResponseText,
                 isUser: false,
                 createdAt: serverTimestamp()
             }).catch(e => console.log('Log message failed:', e));
 
-            // ✅ Background summarization (unchanged)
+            // Background summarization
             messageCountSinceSummaryRef.current += 1;
-            if (messageCountSinceSummaryRef.current >= 6) {
+            if (messageCountSinceSummaryRef.current >= 4) {
                 messageCountSinceSummaryRef.current = 0;
 
                 const historyToSummarize = chatHistoryRef.current.slice(-20);
 
                 setTimeout(async () => {
                     try {
-                        const newSummary = await summarizeConversation(memorySummary, historyToSummarize);
-                        setMemorySummary(newSummary);
-                        await setDoc(
-                            doc(db, 'user_memory', user.uid),
-                            { summary: newSummary },
-                            { merge: true }
-                        );
+                        const newSummary = await summarizeConversation(sessionSummaryRef.current, historyToSummarize);
+                        setSessionSummary(newSummary);
+                        await setDoc(doc(db, 'chat_sessions', activeSessionId), { topicSummary: newSummary }, { merge: true });
+                        
+                        const newGlobalKnowledge = await updateGlobalKnowledge(globalKnowledge, newSummary);
+                        setGlobalKnowledge(newGlobalKnowledge);
+                        await setDoc(doc(db, 'user_memory', user.uid), { globalKnowledge: newGlobalKnowledge }, { merge: true });
                     } catch (err) {
                         console.error('Summarization failed:', err);
                     }
@@ -743,8 +956,135 @@ export default function AIChat({ navigation, route }) {
         );
     };
 
+    const handleDeleteSession = async (sessionId) => {
+        Alert.alert(
+            "Delete Chat",
+            "Are you sure you want to delete this chat?",
+            [
+                { text: "Cancel", style: "cancel" },
+                { 
+                    text: "Delete", 
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            setSessions(prev => prev.filter(s => s.id !== sessionId));
+                            if (currentSessionId === sessionId) {
+                                setCurrentSessionId(null);
+                                setSessionSummary("");
+                                const initial = INITIAL_MESSAGE(profile?.userName, t);
+                                setMessages([initial]);
+                                chatHistoryRef.current = [{
+                                    role: 'assistant',
+                                    parts: [{ text: initial.text }]
+                                }];
+                            }
+
+                            await deleteDoc(doc(db, 'chat_sessions', sessionId));
+                            
+                            const q = query(collection(db, 'chat_messages'), where('sessionId', '==', sessionId));
+                            const snap = await getDocs(q);
+                            
+                            if (!snap.empty) {
+                                let batch = writeBatch(db);
+                                let count = 0;
+                                snap.docs.forEach(d => {
+                                    batch.delete(d.ref);
+                                    count++;
+                                    if (count >= 400) {
+                                        batch.commit();
+                                        batch = writeBatch(db);
+                                        count = 0;
+                                    }
+                                });
+                                if (count > 0) {
+                                    await batch.commit();
+                                }
+                            }
+                            
+                            showNotification('success', 'Chat deleted');
+                        } catch (err) {
+                            console.error('Delete chat error:', err);
+                            showNotification('error', 'Failed to delete chat');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const renderSidebar = () => {
+        return (
+            <MotiView
+                animate={{ translateX: isSidebarOpen ? 0 : -width * 0.8 }}
+                transition={{ type: 'timing', duration: 300 }}
+                style={[styles.sidebar, { backgroundColor: colors.surface, borderRightColor: colors.border }]}
+            >
+                <SafeAreaView style={{ flex: 1 }}>
+                    <View style={styles.sidebarHeader}>
+                        <Text style={[styles.sidebarTitle, { color: colors.textMain }]}>Past Chats</Text>
+                        <TouchableOpacity onPress={() => setIsSidebarOpen(false)} style={styles.closeSidebarBtn}>
+                            <X size={24} color={colors.textMain} />
+                        </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity 
+                        style={[styles.newChatBtn, { backgroundColor: colors.primaryLight }]} 
+                        onPress={() => {
+                            setCurrentSessionId(null);
+                            setSessionSummary("");
+                            setIsSidebarOpen(false);
+                            const initial = INITIAL_MESSAGE(profile?.userName, t);
+                            setMessages([initial]);
+                            chatHistoryRef.current = [{
+                                role: 'assistant',
+                                parts: [{ text: initial.text }]
+                            }];
+                        }}
+                    >
+                        <Plus size={20} color={colors.primary} />
+                        <Text style={[styles.newChatBtnText, { color: colors.primary }]}>New Chat</Text>
+                    </TouchableOpacity>
+
+                    <ScrollView style={styles.sessionList}>
+                        {sessions.map(s => (
+                            <TouchableOpacity 
+                                key={s.id} 
+                                style={[
+                                    styles.sessionItem, 
+                                    currentSessionId === s.id && [styles.activeSessionItem, { backgroundColor: colors.background, borderColor: colors.border }]
+                                ]} 
+                                onPress={() => { 
+                                    setCurrentSessionId(s.id); 
+                                    setSessionSummary(s.topicSummary || ''); 
+                                    setIsSidebarOpen(false); 
+                                }}
+                            >
+                                <MessageSquare size={16} color={currentSessionId === s.id ? colors.primary : colors.textSecondary} style={{ marginRight: 8 }} />
+                                <View style={{ flex: 1, marginRight: 8 }}>
+                                    <Text style={[
+                                        styles.sessionTitle, 
+                                        { color: currentSessionId === s.id ? colors.primary : colors.textMain }
+                                    ]} numberOfLines={1}>
+                                        {s.title || 'Chat'}
+                                    </Text>
+                                </View>
+                                <TouchableOpacity 
+                                    style={styles.deleteChatBtn}
+                                    onPress={() => handleDeleteSession(s.id)}
+                                >
+                                    <Trash2 size={18} color={colors.error} />
+                                </TouchableOpacity>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </SafeAreaView>
+            </MotiView>
+        );
+    };
+
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+            {renderSidebar()}
             <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <ArrowLeft size={24} color={colors.textMain} />
@@ -753,7 +1093,9 @@ export default function AIChat({ navigation, route }) {
                     <Text style={[styles.headerTitle, { color: colors.textMain }]}>{t('aiGuideTitle')}</Text>
                     <View style={[styles.onlineDot, { backgroundColor: colors.success }]} />
                 </View>
-                <View style={{ width: 38 }} />
+                <TouchableOpacity onPress={() => setIsSidebarOpen(true)} style={styles.menuButton}>
+                    <Menu size={24} color={colors.textMain} />
+                </TouchableOpacity>
             </View>
 
             <KeyboardAvoidingView
@@ -858,6 +1200,71 @@ const styles = StyleSheet.create({
         backgroundColor: Theme.colors.surface,
     },
     backButton: { padding: 8, marginLeft: -8 },
+    menuButton: { padding: 8, marginRight: -8 },
+    sidebar: {
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        left: 0,
+        width: width * 0.8,
+        zIndex: 100,
+        borderRightWidth: 1,
+        elevation: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 2, height: 0 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+    },
+    sidebarHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: Theme.spacing.lg,
+        borderBottomWidth: 1,
+        borderBottomColor: Theme.colors.border,
+    },
+    sidebarTitle: {
+        fontSize: 18,
+        fontFamily: Theme.typography.header,
+    },
+    closeSidebarBtn: {
+        padding: 4,
+    },
+    newChatBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: Theme.spacing.lg,
+        padding: Theme.spacing.md,
+        borderRadius: 12,
+    },
+    newChatBtnText: {
+        fontSize: 16,
+        fontFamily: Theme.typography.subHeader,
+        marginLeft: 8,
+    },
+    sessionList: {
+        flex: 1,
+        paddingHorizontal: Theme.spacing.md,
+    },
+    sessionItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: Theme.spacing.md,
+        borderRadius: 12,
+        marginBottom: 8,
+    },
+    activeSessionItem: {
+        borderWidth: 1,
+    },
+    sessionTitle: {
+        fontSize: 15,
+        fontFamily: Theme.typography.body,
+        flex: 1,
+    },
+    deleteChatBtn: {
+        padding: 4,
+    },
     headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     headerTitle: {
         fontSize: 16,

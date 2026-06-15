@@ -17,7 +17,7 @@ export default function HabitDetails({ navigation, route }) {
     const { colors } = useAppTheme();
     const { t } = useLanguage();
     const { habitId } = route.params;
-    
+
     const { habits, deleteHabit, checkInHabit, uncheckHabit, isHabitCompletedForDate } = useHabits();
     const { goals } = useGoals();
     const { showNotification } = useNotifications();
@@ -140,16 +140,16 @@ export default function HabitDetails({ navigation, route }) {
                                 <Text style={styles.heroTitle}>
                                     {habit.title}
                                 </Text>
-                                
-                                <TouchableOpacity 
-                                    style={[styles.checkInBtn, isCompletedToday ? styles.checkInBtnCompleted : styles.checkInBtnPending]} 
+
+                                <TouchableOpacity
+                                    style={[styles.checkInBtn, isCompletedToday ? styles.checkInBtnCompleted : styles.checkInBtnPending]}
                                     onPress={toggleTodayCheckIn}
                                     activeOpacity={0.85}
                                 >
-                                    <CheckCircle2 size={20} color={'#fff'} style={{ marginRight: 8 }} />
-                                    <Text style={styles.checkInBtnText}>
-                                        {isCompletedToday 
-                                            ? (t('completedToday') || "Completed Today!") 
+                                    <CheckCircle2 size={20} color="#fff" style={{ marginRight: 8 }} />
+                                    <Text style={[styles.checkInBtnText, isCompletedToday && { color: '#fff' }]}>
+                                        {isCompletedToday
+                                            ? (t('completedToday') || "Completed Today!")
                                             : (t('markAsDone') || "Mark as Done Today")}
                                     </Text>
                                 </TouchableOpacity>
@@ -176,7 +176,7 @@ export default function HabitDetails({ navigation, route }) {
                         <Text style={[styles.statValue, { color: colors.textMain }]}>{habit.bestStreak || 0}</Text>
                         <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('bestStreak') || 'Best Streak'}</Text>
                     </View>
-                    
+
                     <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                         <Target size={24} color={colors.success} style={{ marginBottom: 8 }} />
                         <Text style={[styles.statValue, { color: colors.textMain }]}>{habit.consistencyRate || 0}%</Text>
@@ -337,9 +337,9 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(255,255,255,0.4)',
     },
     checkInBtnCompleted: {
-        backgroundColor: Theme.colors.success,
+        backgroundColor: Theme.colors.primary,
         borderWidth: 1,
-        borderColor: Theme.colors.success,
+        borderColor: 'rgba(255,255,255,0.2)',
         ...Theme.shadows.float,
     },
     checkInBtnText: {

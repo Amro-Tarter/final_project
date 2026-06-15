@@ -165,7 +165,7 @@ export const MyCheckbox = ({ label, checked, onPress }) => {
       style={[
         styles.checkboxRow, 
         { backgroundColor: colors.surface, borderColor: colors.border },
-        checked && [styles.checkboxRowActive, { borderColor: colors.secondary, backgroundColor: colors.secondaryLight }]
+        checked && [styles.checkboxRowActive, { borderColor: colors.primary, backgroundColor: colors.primaryLight }]
       ]}
     >
       <View style={[styles.checkbox, { borderColor: colors.border, backgroundColor: colors.surface }, checked && styles.checkboxActiveWrapper]}>

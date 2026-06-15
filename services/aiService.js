@@ -60,6 +60,18 @@ Diary:
   "tags":["tag1", "tag2"],
   "reflection":"A deep insight or lesson learned today (optional)"
 }
+
+Edit Tool:
+{"tool":"edit_task","targetTitle":"Exact Task Name","updates":{"dueDate":"YYYY-MM-DD", "priority":"High"}}
+{"tool":"edit_goal","targetTitle":"Exact Goal Name","updates":{"deadline":"YYYY-MM-DD", "title":"New Title"}}
+{"tool":"edit_habit","targetTitle":"Exact Habit Name","updates":{"frequency":"weekly"}}
+{"tool":"edit_diary","targetTitle":"Exact Diary Title","updates":{"content":"New content"}}
+
+Delete Tool:
+{"tool":"delete_task","targetTitle":"Exact Task Name"}
+{"tool":"delete_goal","targetTitle":"Exact Goal Name"}
+{"tool":"delete_habit","targetTitle":"Exact Habit Name"}
+{"tool":"delete_diary","targetTitle":"Exact Diary Title"}
 `;
 
 
@@ -195,8 +207,8 @@ function isCreationRequest(message) {
     const normalized = (message || '').toLowerCase();
 
     return (
-        /\b(create|add|make|build|plan|schedule|set|save|write)\b/.test(normalized) &&
-        /\b(task|goal|roadmap|road map|reminder|diary|journal)\b/.test(normalized)
+        /\b(create|add|make|build|plan|schedule|set|save|write|edit|change|modify|update|delete|remove|clear)\b/.test(normalized) &&
+        /\b(task|goal|roadmap|road map|reminder|diary|journal|habit)\b/.test(normalized)
     );
 }
 
@@ -248,13 +260,15 @@ RESPOND ONLY WITH VALID JSON IN THIS FORMAT:
 function createNovaPrompt(
     profileSummary,
     analystStrategy,
-    memorySummary,
+    globalKnowledge,
+    sessionSummary,
     currentDate,
     includePrivateContext = false,
     userLanguage = 'en'
 ) {
     return `
-You are Nova, a warm, wise, emotionally intelligent companion.
+You are Nova, a warm, wise, emotionally intelligent companion inside a personal growth, goal-setting, and habit-tracking application.
+When the user mentions terms like "destination," "journey," "roadmap," or "milestone," they are referring to their personal goals, tasks, and habits within this app, not physical travel or navigation.
 
 [USER LANGUAGE: ${userLanguage}] You MUST generate your ENTIRE final response strictly in this language. Do not reply in English unless the user language is English.
 
@@ -347,11 +361,12 @@ Never perform actions while meaning is unclear.
 ACTION ENGINE
 ━━━━━━━━━━━━━━━━━━━━
 
-This application can create:
+This application can create, edit, and delete:
 
 - tasks
 - goals
-- roadmaps
+- roadmaps (create only)
+- habits
 - diary entries
 - reminders
 
@@ -373,10 +388,12 @@ When the user asks for a plan, goal, task, or habit, you must INFER missing deta
 NEVER ask the user for data types or strict formats (e.g. do not say "Please provide a date in YYYY-MM-DD").
 If information is critically missing and cannot be guessed (e.g., "When do you want to start this?"), ask naturally in a conversational way.
 
-Before outputting JSON tools to create anything:
-1. Understand the request and infer the roadmap/plan.
-2. Propose the plan naturally to the user (e.g. "I can set up a goal for that and add a few tasks like X and Y. Should I create that for you?").
+Before outputting JSON tools to create/edit anything:
+1. Understand the request and infer the plan.
+2. Propose the action naturally to the user (e.g. "I can set up a goal for that... Should I create that for you?").
 3. Wait for the user's confirmation.
+
+CRITICAL: Before outputting a JSON tool to DELETE anything, you MUST explicitly ask the user for confirmation first (e.g. "Are you absolutely sure you want me to delete the task 'XYZ'?"). DO NOT output the delete tool until they answer "yes". When editing or deleting, use the exact title of the item from your Private Background as the targetTitle.
 
 Never execute before explicit confirmation UNLESS the user gave a very direct command (e.g. "Remind me to...", "Create a goal...").
 
@@ -513,17 +530,22 @@ ${analystStrategy?.suggestedLength || '1-2 sentences'}
 Notes:
 ${analystStrategy?.internalNotes || 'Be supportive'}
 
-Long-Term Memory:
+Long-Term Global Knowledge:
 ${includePrivateContext
-            ? memorySummary || 'None'
+            ? globalKnowledge || 'None'
             : 'Hidden'}
+
+Current Session Topic:
+${sessionSummary || 'New chat topic'}
 
 Obey the requested response length exactly.
 `;
 }
 
 function createCompanionPrompt(profileSummary, currentDate, userLanguage = 'en') {
-    return `You are "Nova", a warm, wise, emotionally intelligent companion.
+    return `You are "Nova", a warm, wise, emotionally intelligent companion inside a personal growth, goal-setting, and habit-tracking application.
+When the user mentions terms like "destination," "journey," "roadmap," or "milestone," they are referring to their personal goals, tasks, and habits within this app, not physical travel or navigation.
+
 Current Date: ${currentDate}
 
 [USER LANGUAGE: ${userLanguage}] You MUST generate your ENTIRE final response strictly in this language. Do not reply in English unless the user language is English.
@@ -649,31 +671,26 @@ export async function summarizeConversation(currentSummary, history) {
         const historyText = apiHistory.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
 
         const systemPrompt = `You are a hidden background Memory Agent for an AI companion.
-                            You are a long-term memory system.
+                            You are a session summarizer.
 
                             Your job:
                             Compress the conversation into a dense memory that preserves:
 
-                            - User goals and plans
-                            - Tasks and commitments
-                            - Preferences and habits
-                            - Emotional patterns
-                            - Important decisions
+                            - The main topic of this chat session
+                            - Key decisions, tasks, or ideas discussed
 
                             Do NOT summarize casually.
-                            Store it as persistent knowledge.
-
                             Write in a structured, information-dense way.
 
-                            Max 500 words.`;
+                            Max 150 words.`;
 
-        const userPrompt = `EXISTING MEMORY SUMMARY:
-        ${currentSummary || "No existing memory."}
+        const userPrompt = `EXISTING SESSION SUMMARY:
+        ${currentSummary || "No existing summary."}
 
         RECENT CONVERSATION:
         ${historyText}
                     
-        OUTPUT ONLY THE NEW COMPRESSED MEMORY PARAGRAPH.`;
+        OUTPUT ONLY THE NEW COMPRESSED SUMMARY PARAGRAPH.`;
 
         const response = await callOpenAI([
             { role: 'system', content: systemPrompt },
@@ -687,10 +704,57 @@ export async function summarizeConversation(currentSummary, history) {
     }
 }
 
+export async function updateGlobalKnowledge(currentGlobalKnowledge, sessionSummary) {
+    if (!sessionSummary) return currentGlobalKnowledge;
+
+    try {
+        const systemPrompt = `You are the Global Knowledge Agent for an AI companion.
+        Your job is to maintain a wide, generalized understanding of the user based on individual chat sessions.
+        You receive the current Global Knowledge and a new Session Summary.
+        
+        Merge the new insights from the Session Summary into the Global Knowledge.
+        - Add new facts, goals, preferences, or emotional patterns.
+        - Update existing facts if they have changed.
+        - Keep the knowledge base concise, structured, and information-dense.
+        - Max 500 words.`;
+
+        const userPrompt = `CURRENT GLOBAL KNOWLEDGE:
+        ${currentGlobalKnowledge || "No existing knowledge."}
+
+        NEW SESSION SUMMARY:
+        ${sessionSummary}
+        
+        OUTPUT ONLY THE UPDATED GLOBAL KNOWLEDGE.`;
+
+        const response = await callOpenAI([
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+        ]);
+
+        return extractOpenAIResponseText(response).trim();
+    } catch (e) {
+        console.error('OpenAI Global Knowledge Update Error:', e);
+        return currentGlobalKnowledge;
+    }
+}
+
+export async function generateChatTitle(firstMessage) {
+    try {
+        const systemPrompt = `You are a helpful assistant. Generate a very short, concise title (2-4 words) for a chat session that starts with the given message. Do NOT use quotes around the title. Focus on the main topic or intent.`;
+        const response = await callOpenAI([
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: firstMessage }
+        ]);
+        return extractOpenAIResponseText(response).trim().replace(/['"]/g, '');
+    } catch (e) {
+        return "New Chat";
+    }
+}
+
 /**
  * Sends a chat message and returns response.
  */
-export async function chatWithAI(profile, history, newMessage, memorySummary = "", systemContext = "", language = 'en') {
+export async function chatWithAI(profile, history, newMessage, globalKnowledge = "", sessionSummary = "", systemContext = "", language = 'en') {
     try {
         const toolMode =
             !!systemContext ||
@@ -718,7 +782,8 @@ export async function chatWithAI(profile, history, newMessage, memorySummary = "
             ? createNovaPrompt(
                 profileSummary,
                 analystStrategy,
-                memorySummary,
+                globalKnowledge,
+                sessionSummary,
                 currentDate,
                 includePrivateContext,
                 language

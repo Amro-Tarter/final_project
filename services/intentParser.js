@@ -150,7 +150,13 @@ export const extractIntent = (response) => {
                 return {
                     action: 'create_goal',
                     data: {
-                        title: getFirstValue(payload.title, payload.goalTitle, payload.name)
+                        title: getFirstValue(payload.title, payload.goalTitle, payload.name),
+                        deadline: getFirstValue(payload.deadline, payload.dueDate, payload.date),
+                        tasks: Array.isArray(payload.tasks) ? payload.tasks.map(normalizeTask) : [],
+                        habits: Array.isArray(payload.habits) ? payload.habits.map(h => ({
+                            title: getFirstValue(h.title, h.name, h.habit),
+                            frequency: getFirstValue(h.frequency, 'daily')
+                        })) : []
                     }
                 };
             }
@@ -198,6 +204,21 @@ export const extractIntent = (response) => {
                     data: {
                         title: getFirstValue(payload.title, 'My Day')
                     }
+                };
+            }
+
+            if (tool.startsWith('edit_')) {
+                return {
+                    action: tool,
+                    targetTitle: payload.targetTitle || payload.title || payload.name,
+                    updates: payload.updates || {}
+                };
+            }
+
+            if (tool.startsWith('delete_')) {
+                return {
+                    action: tool,
+                    targetTitle: payload.targetTitle || payload.title || payload.name
                 };
             }
         } catch (e) {

@@ -9,6 +9,58 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { useAppTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
 
+const HabitItem = React.memo(({ item, navigation, colors, t, isHabitCompletedForDate, checkInHabit, uncheckHabit, today }) => {
+    const [isCompleted, setIsCompleted] = React.useState(false);
+
+    React.useEffect(() => {
+        isHabitCompletedForDate(item.id, today).then(setIsCompleted);
+    }, [item.id, today, isHabitCompletedForDate]);
+
+    const toggleHabit = async () => {
+        const nextState = !isCompleted;
+        setIsCompleted(nextState); // optimistic update
+        if (nextState) {
+            await checkInHabit(item.id, today);
+        } else {
+            await uncheckHabit(item.id, today);
+        }
+    };
+
+    return (
+        <TouchableOpacity
+            style={[styles.habitCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={() => navigation.navigate('HabitDetails', { habitId: item.id })}
+        >
+            <View style={styles.habitHeader}>
+                <View style={styles.habitTitleRow}>
+                    <Repeat size={18} color={colors.primary} />
+                    <Text style={[styles.habitTitle, { color: colors.textMain }]}>{item.title}</Text>
+                </View>
+                <MyCheckbox
+                    checked={isCompleted}
+                    onPress={toggleHabit}
+                    size={24}
+                />
+            </View>
+            
+            <View style={styles.habitStats}>
+                <View style={styles.statBox}>
+                    <Text style={[styles.statValue, { color: colors.warning }]}>🔥 {item.currentStreak || 0}</Text>
+                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('streak')}</Text>
+                </View>
+                <View style={styles.statBox}>
+                    <Text style={[styles.statValue, { color: colors.success }]}>{item.consistencyRate || 0}%</Text>
+                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('consistency')}</Text>
+                </View>
+                <View style={styles.statBox}>
+                    <Text style={[styles.statValue, { color: colors.primary }]}>{item.completedOccurrences || 0}</Text>
+                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('total')}</Text>
+                </View>
+            </View>
+        </TouchableOpacity>
+    );
+});
+
 export default function HabitScreen({ navigation, embedded = false }) {
     const { colors } = useAppTheme();
     const { t } = useLanguage();
@@ -17,60 +69,18 @@ export default function HabitScreen({ navigation, embedded = false }) {
     // Use today's date for check-ins on this screen
     const today = useMemo(() => new Date().toISOString().split('T')[0], []);
 
-    // A small local component to handle check-in state per item efficiently without re-rendering the whole list
-    const HabitItem = ({ item }) => {
-        const [isCompleted, setIsCompleted] = React.useState(false);
-
-        React.useEffect(() => {
-            isHabitCompletedForDate(item.id, today).then(setIsCompleted);
-        }, [item.id, today]);
-
-        const toggleHabit = async () => {
-            const nextState = !isCompleted;
-            setIsCompleted(nextState); // optimistic update
-            if (nextState) {
-                await checkInHabit(item.id, today);
-            } else {
-                await uncheckHabit(item.id, today);
-            }
-        };
-
-        return (
-            <TouchableOpacity
-                style={[styles.habitCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                onPress={() => navigation.navigate('HabitDetails', { habitId: item.id })}
-            >
-                <View style={styles.habitHeader}>
-                    <View style={styles.habitTitleRow}>
-                        <Repeat size={18} color={colors.primary} />
-                        <Text style={[styles.habitTitle, { color: colors.textMain }]}>{item.title}</Text>
-                    </View>
-                    <MyCheckbox
-                        checked={isCompleted}
-                        onPress={toggleHabit}
-                        size={24}
-                    />
-                </View>
-                
-                <View style={styles.habitStats}>
-                    <View style={styles.statBox}>
-                        <Text style={[styles.statValue, { color: colors.warning }]}>🔥 {item.currentStreak || 0}</Text>
-                        <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('streak')}</Text>
-                    </View>
-                    <View style={styles.statBox}>
-                        <Text style={[styles.statValue, { color: colors.success }]}>{item.consistencyRate || 0}%</Text>
-                        <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('consistency')}</Text>
-                    </View>
-                    <View style={styles.statBox}>
-                        <Text style={[styles.statValue, { color: colors.primary }]}>{item.completedOccurrences || 0}</Text>
-                        <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t('total')}</Text>
-                    </View>
-                </View>
-            </TouchableOpacity>
-        );
-    };
-
-    const renderItem = ({ item }) => <HabitItem item={item} />;
+    const renderItem = React.useCallback(({ item }) => (
+        <HabitItem 
+            item={item}
+            navigation={navigation}
+            colors={colors}
+            t={t}
+            isHabitCompletedForDate={isHabitCompletedForDate}
+            checkInHabit={checkInHabit}
+            uncheckHabit={uncheckHabit}
+            today={today}
+        />
+    ), [navigation, colors, t, isHabitCompletedForDate, checkInHabit, uncheckHabit, today]);
     const content = (
         <>
                 {!embedded && (
