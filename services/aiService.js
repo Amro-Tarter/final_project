@@ -588,7 +588,7 @@ RESPOND ONLY WITH VALID JSON.`;
  */
 export async function getAIInsights(profile, language = 'en') {
     const today = new Date().toISOString().split('T')[0];
-    const cacheKey = `@ai_insights_${today}`;
+    const cacheKey = `@ai_insights_${today}_${language}`;
 
     try {
         const cached = await AsyncStorage.getItem(cacheKey);

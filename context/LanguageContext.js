@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { I18nManager } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Updates from 'expo-updates';
 import { translations } from '../constants/translations';
 import { Alert } from 'react-native';
 
@@ -35,12 +36,19 @@ export function LanguageProvider({ children }) {
             
             const isRTL = newLang === 'he' || newLang === 'ar';
             if (I18nManager.isRTL !== isRTL) {
+                I18nManager.allowRTL(isRTL);
                 I18nManager.forceRTL(isRTL);
-                Alert.alert(
-                    t('languageChanged'),
-                    t('restartAppLayout'),
-                    [{ text: "OK", onPress: () => setLanguage(newLang) }]
-                );
+                setLanguage(newLang);
+                
+                try {
+                    await Updates.reloadAsync();
+                } catch (e) {
+                    Alert.alert(
+                        translations[newLang]?.languageChanged || 'Language Changed',
+                        translations[newLang]?.restartAppLayout || 'To apply the layout changes, please restart the app.',
+                        [{ text: "OK" }]
+                    );
+                }
             } else {
                 setLanguage(newLang);
             }

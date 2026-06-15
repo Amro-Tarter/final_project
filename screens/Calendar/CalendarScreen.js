@@ -283,6 +283,7 @@ export default function CalendarScreen({ navigation, embedded = false }) {
             </View>
 
             <Calendar
+                key={colors.background}
                 current={selectedDate}
                 onDayPress={day => {
                     setSelectedDate(day.dateString);

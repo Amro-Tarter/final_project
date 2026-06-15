@@ -267,6 +267,8 @@ export const translations = {
         reflection: "Reflection",
         journeySummary: "Completed {0} steps across {1} milestones.",
         diariesWrittenText: "Written {0} diaries with {1} momentum.",
+        emptyTasksTitle: 'Your list is clear.',
+        emptyTasksSub: 'Ready to add your next task?',
         me: "Me",
         personalJourney: "Personal Journey",
         menu: "Menu",
@@ -635,6 +637,8 @@ export const translations = {
         reflection: 'השתקפות',
         journeySummary: 'הושלמו {0} צעדים על פני {1} אבני דרך.',
         diariesWrittenText: 'נכתבו {0} יומנים עם מומנטום של {1}.',
+        emptyTasksTitle: 'הרשימה שלך ריקה.',
+        emptyTasksSub: 'מוכן להוסיף את המשימה הבאה שלך?',
         me: 'אני',
         personalJourney: 'מסע אישי',
         menu: 'תפריט',
@@ -768,6 +772,8 @@ export const translations = {
         // Profile
         journeySummary: 'لقد أكملت {0} خطوات ووصلت إلى {1} مهام منذ بدء رحلتك.',
         diariesWrittenText: 'تمت كتابة {0} يوميات · {1}% زخم',
+        emptyTasksTitle: 'قائمتك فارغة.',
+        emptyTasksSub: 'مستعد لإضافة مهمتك التالية؟',
 
         // Plan
         nextSteps: 'الخطوات التالية',

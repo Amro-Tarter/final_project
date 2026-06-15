@@ -24,7 +24,7 @@ export const LightColors = {
     warningText: "#C2410C",
     placeholder: "#94A3B8",
     overlay: "rgba(15, 23, 42, 0.4)",
-    heroGradient: ['#1E293B', '#334155', '#475569'], // Dark slate for light mode to provide high contrast
+    heroGradient: ['#4F46E5', '#6366F1', '#818CF8'], // Indigo for light mode to match primary color
 };
 
 export const DarkColors = {

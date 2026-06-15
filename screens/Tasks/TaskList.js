@@ -117,9 +117,9 @@ export default function TaskList({ navigation, embedded = false }) {
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
                     <EmptyState
-                        title={JourneyCopy.empty.tasks.title}
-                        subtitle={loading ? 'Loading...' : JourneyCopy.empty.tasks.subtitle}
-                        cta={!loading ? JourneyCopy.empty.tasks.cta : undefined}
+                        title={t('emptyTasksTitle') || JourneyCopy.empty.tasks.title}
+                        subtitle={loading ? (t('loadingPath') || 'Loading your path...') : (t('emptyTasksSub') || JourneyCopy.empty.tasks.subtitle)}
+                        cta={!loading ? (t('addTask') || JourneyCopy.empty.tasks.cta) : undefined}
                         onPress={() => navigation.navigate('TaskForm')}
                         icon={Plus}
                     />

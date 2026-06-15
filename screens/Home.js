@@ -241,9 +241,9 @@ export default function HomeScreen({ navigation }) {
                             <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading your path...</Text>
                         ) : (
                             <EmptyState
-                                title={JourneyCopy.empty.tasks.title}
-                                subtitle={JourneyCopy.empty.tasks.subtitle}
-                                cta={JourneyCopy.empty.tasks.cta}
+                                title={t('emptyTasksTitle') || JourneyCopy.empty.tasks.title}
+                                subtitle={t('emptyTasksSub') || JourneyCopy.empty.tasks.subtitle}
+                                cta={t('addTask') || JourneyCopy.empty.tasks.cta}
                                 onPress={() => navigation.navigate('TaskForm')}
                                 icon={Plus}
                             />
