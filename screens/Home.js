@@ -267,7 +267,7 @@ export default function HomeScreen({ navigation }) {
                                     style={[styles.habitCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
                                     onPress={() => navigation.navigate('TasksTab', { initialTab: 1 })}
                                 >
-                                    <Text style={[styles.habitTitle, { color: colors.textMain }]}>{habit.title}</Text>
+                                    <Text style={[styles.habitTitle, { color: colors.textMain }]} numberOfLines={2} ellipsizeMode="tail">{habit.title}</Text>
                                     <Text style={[styles.habitStats, { color: colors.textSecondary }]}>
                                         🔥 {habit.currentStreak || 0} {t('streak') || 'streak'}
                                     </Text>
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
     habitCard: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         padding: 16,
         borderRadius: Theme.radii.md,
         borderWidth: 1,
@@ -437,9 +437,13 @@ const styles = StyleSheet.create({
         ...Theme.shadows.sm,
     },
     habitTitle: {
+        flex: 1,
         fontSize: 15,
         fontFamily: Theme.typography.subHeader,
         color: Theme.colors.textMain,
+        marginRight: 12,
+        flexWrap: 'wrap',
+        lineHeight: 22,
     },
     habitStats: {
         fontSize: 13,

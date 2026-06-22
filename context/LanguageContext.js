@@ -17,6 +17,22 @@ export function LanguageProvider({ children }) {
             try {
                 const storedLang = await AsyncStorage.getItem('appLanguage');
                 if (storedLang) {
+                    const isRTL = storedLang === 'he' || storedLang === 'ar';
+                    if (I18nManager.isRTL !== isRTL) {
+                        I18nManager.allowRTL(isRTL);
+                        I18nManager.swapLeftAndRightInRTL(isRTL);
+                        I18nManager.forceRTL(isRTL);
+                        try {
+                            await Updates.reloadAsync();
+                            return;
+                        } catch (e) {
+                            Alert.alert(
+                                translations[storedLang]?.languageChanged || 'Language Changed',
+                                translations[storedLang]?.restartAppLayout || 'To apply the layout changes, please restart the app.',
+                                [{ text: 'OK' }]
+                            );
+                        }
+                    }
                     setLanguage(storedLang);
                 }
             } catch (error) {
@@ -37,6 +53,7 @@ export function LanguageProvider({ children }) {
             const isRTL = newLang === 'he' || newLang === 'ar';
             if (I18nManager.isRTL !== isRTL) {
                 I18nManager.allowRTL(isRTL);
+                I18nManager.swapLeftAndRightInRTL(isRTL);
                 I18nManager.forceRTL(isRTL);
                 setLanguage(newLang);
                 

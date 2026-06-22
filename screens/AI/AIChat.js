@@ -144,7 +144,7 @@ const mayContainActionIntent = (message) => {
 
 export default function AIChat({ navigation, route }) {
     const { colors } = useAppTheme();
-    const { t, language } = useLanguage();
+    const { t, language, isRTL } = useLanguage();
     const { user } = useAuth();
     const { profile, loading: profileLoading, refreshProfile } = useUserProfile();
     const { showNotification } = useNotifications();
@@ -895,25 +895,41 @@ export default function AIChat({ navigation, route }) {
             from={{ opacity: 0, translateY: 10, scale: 0.95 }}
             animate={{ opacity: 1, translateY: 0, scale: 1 }}
             transition={{ type: 'timing', duration: 350, delay: index > 0 ? 50 : 0 }}
-            style={[styles.bubble, item.isUser ? styles.userBubbleWrapper : [styles.aiBubble, { backgroundColor: colors.surface, borderColor: colors.border }]]}
+            style={[
+                styles.bubble,
+                item.isUser
+                    ? [styles.userBubbleWrapper, isRTL ? { alignSelf: 'flex-start' } : {}]
+                    : [
+                        styles.aiBubble,
+                        {
+                            backgroundColor: colors.surface,
+                            borderColor: colors.border,
+                            flexDirection: isRTL ? 'row-reverse' : 'row',
+                            alignSelf: isRTL ? 'flex-end' : 'flex-start'
+                        }
+                    ]
+            ]}
         >
             {item.isUser ? (
-                <LinearGradient
-                    colors={Theme.gradients.hero}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.userBubbleGradient}
-                >
+                    <LinearGradient
+                        colors={Theme.gradients.hero}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={[
+                            styles.userBubbleGradient,
+                            isRTL ? { borderTopLeftRadius: 4, borderTopRightRadius: 16 } : { borderTopRightRadius: 4 }
+                        ]}
+                    >
                     <Text style={styles.userText} selectable={true}>
                         {item.text}
                     </Text>
                 </LinearGradient>
             ) : (
                 <>
-                    <View style={[styles.aiIcon, { backgroundColor: colors.primaryLight }]}>
+                                    <View style={[styles.aiIcon, { backgroundColor: colors.primaryLight, marginRight: isRTL ? 0 : 10, marginLeft: isRTL ? 10 : 0 }]}>
                         <Sparkles size={14} color={colors.primary} />
                     </View>
-                    <Text style={[styles.aiText, { color: colors.textMain }]} selectable={true}>
+                    <Text style={[styles.aiText, { color: colors.textMain, textAlign: isRTL ? 'right' : 'left' }]} selectable={true}>
                         {item.text}
                     </Text>
                 </>
@@ -1015,13 +1031,13 @@ export default function AIChat({ navigation, route }) {
     const renderSidebar = () => {
         return (
             <MotiView
-                animate={{ translateX: isSidebarOpen ? 0 : -width * 0.8 }}
+                animate={{ translateX: isSidebarOpen ? 0 : (isRTL ? width : -width) }}
                 transition={{ type: 'timing', duration: 300 }}
-                style={[styles.sidebar, { backgroundColor: colors.surface, borderRightColor: colors.border }]}
+                style={[styles.sidebar, { backgroundColor: colors.surface, borderRightColor: isRTL ? undefined : colors.border, borderLeftColor: isRTL ? colors.border : undefined, left: isRTL ? undefined : 0, right: isRTL ? 0 : undefined }]}
             >
                 <SafeAreaView style={{ flex: 1 }}>
-                    <View style={styles.sidebarHeader}>
-                        <Text style={[styles.sidebarTitle, { color: colors.textMain }]}>Past Chats</Text>
+                    <View style={[styles.sidebarHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                        <Text style={[styles.sidebarTitle, { color: colors.textMain }]}>{t('pastChats') || 'Past Chats'}</Text>
                         <TouchableOpacity onPress={() => setIsSidebarOpen(false)} style={styles.closeSidebarBtn}>
                             <X size={24} color={colors.textMain} />
                         </TouchableOpacity>
@@ -1050,7 +1066,8 @@ export default function AIChat({ navigation, route }) {
                             <TouchableOpacity 
                                 key={s.id} 
                                 style={[
-                                    styles.sessionItem, 
+                                    styles.sessionItem,
+                                    { flexDirection: isRTL ? 'row-reverse' : 'row' },
                                     currentSessionId === s.id && [styles.activeSessionItem, { backgroundColor: colors.background, borderColor: colors.border }]
                                 ]} 
                                 onPress={() => { 
@@ -1059,8 +1076,8 @@ export default function AIChat({ navigation, route }) {
                                     setIsSidebarOpen(false); 
                                 }}
                             >
-                                <MessageSquare size={16} color={currentSessionId === s.id ? colors.primary : colors.textSecondary} style={{ marginRight: 8 }} />
-                                <View style={{ flex: 1, marginRight: 8 }}>
+                                <MessageSquare size={16} color={currentSessionId === s.id ? colors.primary : colors.textSecondary} style={{ marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }} />
+                                <View style={{ flex: 1, marginRight: isRTL ? 0 : 8, marginLeft: isRTL ? 8 : 0 }}>
                                     <Text style={[
                                         styles.sessionTitle, 
                                         { color: currentSessionId === s.id ? colors.primary : colors.textMain }
@@ -1085,7 +1102,7 @@ export default function AIChat({ navigation, route }) {
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             {renderSidebar()}
-            <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+            <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <ArrowLeft size={24} color={colors.textMain} />
                 </TouchableOpacity>
@@ -1137,7 +1154,7 @@ export default function AIChat({ navigation, route }) {
 
                 {showScrollDown && (
                     <TouchableOpacity
-                        style={styles.scrollDownButtonWrapper}
+                        style={[styles.scrollDownButtonWrapper, isRTL ? { left: 20, right: undefined } : { right: 20, left: undefined }]}
                         onPress={() => flatListRef.current?.scrollToEnd({ animated: true })}
                     >
                         <LinearGradient
@@ -1151,9 +1168,9 @@ export default function AIChat({ navigation, route }) {
                     </TouchableOpacity>
                 )}
 
-                <View style={[styles.inputArea, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+                <View style={[styles.inputArea, { backgroundColor: colors.surface, borderTopColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                     <TextInput
-                        style={[styles.input, { backgroundColor: colors.background, color: colors.textMain, borderColor: colors.border }]}
+                        style={[styles.input, { backgroundColor: colors.background, color: colors.textMain, borderColor: colors.border, marginRight: isRTL ? 0 : 12, marginLeft: isRTL ? 12 : 0, textAlign: isRTL ? 'right' : 'left', writingDirection: isRTL ? 'rtl' : 'ltr' }]}
                         placeholder="Ask anything..."
                         placeholderTextColor={colors.textSecondary}
                         value={inputText}
@@ -1205,10 +1222,9 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: 0,
         bottom: 0,
-        left: 0,
         width: width * 0.8,
         zIndex: 100,
-        borderRightWidth: 1,
+        overflow: 'hidden',
         elevation: 10,
         shadowColor: '#000',
         shadowOffset: { width: 2, height: 0 },
