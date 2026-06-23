@@ -56,15 +56,20 @@ const ThemeContext = createContext();
 
 export function AppThemeProvider({ children }) {
     const systemColorScheme = useColorScheme();
-    const [isDarkMode, setIsDarkMode] = useState(systemColorScheme === 'dark');
+    const [themeMode, setThemeMode] = useState('system'); // 'light', 'dark', 'system'
     const [isLoaded, setIsLoaded] = useState(false);
 
     useEffect(() => {
         const loadTheme = async () => {
             try {
-                const storedTheme = await AsyncStorage.getItem('appTheme');
-                if (storedTheme) {
-                    setIsDarkMode(storedTheme === 'dark');
+                const storedThemeMode = await AsyncStorage.getItem('appThemeMode');
+                if (storedThemeMode) {
+                    setThemeMode(storedThemeMode);
+                } else {
+                    const oldStoredTheme = await AsyncStorage.getItem('appTheme');
+                    if (oldStoredTheme) {
+                        setThemeMode(oldStoredTheme);
+                    }
                 }
             } catch (error) {
                 console.error('Failed to load theme', error);
@@ -75,24 +80,25 @@ export function AppThemeProvider({ children }) {
         loadTheme();
     }, []);
 
-    const toggleTheme = async () => {
+    const changeThemeMode = async (mode) => {
         try {
-            const newTheme = isDarkMode ? 'light' : 'dark';
-            await AsyncStorage.setItem('appTheme', newTheme);
-            setIsDarkMode(!isDarkMode);
+            await AsyncStorage.setItem('appThemeMode', mode);
+            setThemeMode(mode);
         } catch (error) {
             console.error('Failed to save theme', error);
         }
     };
 
+    const isDarkMode = themeMode === 'system' ? systemColorScheme === 'dark' : themeMode === 'dark';
+
+    const toggleTheme = async () => {
+        const newTheme = isDarkMode ? 'light' : 'dark';
+        await changeThemeMode(newTheme);
+    };
+
     const setDarkMode = async (value) => {
-        try {
-            const newTheme = value ? 'dark' : 'light';
-            await AsyncStorage.setItem('appTheme', newTheme);
-            setIsDarkMode(value);
-        } catch (error) {
-            console.error('Failed to save theme', error);
-        }
+        const newTheme = value ? 'dark' : 'light';
+        await changeThemeMode(newTheme);
     }
 
     const themeColors = isDarkMode ? DarkColors : LightColors;
@@ -100,7 +106,7 @@ export function AppThemeProvider({ children }) {
     if (!isLoaded) return null;
 
     return (
-        <ThemeContext.Provider value={{ isDarkMode, toggleTheme, setDarkMode, colors: themeColors }}>
+        <ThemeContext.Provider value={{ isDarkMode, themeMode, changeThemeMode, toggleTheme, setDarkMode, colors: themeColors }}>
             {children}
         </ThemeContext.Provider>
     );

@@ -4,6 +4,7 @@
     "slug": "acheivments_ahead",
     "scheme": "acheivmentsahead",
     "version": "1.0.0",
+    "userInterfaceStyle": "automatic",
     "plugins": [
       "expo-web-browser",
       "expo-router",

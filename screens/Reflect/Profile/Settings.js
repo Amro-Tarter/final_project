@@ -18,7 +18,7 @@ export default function Settings({ navigation }) {
     const { showNotification } = useNotifications();
     const { t, language, changeLanguage } = useLanguage();
     const { user } = useAuth();
-    const { isDarkMode, setDarkMode, colors } = useAppTheme();
+    const { themeMode, changeThemeMode, colors } = useAppTheme();
 
     const [pushEnabled, setPushEnabled] = useState(true);
     const [isScheduling, setIsScheduling] = useState(false);
@@ -111,13 +111,37 @@ export default function Settings({ navigation }) {
                     animate={{ opacity: 1, translateY: 0 }}
                     transition={{ type: 'timing', duration: 400, delay: 100 }}
                 >
-                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{t('preferences')}</Text>
-                    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                        <MyCheckbox
-                            label={t('darkMode')}
-                            checked={isDarkMode}
-                            onPress={() => setDarkMode(!isDarkMode)}
-                        />
+                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{t('preferences') || 'Preferences'}</Text>
+                    <View style={[styles.card, { padding: 0, backgroundColor: colors.surface, borderColor: colors.border, overflow: 'hidden' }]}>
+                        <TouchableOpacity
+                            style={[
+                                styles.langBtn, 
+                                themeMode === 'light' && [styles.langBtnActive, { backgroundColor: colors.primaryLight }]
+                            ]}
+                            onPress={() => changeThemeMode('light')}
+                        >
+                            <Text style={[styles.langText, { color: colors.textMain }, themeMode === 'light' && [styles.langTextActive, { color: colors.primary }]]}>{t('lightMode') || 'Light'}</Text>
+                        </TouchableOpacity>
+                        <View style={[styles.dividerFull, { backgroundColor: colors.border }]} />
+                        <TouchableOpacity
+                            style={[
+                                styles.langBtn, 
+                                themeMode === 'dark' && [styles.langBtnActive, { backgroundColor: colors.primaryLight }]
+                            ]}
+                            onPress={() => changeThemeMode('dark')}
+                        >
+                            <Text style={[styles.langText, { color: colors.textMain }, themeMode === 'dark' && [styles.langTextActive, { color: colors.primary }]]}>{t('darkMode') || 'Dark'}</Text>
+                        </TouchableOpacity>
+                        <View style={[styles.dividerFull, { backgroundColor: colors.border }]} />
+                        <TouchableOpacity
+                            style={[
+                                styles.langBtn, 
+                                themeMode === 'system' && [styles.langBtnActive, { backgroundColor: colors.primaryLight }]
+                            ]}
+                            onPress={() => changeThemeMode('system')}
+                        >
+                            <Text style={[styles.langText, { color: colors.textMain }, themeMode === 'system' && [styles.langTextActive, { color: colors.primary }]]}>{t('systemTheme') || 'Device Default'}</Text>
+                        </TouchableOpacity>
                     </View>
                 </MotiView>
 
