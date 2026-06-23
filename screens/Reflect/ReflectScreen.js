@@ -3,7 +3,6 @@ import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme } from '../../components/components';
 import { SegmentTabs } from '../../components/ui/SegmentTabs';
-import { MoodRiver } from '../../components/ui/MoodRiver';
 import { useAppTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
 import DiaryTimeline from '../Diary/DiaryTimeline';
@@ -11,7 +10,7 @@ import { useDiary } from '../../hooks/useDiary';
 import { useTasks } from '../../hooks/useTasks';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { getAIInsights } from '../../services/aiService';
-import { getLast7Moods, getWeeklyCompletionData, calculateMomentum } from '../../utils/journeyHelpers';
+import { getWeeklyCompletionData, calculateMomentum } from '../../utils/journeyHelpers';
 import { InsightCard } from '../../components/ui/JourneyCards';
 import { SectionHeader } from '../../components/ui/SegmentTabs';
 import { Text, TouchableOpacity } from 'react-native';
@@ -129,7 +128,6 @@ export default function ReflectScreen({ navigation }) {
     const { entries } = useDiary();
     const { tasks } = useTasks();
     const { profile } = useUserProfile();
-    const moods = getLast7Moods(entries);
 
     const weeklyData = getWeeklyCompletionData(tasks);
     const momentum = calculateMomentum(tasks);
@@ -152,11 +150,6 @@ export default function ReflectScreen({ navigation }) {
                     <DiaryTimeline 
                         navigation={navigation} 
                         embedded 
-                        customHeader={
-                            <View style={styles.moodSection}>
-                                <MoodRiver moods={moods} />
-                            </View>
-                        }
                     />
                 </View>
             ) : (

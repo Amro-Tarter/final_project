@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
+import { GlassCard } from './GlassCard';
 import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles, MapPin } from 'lucide-react-native';
@@ -38,7 +39,7 @@ export function GoalCard({ goal, currentTask, remainingTasks, habitCount, onPres
     const pct = Math.round((goal.progress || 0) * 100);
 
     return (
-        <TouchableOpacity style={[styles.destCard, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={onPress} activeOpacity={0.92}>
+        <GlassCard style={[styles.destCard, { borderColor: colors.border }]} onPress={onPress}>
             <View style={styles.destHeader}>
                 <Text style={[styles.destName, { color: colors.textMain }]} numberOfLines={2}>
                     {goal.emoji ? `${goal.emoji} ` : ''}{goal.title}
@@ -66,7 +67,7 @@ export function GoalCard({ goal, currentTask, remainingTasks, habitCount, onPres
                 />
             </View>
             <Text style={[styles.destCta, { color: colors.primary }]}>{t('openJourney')} →</Text>
-        </TouchableOpacity>
+        </GlassCard>
     );
 }
 
@@ -80,7 +81,7 @@ export function InsightCard({ title, desc, type = 'info' }) {
     const color = colors[type] || colors.info;
 
     return (
-        <View style={[styles.insightCard, { backgroundColor: appColors.surface, borderColor: appColors.border }]}>
+        <GlassCard style={[styles.insightCard, { borderColor: appColors.border }]}>
             <View style={[styles.insightDot, { backgroundColor: color + '25' }]}>
                 <View style={[styles.insightDotInner, { backgroundColor: color }]} />
             </View>
@@ -88,7 +89,7 @@ export function InsightCard({ title, desc, type = 'info' }) {
                 <Text style={[styles.insightTitle, { color: appColors.textMain }]}>{title}</Text>
                 <Text style={[styles.insightDesc, { color: appColors.textSecondary }]}>{desc}</Text>
             </View>
-        </View>
+        </GlassCard>
     );
 }
 

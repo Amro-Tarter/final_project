@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
 import { MapPin, ChevronRight } from 'lucide-react-native';
@@ -18,8 +18,12 @@ export function HeroJourneyCard({
     empty = false,
     onSetDestination,
 }) {
-    const { colors } = useAppTheme();
+    const { colors, isDarkMode } = useAppTheme();
     const { t } = useLanguage();
+
+    const heroBgImage = isDarkMode 
+        ? 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop'
+        : 'https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?q=80&w=1000&auto=format&fit=crop';
 
     if (empty) {
         return (
@@ -62,33 +66,40 @@ export function HeroJourneyCard({
                     end={{ x: 1, y: 1 }}
                     style={styles.card}
                 >
-                    <Text style={styles.greeting}>{greeting}</Text>
+                    <Image
+                        source={{ uri: heroBgImage }}
+                        style={[StyleSheet.absoluteFillObject, { opacity: isDarkMode ? 0.4 : 0.3 }]}
+                        resizeMode="cover"
+                    />
+                    <View style={{ position: 'relative', zIndex: 1 }}>
+                        <Text style={styles.greeting}>{greeting}</Text>
 
-                    <Text style={styles.destLabel}>{t('goalLabel')}</Text>
-                    <Text style={styles.destination} numberOfLines={2}>{destination}</Text>
+                        <Text style={styles.destLabel}>{t('goalLabel')}</Text>
+                        <Text style={styles.destination} numberOfLines={2}>{destination}</Text>
 
-                    <View style={styles.progressSection}>
-                        <Text style={styles.progressLabel}>{pct}% {t('completeLabel')}</Text>
-                        <ProgressBar progress={pct} height={6} color="rgba(255,255,255,0.9)" />
-                    </View>
-
-                    {pitStop && (
-                        <View style={styles.row}>
-                            <Text style={styles.rowLabel}>{t('currentTask')}</Text>
-                            <Text style={styles.rowValue} numberOfLines={1}>{pitStop}</Text>
+                        <View style={styles.progressSection}>
+                            <Text style={styles.progressLabel}>{pct}% {t('completeLabel')}</Text>
+                            <ProgressBar progress={pct} height={6} color="rgba(255,255,255,0.9)" />
                         </View>
-                    )}
 
-                    {nextStep && (
-                        <View style={styles.row}>
-                            <Text style={styles.rowLabel}>{t('nextTaskHero')}</Text>
-                            <Text style={styles.rowValue} numberOfLines={1}>{nextStep}</Text>
+                        {pitStop && (
+                            <View style={styles.row}>
+                                <Text style={styles.rowLabel}>{t('currentTask')}</Text>
+                                <Text style={styles.rowValue} numberOfLines={1}>{pitStop}</Text>
+                            </View>
+                        )}
+
+                        {nextStep && (
+                            <View style={styles.row}>
+                                <Text style={styles.rowLabel}>{t('nextTaskHero')}</Text>
+                                <Text style={styles.rowValue} numberOfLines={1}>{nextStep}</Text>
+                            </View>
+                        )}
+
+                        <View style={styles.continueRow}>
+                            <Text style={styles.continueText}>{t('continueJourney')}</Text>
+                            <ChevronRight size={20} color="#fff" />
                         </View>
-                    )}
-
-                    <View style={styles.continueRow}>
-                        <Text style={styles.continueText}>{t('continueJourney')}</Text>
-                        <ChevronRight size={20} color="#fff" />
                     </View>
                 </LinearGradient>
             </MotiView>
