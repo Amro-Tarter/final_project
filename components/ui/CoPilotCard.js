@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { GlassCard } from './GlassCard';
 import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles, ChevronRight } from 'lucide-react-native';
@@ -31,7 +32,7 @@ export function CoPilotCard({ message, onPress }) {
                         style={styles.glowFill}
                     />
                 </MotiView>
-                <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.primaryBorder }]}>
+                <GlassCard style={[styles.card, { borderColor: colors.primaryBorder }]}>
                     <View style={styles.iconRow}>
                         <View style={[styles.iconBadge, { backgroundColor: colors.primaryLight }]}>
                             <Sparkles size={18} color={colors.primary} />
@@ -43,7 +44,7 @@ export function CoPilotCard({ message, onPress }) {
                         <Text style={[styles.cta, { color: colors.primary }]}>{t('talkToNova')}</Text>
                         <ChevronRight size={18} color={colors.primary} />
                     </View>
-                </View>
+                </GlassCard>
             </MotiView>
         </TouchableOpacity>
     );
@@ -68,7 +69,6 @@ const styles = StyleSheet.create({
         borderRadius: Theme.radii.lg + 4,
     },
     card: {
-        backgroundColor: Theme.colors.surface,
         borderRadius: Theme.radii.lg,
         padding: 20,
         borderWidth: 1,

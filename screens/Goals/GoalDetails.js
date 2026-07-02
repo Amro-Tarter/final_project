@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
@@ -22,6 +22,10 @@ export default function GoalDetails({ navigation, route }) {
     const [showCelebration, setShowCelebration] = useState(false);
     const [completeAlertVisible, setCompleteAlertVisible] = useState(false);
     const [deleteAlertVisible, setDeleteAlertVisible] = useState(false);
+    
+    const heroBgImage = colors.background === '#0F172A'
+        ? 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop'
+        : 'https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?q=80&w=1000&auto=format&fit=crop';
 
     const { goals, updateGoal, deleteGoal } = useGoals();
     const { tasks, deleteTask } = useTasks();
@@ -90,9 +94,15 @@ export default function GoalDetails({ navigation, route }) {
                             colors={colors.heroGradient || Theme.gradients.hero}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 1 }}
-                            style={styles.heroBanner}
+                            style={[styles.heroBanner, { overflow: 'hidden' }]}
                         >
-                            <Text style={styles.heroLabel}>{t('goalLabel')}</Text>
+                            <Image 
+                                source={{ uri: heroBgImage }} 
+                                style={[StyleSheet.absoluteFillObject, { opacity: colors.background === '#0F172A' ? 0.4 : 0.3 }]} 
+                                resizeMode="cover" 
+                            />
+                            <View style={{ position: 'relative', zIndex: 1 }}>
+                                <Text style={styles.heroLabel}>{t('goalLabel')}</Text>
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                                 <Text style={styles.heroTitle}>
                                     {goal.emoji ? `${goal.emoji} ` : ''}{goal.title}
@@ -120,6 +130,7 @@ export default function GoalDetails({ navigation, route }) {
                             {goal.deadline && (
                                 <Text style={styles.heroDeadline}>{t('targetDate')} {goal.deadline}</Text>
                             )}
+                            </View>
                         </LinearGradient>
                     </MotiView>
 

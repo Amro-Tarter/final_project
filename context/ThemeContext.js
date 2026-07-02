@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, Appearance } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const LightColors = {
@@ -36,7 +36,7 @@ export const DarkColors = {
     background: "#0F172A", 
     surface: "#1E293B", 
     textMain: "#F8FAFC", 
-    textSecondary: "#94A3B8", 
+    textSecondary: "rgba(255,255,255,0.75)", 
     border: "#334155", 
     primaryBorder: "#4338CA",
     success: "#34D399",
@@ -55,9 +55,16 @@ export const DarkColors = {
 const ThemeContext = createContext();
 
 export function AppThemeProvider({ children }) {
-    const systemColorScheme = useColorScheme();
+    const [systemColorScheme, setSystemColorScheme] = useState(Appearance.getColorScheme());
     const [themeMode, setThemeMode] = useState('system'); // 'light', 'dark', 'system'
     const [isLoaded, setIsLoaded] = useState(false);
+
+    useEffect(() => {
+        const subscription = Appearance.addChangeListener(({ colorScheme }) => {
+            setSystemColorScheme(colorScheme);
+        });
+        return () => subscription.remove();
+    }, []);
 
     useEffect(() => {
         const loadTheme = async () => {

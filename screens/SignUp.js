@@ -3,7 +3,8 @@ import { View, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Touchable
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Mail, Lock, User, Eye, EyeOff } from "lucide-react-native";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+
 import { auth, db } from "../config/firebase";
 import { MyButton, MyInput, LogoHeader, Theme, MyCustomAlert } from "../components/components";
 import { useAppTheme } from "../context/ThemeContext";

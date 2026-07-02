@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { GlassCard } from './GlassCard';
 import { Theme } from '../components';
 import { Sun } from 'lucide-react-native';
 import { useAppTheme } from '../../context/ThemeContext';
@@ -11,7 +12,12 @@ export function DailyJourneySnapshot({ destination, nextStep, focusTime, onPress
     if (!nextStep && !destination) return null;
 
     return (
-        <TouchableOpacity style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={onPress} activeOpacity={onPress ? 0.9 : 1}>
+        <GlassCard 
+            style={[styles.card, { borderColor: colors.border }]} 
+            contentStyle={{ flexDirection: 'row' }}
+            onPress={onPress} 
+            activeOpacity={onPress ? 0.9 : 1}
+        >
             <View style={[styles.iconWrap, { backgroundColor: colors.primaryLight }]}>
                 <Sun size={20} color={colors.primary} />
             </View>
@@ -31,14 +37,12 @@ export function DailyJourneySnapshot({ destination, nextStep, focusTime, onPress
                     <Text style={[styles.hint, { color: colors.textSecondary }]}>{t('suggestedFocus')} {focusTime}</Text>
                 )}
             </View>
-        </TouchableOpacity>
+        </GlassCard>
     );
 }
 
 const styles = StyleSheet.create({
     card: {
-        flexDirection: 'row',
-        backgroundColor: Theme.colors.surface,
         borderRadius: Theme.radii.lg,
         padding: 16,
         marginBottom: 20,

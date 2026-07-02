@@ -120,11 +120,18 @@ function InsightsPanel({ profile, weeklyData, momentum, burnoutSignal }) {
     );
 }
 
-export default function ReflectScreen({ navigation }) {
+export default function ReflectScreen({ route, navigation }) {
     const { colors } = useAppTheme();
     const { t } = useLanguage();
-    const [tabIndex, setTabIndex] = useState(0);
+    const [tabIndex, setTabIndex] = useState(route?.params?.initialTab || 0);
     const tabs = [t('diary'), t('insights')];
+
+    // Listen for tab changes if navigated to while already mounted
+    useEffect(() => {
+        if (route?.params?.initialTab !== undefined) {
+            setTabIndex(route.params.initialTab);
+        }
+    }, [route?.params?.initialTab]);
     const { entries } = useDiary();
     const { tasks } = useTasks();
     const { profile } = useUserProfile();

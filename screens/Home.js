@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -36,7 +36,7 @@ import { Plus, Map, Target, Repeat, Flame } from 'lucide-react-native';
 import { DailyJourneySnapshot } from '../components/ui/DailyJourneySnapshot';
 
 const ActionButton = ({ icon: Icon, label, onPress, color, bgColor, textColor, borderColor }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
         style={[styles.actionCard, { backgroundColor: bgColor || Theme.colors.surface, borderColor: borderColor || Theme.colors.border }]}
         onPress={onPress}
     >
@@ -58,6 +58,7 @@ export default function HomeScreen({ navigation }) {
     const { profile } = useUserProfile();
     const { showNotification } = useNotifications();
 
+    const quickActionsRef = useRef(null);
     const [insight, setInsight] = useState(null);
 
     useEffect(() => {
@@ -78,25 +79,25 @@ export default function HomeScreen({ navigation }) {
     const destination = useMemo(() => getPrimaryGoal(goals), [goals]);
     const pitStop = destination ? getCurrentTask(tasks, destination.id) : null;
     const nextSteps = destination ? getNextSteps(tasks, destination.id) : [];
-    
+
     const todayStr = new Date().toISOString().split('T')[0];
     const pendingTasks = tasks.filter(t => t.status === 'pending');
-    
-    const focusTasks = useMemo(() => 
-        pendingTasks.filter(t => t.priority === 'Focus' && (t.due === todayStr || t.isOverdue)), 
-    [pendingTasks, todayStr]);
-    
-    const overdueTasks = useMemo(() => 
-        pendingTasks.filter(t => t.isOverdue && t.priority !== 'Focus'), 
-    [pendingTasks]);
 
-    const todayTasks = useMemo(() => 
-        pendingTasks.filter(t => t.due === todayStr && t.priority !== 'Focus' && !t.isOverdue), 
-    [pendingTasks, todayStr]);
+    const focusTasks = useMemo(() =>
+        pendingTasks.filter(t => t.priority === 'Focus' && (t.due === todayStr || t.isOverdue)),
+        [pendingTasks, todayStr]);
 
-    const activeHabits = useMemo(() => 
-        habits.sort((a, b) => (b.currentStreak || 0) - (a.currentStreak || 0)).slice(0, 3), 
-    [habits]);
+    const overdueTasks = useMemo(() =>
+        pendingTasks.filter(t => t.isOverdue && t.priority !== 'Focus'),
+        [pendingTasks]);
+
+    const todayTasks = useMemo(() =>
+        pendingTasks.filter(t => t.due === todayStr && t.priority !== 'Focus' && !t.isOverdue),
+        [pendingTasks, todayStr]);
+
+    const activeHabits = useMemo(() =>
+        habits.sort((a, b) => (b.currentStreak || 0) - (a.currentStreak || 0)).slice(0, 3),
+        [habits]);
 
     const momentum = useMemo(() => calculateMomentum(tasks), [tasks]);
     const coPilotMessage = useMemo(
@@ -109,7 +110,7 @@ export default function HomeScreen({ navigation }) {
         if (task.status !== 'completed') {
             try {
                 await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            } catch (_) {}
+            } catch (_) { }
             showNotification('success', t('taskCompleted'), 3);
         }
     };
@@ -120,7 +121,7 @@ export default function HomeScreen({ navigation }) {
                 contentContainerStyle={styles.scroll}
                 showsVerticalScrollIndicator={false}
             >
-                <MotiView 
+                <MotiView
                     from={{ opacity: 0, translateY: -20 }}
                     animate={{ opacity: 1, translateY: 0 }}
                     style={styles.header}
@@ -131,7 +132,7 @@ export default function HomeScreen({ navigation }) {
                             {user?.displayName || t('traveler')}
                         </Text>
                     </View>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={[styles.profileBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
                         onPress={() => navigation.navigate("ProfileTab")}
                     >
@@ -168,7 +169,7 @@ export default function HomeScreen({ navigation }) {
                         <Text style={[styles.aiTitle, { color: colors.textMain }]}>{t('aiGuideTitle')}</Text>
                         <Text style={[styles.aiSubtitle, { color: colors.textSecondary }]}>{t('aiGuideSubtitle')}</Text>
                     </View>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={[styles.aiActionBtn, { backgroundColor: colors.primary }]}
                         onPress={() => navigation.navigate("AIChat")}
                     >
@@ -183,11 +184,19 @@ export default function HomeScreen({ navigation }) {
                         transition={{ delay: 200 }}
                         style={{ marginBottom: 24 }}
                     >
-                        <InsightCard title={insight.title} desc={insight.desc} type={insight.type} />
+                        <TouchableOpacity onPress={() => navigation.navigate("ReflectTab", { initialTab: 1 })} activeOpacity={0.8}>
+                            <InsightCard title={insight.title} desc={insight.desc} type={insight.type} />
+                        </TouchableOpacity>
                     </MotiView>
                 )}
 
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickActionsContainer}>
+                <View style={[styles.sectionHeader, { marginBottom: 12 }]}>
+                    <Text style={[styles.sectionTitle, { color: colors.textMain, fontSize: 16 }]}>{t('quickActions') || "Quick Actions"}</Text>
+                    <TouchableOpacity onPress={() => quickActionsRef.current?.scrollToEnd({ animated: true })}>
+                        <Text style={{ fontSize: 12, color: colors.textSecondary, fontFamily: Theme.typography.body }}>{t('swipe') || "Swipe"} →</Text>
+                    </TouchableOpacity>
+                </View>
+                <ScrollView ref={quickActionsRef} horizontal showsHorizontalScrollIndicator={true} contentContainerStyle={styles.quickActionsContainer}>
                     <ActionButton icon={PlusCircle} label={t('addTask')} onPress={() => navigation.navigate("TaskForm")} color={colors.secondary} bgColor={colors.surface} textColor={colors.textMain} borderColor={colors.border} />
                     <ActionButton icon={Repeat} label={t('addHabit') || 'Add Habit'} onPress={() => navigation.navigate("HabitForm")} color={colors.primary} bgColor={colors.surface} textColor={colors.textMain} borderColor={colors.border} />
                     <ActionButton icon={Target} label={t('addGoal')} onPress={() => navigation.navigate("GoalForm")} color={colors.success} bgColor={colors.surface} textColor={colors.textMain} borderColor={colors.border} />
@@ -293,7 +302,7 @@ export default function HomeScreen({ navigation }) {
                             : t('momentumDefault')
                     }
                 />
-                
+
                 <View style={{ height: 24 }} />
 
                 <ReflectionPromptCard

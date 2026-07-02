@@ -194,8 +194,8 @@ export default function HabitDetails({ navigation, route }) {
                     from={{ opacity: 0, translateY: 20 }}
                     animate={{ opacity: 1, translateY: 0 }}
                     transition={{ type: 'timing', duration: 500, delay: 200 }}
-                    style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 >
+                    <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
                     {habit.desc ? (
                         <View style={[styles.section, { borderBottomColor: colors.border, marginBottom: 16, paddingBottom: 16, borderBottomWidth: 1 }]}>
                             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>{t('descLabel') || 'Description'}</Text>
@@ -241,6 +241,7 @@ export default function HabitDetails({ navigation, route }) {
                             <Text style={[styles.label, { color: colors.textSecondary }]}>{t('reminderLabel') || 'Reminder'}</Text>
                             <Text style={[styles.value, { color: colors.textMain }]}>{getReminderText()}</Text>
                         </View>
+                    </View>
                     </View>
                 </MotiView>
 
@@ -372,12 +373,9 @@ const styles = StyleSheet.create({
         fontFamily: Theme.typography.body,
     },
     card: {
-        backgroundColor: Theme.colors.surface,
         padding: 24,
         borderRadius: Theme.radii.lg,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
-        ...Theme.shadows.float,
         marginBottom: 24,
     },
     row: {

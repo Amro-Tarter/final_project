@@ -157,8 +157,8 @@ export default function TaskForm({ navigation, route }) {
                     from={{ opacity: 0, translateY: 20 }}
                     animate={{ opacity: 1, translateY: 0 }}
                     transition={{ type: 'timing', duration: 500 }}
-                    style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 >
+                    <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
                 <MyInput
                     label={t('taskTitle')}
                     placeholder={t('taskTitlePlaceholder')}
@@ -251,6 +251,7 @@ export default function TaskForm({ navigation, route }) {
                     </>
                 )}
 
+                    </View>
                 </MotiView>
 
                 <MotiView
@@ -295,12 +296,9 @@ const styles = StyleSheet.create({
         padding: Theme.spacing.lg,
     },
     card: {
-        backgroundColor: Theme.colors.surface,
-        padding: 24,
         borderRadius: Theme.radii.lg,
+        padding: 24,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
-        ...Theme.shadows.float,
     },
     aiButton: {
         flexDirection: 'row',

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Theme, MyButton, MyConfirmAlert } from '../../components/components';
 import { MotiView } from 'moti';
@@ -160,8 +160,8 @@ export default function TaskDetails({ navigation, route }) {
                     from={{ opacity: 0, translateY: 20 }}
                     animate={{ opacity: 1, translateY: 0 }}
                     transition={{ type: 'timing', duration: 500, delay: 100 }}
-                    style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 >
+                    <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
                     {item.desc ? (
                         <View style={[styles.section, { borderBottomColor: colors.border }]}>
                             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>{t('descLabel')}</Text>
@@ -223,6 +223,7 @@ export default function TaskDetails({ navigation, route }) {
                                 {item.priority === 'Focus' ? `🔥 ${t('focus')}` : t('normal')}
                             </Text>
                         </View>
+                    </View>
                     </View>
                 </MotiView>
 
@@ -303,7 +304,6 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     card: {
-        backgroundColor: Theme.colors.surface,
         padding: 24,
         borderRadius: Theme.radii.lg,
         borderWidth: 1,

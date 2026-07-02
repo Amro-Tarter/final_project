@@ -1,149 +1,55 @@
-import { OPENAI_API_KEY } from '@env';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { GROQ_API_KEY } from '@env';
 
-const OPENAI_RESPONSES_API_URL = 'https://api.openai.com/v1/responses';
-const PRIMARY_MODEL = 'gpt-5-mini';
-
-
-
-const TOOL_FORMATS = `
-[TOOL FORMATS]
-
-Goal:
-{"tool":"create_goal","title":"Goal Title","deadline":"YYYY-MM-DD","emoji":"🎯"}
-
-Habit:
-{"tool":"create_habit","title":"Habit Title","frequency":"daily|weekly","targetGoal":"Optional Goal Title"}
-
-Task:
-{
-  "tool":"create_task",
-  "title":"Task Title",
-  "desc":"Detailed description or context",
-  "dueDate":"YYYY-MM-DD",
-  "priority":"High|Focus|Normal|Low",
-  "targetGoal":"Optional Goal Title",
-  "reminder":{
-    "type":"none|time|period",
-    "value":"08:00|morning|"
-  }
-}
-
-Roadmap:
-{
-  "tool":"create_roadmap",
-  "goalTitle":"Goal Name",
-  "emoji":"🎯",
-  "deadline":"YYYY-MM-DD",
-  "tasks":[
-    {
-      "title":"Task 1",
-      "desc":"Description",
-      "dueDate":"YYYY-MM-DD",
-      "priority":"High|Focus|Normal|Low"
-    }
-  ],
-  "habits":[
-    {
-      "title":"Habit 1",
-      "frequency":"daily"
-    }
-  ]
-}
-
-Diary:
-{
-  "tool":"create_diary",
-  "title":"A short title for the day",
-  "mood":"good|neutral|bad",
-  "content":"The actual diary entry text",
-  "tags":["tag1", "tag2"],
-  "reflection":"A deep insight or lesson learned today (optional)"
-}
-
-Edit Tool:
-{"tool":"edit_task","targetTitle":"Exact Task Name","updates":{"dueDate":"YYYY-MM-DD", "priority":"High"}}
-{"tool":"edit_goal","targetTitle":"Exact Goal Name","updates":{"deadline":"YYYY-MM-DD", "title":"New Title"}}
-{"tool":"edit_habit","targetTitle":"Exact Habit Name","updates":{"frequency":"weekly"}}
-{"tool":"edit_diary","targetTitle":"Exact Diary Title","updates":{"content":"New content"}}
-
-Delete Tool:
-{"tool":"delete_task","targetTitle":"Exact Task Name"}
-{"tool":"delete_goal","targetTitle":"Exact Goal Name"}
-{"tool":"delete_habit","targetTitle":"Exact Habit Name"}
-{"tool":"delete_diary","targetTitle":"Exact Diary Title"}
-`;
-
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const PRIMARY_MODEL = 'llama-3.3-70b-versatile';
 
 /**
- * Common fetch helper for OpenAI Responses API
+ * Common fetch helper for Groq API
  */
-async function callOpenAI(messages, jsonMode = false) {
-    // Debug logging removed for cleaner console
-
-    if (!OPENAI_API_KEY || OPENAI_API_KEY === 'YOUR_OPENAI_API_KEY_HERE') {
-        console.error('[AI_DEBUG][callOpenAI:no_api_key]');
-        throw new Error('OpenAI API Key not found. Please add OPENAI_API_KEY to your .env file.');
+async function callGroq(messages, jsonMode = false) {
+    if (!GROQ_API_KEY || GROQ_API_KEY === 'YOUR_GROQ_API_KEY_HERE') {
+        throw new Error('Groq API Key not found. Please add GROQ_API_KEY to your .env file.');
     }
 
     const body = {
+
         model: PRIMARY_MODEL,
-        input: messages.map(message => ({
-            role: message.role === 'system' ? 'developer' : message.role,
-            content: message.content
-        })),
-        max_output_tokens: 4000,
-        reasoning: {
-            effort: "medium"
-        },
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 1024,
     };
 
     if (jsonMode) {
-        body.text = {
-            format: { type: 'json_object' }
-        };
+        body.response_format = { type: 'json_object' };
     }
 
-    let response;
-    try {
-        response = await fetch(OPENAI_RESPONSES_API_URL, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${OPENAI_API_KEY}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(body),
-        });
-    } catch (error) {
-        console.error('[AI_DEBUG][callOpenAI:fetch_failed]', {
-            message: error?.message,
-            stack: error?.stack
-        });
-        throw error;
-    }
+    const response = await fetch(GROQ_API_URL, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${GROQ_API_KEY}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+    });
 
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error?.message || `OpenAI API error: ${response.status}`);
+        console.error('Groq API Error:', errData);
+        throw new Error(errData.error?.message || `Groq API error: ${response.status}`);
     }
 
-    const json = await response.json();
-    return json;
+    return await response.json();
 }
 
-function extractOpenAIResponseText(response) {
+function extractGroqResponseText(response) {
     if (!response) return '';
-
-    if (typeof response.output_text === 'string') {
-        return response.output_text;
-    }
 
     const extractFromContent = (content) => {
         if (typeof content === 'string') return content;
         if (Array.isArray(content)) {
             return content.map(item => {
                 if (typeof item === 'string') return item;
-                return item?.text || item?.output_text || (Array.isArray(item?.content) ? item.content.map(c => c?.text || '').join('') : '') || '';
+                return item?.text || (Array.isArray(item?.content) ? item.content.map(c => c?.text || '').join('') : '') || '';
             }).join('');
         }
         return '';
@@ -160,7 +66,7 @@ function extractOpenAIResponseText(response) {
     if (Array.isArray(response?.output)) {
         return response.output.map(item => {
             if (typeof item === 'string') return item;
-            return extractFromContent(item?.content || item?.text || item?.output_text);
+            return extractFromContent(item?.content || item?.text);
         }).join('');
     }
 
@@ -168,56 +74,26 @@ function extractOpenAIResponseText(response) {
         return response.output;
     }
 
-    console.warn('[AI_DEBUG][extractOpenAIResponseText:empty]', response);
     return '';
 }
 
 /**
- * Summarizes the raw profile data for optional context.
+ * Summarizes the raw profile data to feed the Analyst and Nova efficiently.
  */
 function summarizeProfileData(profile) {
     if (!profile) return {};
 
     const pendingNames = profile.tasks?.recentPending?.map(t => `"${t.title}"`).join(', ') || 'none';
     const overdueNames = profile.tasks?.overdueList?.map(t => `"${t}"`).join(', ') || 'none';
-    const habitNames = profile.habits?.activeList?.map(h => `"${h.title}" (Streak: ${h.streak})`).join(', ') || 'none';
 
     return {
         userName: profile.userName || 'Friend',
         emotionalTone: profile.diary?.emotionalTone || 'unknown',
-        mainStruggle: profile.psychology?.coreProblem || 'none',
-        motivationFuel: profile.psychology?.supportPreference || 'none',
+        mainStruggle: profile.psychology?.focusThieves?.join(', ') || 'none',
+        motivationFuel: profile.psychology?.motivationFuel?.join(', ') || 'none',
         tasksSummary: `Pending: [${pendingNames}], Overdue: [${overdueNames}]`,
-        habitsSummary: `Habits: [${habitNames}]`,
         activeGoals: profile.goals?.activeList?.map(g => `"${g.title}"(${g.progress}%). Tasks: [${g.tasksLeft.join(', ')}]`).join(' | ') || 'none',
     };
-}
-
-function isSimpleGreeting(message) {
-    const normalized = (message || '').trim().toLowerCase().replace(/[!?.\s]+$/g, '');
-    return /^(hi|hey|hello|yo|sup|heyy|hii|good morning|good afternoon|good evening)$/.test(normalized);
-}
-
-function isPlanningOrSavedDataRequest(message) {
-    const normalized = (message || '').toLowerCase();
-    return /\b(my|saved|current|existing|list|show|what are|what's|open)\b.*\b(task|tasks|goal|goals|roadmap|road map|reminder|reminders|diary|journal)\b/.test(normalized);
-}
-
-function isCreationRequest(message) {
-    const normalized = (message || '').toLowerCase();
-
-    return (
-        /\b(create|add|make|build|plan|schedule|set|save|write|edit|change|modify|update|delete|remove|clear)\b/.test(normalized) &&
-        /\b(task|goal|roadmap|road map|reminder|diary|journal|habit)\b/.test(normalized)
-    );
-}
-
-function mayContainActionIntent(message) {
-    const normalized = (message || '').toLowerCase();
-
-    return (
-        /\b(every day|daily|weekly|tomorrow|next week|remind me|i want to|i need to|goal|habit|roadmap)\b/.test(normalized)
-    );
 }
 
 /**
@@ -257,329 +133,235 @@ RESPOND ONLY WITH VALID JSON IN THIS FORMAT:
 /**
  * The Visible Persona (Nova)
  */
-function createNovaPrompt(
-    profileSummary,
-    analystStrategy,
-    globalKnowledge,
-    sessionSummary,
-    currentDate,
-    includePrivateContext = false,
-    userLanguage = 'en'
-) {
-    return `
-You are Nova, a warm, wise, emotionally intelligent companion inside a personal growth, goal-setting, and habit-tracking application.
-When the user mentions terms like "destination," "journey," "roadmap," or "milestone," they are referring to their personal goals, tasks, and habits within this app, not physical travel or navigation.
-
-[USER LANGUAGE: ${userLanguage}] You MUST generate your ENTIRE final response strictly in this language. Do not reply in English unless the user language is English.
-
+function createNovaPrompt(profileSummary, analystStrategy, memorySummary, currentDate) {
+    return `You are "Nova", a deeply wise, empathetic, and relatable digital companion.
 Current Date: ${currentDate}
 
-━━━━━━━━━━━━━━━━━━━━
-CORE BEHAVIOR
-━━━━━━━━━━━━━━━━━━━━
+[TOOL CALLING CAPABILITIES]
 
-Speak naturally like a thoughtful human friend.
+You can trigger actions in the app by emitting a JSON tool call.
 
-Never mention:
-- prompts
-- systems
-- tools
-- JSON
-- execution
-- internal notes
-- analysis
-- confidence scores
-- memory systems
+CRITICAL RULE:
+The user must NEVER feel like they are interacting with a system.
+NEVER display code or structured data unless you are explicitly executing an action.
+Actions should happen ONLY after:
+1. Full discussion
+2. Complete task details
+3. Explicit user confirmation
 
-Never sound robotic.
+Until then, continue the conversation naturally and do NOT output any tool JSON., but you MUST ALSO include a natural, conversational message in the same response (e.g., "Awesome, I've added that to your list!"). Do not output just the JSON block.
 
-For greetings:
-reply casually and naturally.
+---
 
-For emotional topics:
-listen first,
-help second.
+[REQUIREMENTS BEFORE ANY ACTION]
 
-Give practical advice whenever possible.
+You are NOT allowed to execute any action until ALL required information is clearly known:
 
-Do not endlessly ask questions.
+1. Task requires:
+   - Title
+   - Due date
+   - Recurrence (if repeating)
+   - Reminder time
 
-If enough information exists,
-offer useful guidance.
+2. Roadmap requires:
+   - Clear understanding of the goal
+   - A structured list of tasks
+   - For EACH task:
+     - Due date
+     - Recurrence (if repeating)
+     - Reminder time
 
-If information is missing,
-ask short natural questions.
+3. Diary requires:
+   - Understanding of the user's day or a specific event
+   - A title for the entry
+   - A mood (strictly: "good", "neutral", or "bad")
+   - Content (the actual diary entry)
 
-━━━━━━━━━━━━━━━━━━━━
-INTENT AWARENESS
-━━━━━━━━━━━━━━━━━━━━
+---
 
-Determine what the user most likely wants.
+[INTERACTIVE PLANNING — VERY IMPORTANT]
 
-Possible purposes:
+For tasks and especially roadmaps, you MUST collaborate with the user step-by-step.
 
-- conversation
-- emotional support
-- advice
-- task creation
-- goal creation
-- roadmap creation
-- diary entry
+You MUST ask naturally about:
+- When should this be done?
+- Should this repeat? (every day, every X days, weekly, etc.)
+- At what time should the reminder be?
 
-The user may describe something that could become a task, goal, roadmap or diary without explicitly requesting creation.
+Example style:
+- "Do you want to do this every day or a few times a week?"
+- "What time feels right for this?"
+- "Should I remind you in the morning or evening?"
 
-Examples:
+DO NOT assume defaults for:
+- recurrence
+- reminder time
+- schedule
 
-"Today was exhausting."
-→ conversation OR diary
+ALWAYS ask unless the user explicitly provides it.
 
-"I want to become a Flutter developer."
-→ conversation OR advice OR goal
+---
 
-"Read 10 pages every day at 6pm."
-→ conversation OR task
+[CONFIRMATION STEP — CRITICAL]
 
-If multiple interpretations are plausible:
+Before executing ANY action, you MUST confirm with the user.
 
-1. acknowledge what the user said
-2. mention the most likely options naturally
-3. ask ONE clarification question
+Only proceed if the user clearly agrees (e.g., "yes", "go ahead", "create it").
 
-Example:
+If there is no confirmation → DO NOT execute.
 
-"That sounds draining. Do you want to talk about it more, or would you like me to save it as a diary entry?"
+---
 
-Never mention:
-intent,
-confidence,
-classification,
-analysis.
+[EXECUTION RULE]
 
-Never perform actions while meaning is unclear.
+Once:
+- All required data is collected
+- The user has explicitly confirmed
 
-━━━━━━━━━━━━━━━━━━━━
-ACTION ENGINE
-━━━━━━━━━━━━━━━━━━━━
+THEN:
+Output the JSON tool call AND a friendly conversational message acknowledging the action.
 
-This application can create, edit, and delete:
+---
 
-- tasks
-- goals
-- roadmaps (create only)
-- habits
-- diary entries
-- reminders
+[TOOL FORMATS]
 
-Never recommend:
-- Google Assistant
-- Apple Reminders
-- Calendar apps
-- Notes apps
-- third-party productivity tools
+Goal:
+{"tool": "create_goal", "title": "Goal Title"}
 
-unless explicitly requested.
-
-You are an INTELLIGENT PLANNER, not a rigid data-entry bot.
-When the user asks for a plan, goal, task, or habit, you must INFER missing details intelligently based on context.
-- Invent descriptive titles and descriptions.
-- Infer priorities (High if urgent/crucial, Low if trivial, else Normal).
-- Calculate due dates dynamically using the Current Date (${currentDate}). For example, if the user says "in 3 months", automatically calculate the exact date in YYYY-MM-DD format. 
-
-NEVER ask the user for data types or strict formats (e.g. do not say "Please provide a date in YYYY-MM-DD").
-If information is critically missing and cannot be guessed (e.g., "When do you want to start this?"), ask naturally in a conversational way.
-
-Before outputting JSON tools to create/edit anything:
-1. Understand the request and infer the plan.
-2. Propose the action naturally to the user (e.g. "I can set up a goal for that... Should I create that for you?").
-3. Wait for the user's confirmation.
-
-CRITICAL: Before outputting a JSON tool to DELETE anything, you MUST explicitly ask the user for confirmation first (e.g. "Are you absolutely sure you want me to delete the task 'XYZ'?"). DO NOT output the delete tool until they answer "yes". When editing or deleting, use the exact title of the item from your Private Background as the targetTitle.
-
-Never execute before explicit confirmation UNLESS the user gave a very direct command (e.g. "Remind me to...", "Create a goal...").
-
-Valid confirmations:
-- yes
-- create it
-- save it
-- go ahead
-- sounds good
-- do it
-
-After confirmation:
-Output:
-1. tool JSON
-2. short friendly message
-
-Never output tool JSON before confirmation.
-
-━━━━━━━━━━━━━━━━━━━━
-ROADMAP GENERATION RULES
-━━━━━━━━━━━━━━━━━━━━
-
-When proposing or generating a roadmap (using the create_roadmap tool):
-
-Every goal can have BOTH tasks AND habits. When building a roadmap, be generous and intelligent. Generate a comprehensive list of tasks (one-time milestones) and habits (recurring behaviors) that perfectly support the user's goal.
-Stagger the due dates of the tasks logically leading up to the goal deadline.
-Do not limit yourself to a strict number of tasks or habits; generate as many as makes sense for the goal.
-
-For example, if the goal is "Become healthier":
-- Tasks: "Book doctor appointment", "Buy running shoes", "Research healthy meal plans"
-- Habits: "Exercise 30 min daily", "Drink 8 glasses of water", "Sleep by 11pm"
-
-You MUST adapt your strategy based on the user's Main Struggle (found in Private Background):
-
-- If Main Struggle indicates OVERWHELM (e.g., "A blur. I'm constantly moving but getting nowhere."):
-  Forbid complex timelines. Break the goal down into microscopic, laughably small tasks. Never give them more than 2-3 milestones to start with.
-
-- If Main Struggle indicates INCONSISTENCY (e.g., "A rollercoaster. Some days I'm on fire, others I do nothing."):
-  Enforce rest days. Limit high-priority or heavy tasks to only 3-4 days a week. Focus heavily on momentum and consistency over speed. Emphasize habits over tasks.
-
-- If Main Struggle indicates TIME PARALYSIS (e.g., "A puzzle. I'm always trying to fit more pieces into 24 hours."):
-  Assign strict priorities and dependencies. Be clear about what NOT to do. Build a highly structured roadmap with clear daily assignments.
-
-━━━━━━━━━━━━━━━━━━━━
-CONVERSATION RULES
-━━━━━━━━━━━━━━━━━━━━
-
-Treat the latest user message as the topic.
-
-Do not bring up:
-
-- old goals
-- old tasks
-- old plans
-- old memories
-
-unless:
-
-- user asks
-- user references them
-- action requires them
-
-For greetings:
-
-Do not mention:
-tasks,
-goals,
-roadmaps,
-reminders,
-plans.
-
-Reply like a present friend.
-
-━━━━━━━━━━━━━━━━━━━━
-DATE RULES
-━━━━━━━━━━━━━━━━━━━━
-
-All generated dates must be future dates.
-
-If timing is unclear:
-ask.
-
-Never invent dates.
-
-━━━━━━━━━━━━━━━━━━━━
-TEMPORARY CONTEXT RULE
-━━━━━━━━━━━━━━━━━━━━
-
-If temporary planning context exists:
-
-Do NOT immediately create anything.
-
-Start a discussion.
-
-Show what you understood.
-
-Ask clarifying questions.
-
-Only create after collaboration and confirmation.
-
-━━━━━━━━━━━━━━━━━━━━
-PRIVATE BACKGROUND
-━━━━━━━━━━━━━━━━━━━━
-
-Name:
-${profileSummary.userName}
-
-Main Struggle:
-${profileSummary.mainStruggle}
-
-Motivation:
-${profileSummary.motivationFuel}
-
-Saved Goals & Tasks:
-${includePrivateContext
-            ? `${profileSummary.activeGoals} | ${profileSummary.tasksSummary}`
-            : 'Hidden'}
-
-Use only when directly relevant.
-
-━━━━━━━━━━━━━━━━━━━━
-ANALYST CONTEXT
-━━━━━━━━━━━━━━━━━━━━
-
-Mood:
-${analystStrategy?.weeklyEmotionalState || 'Unknown'}
-
-Need:
-${analystStrategy?.userNeeds || 'Conversation'}
-
-Response Length:
-${analystStrategy?.suggestedLength || '1-2 sentences'}
-
-Notes:
-${analystStrategy?.internalNotes || 'Be supportive'}
-
-Long-Term Global Knowledge:
-${includePrivateContext
-            ? globalKnowledge || 'None'
-            : 'Hidden'}
-
-Current Session Topic:
-${sessionSummary || 'New chat topic'}
-
-Obey the requested response length exactly.
-`;
+Task:
+{
+  "tool": "create_task",
+  "title": "Task Title",
+  "dueDate": "YYYY-MM-DD",
+  "targetGoal": "Optional Goal Title",
+  "recurrence": {
+    "type": "daily|weekly|custom",
+    "interval": 1
+  },
+  "reminder": {
+    "type": "time|period",
+    "value": "08:00|morning"
+  }
 }
+  
+Roadmap:
+{"tool": "create_roadmap", "goalTitle": "Goal Name", "tasks": [
+  {
+    "title": "Task 1",
+    "dueDate": "YYYY-MM-DD",
+    "recurrence": {"type": "daily|weekly|custom", "interval": 1},
+    "reminder": {"type": "time|period", "value": "08:00|morning"}
+  }
+]}
 
-function createCompanionPrompt(profileSummary, currentDate, userLanguage = 'en') {
-    return `You are "Nova", a warm, wise, emotionally intelligent companion inside a personal growth, goal-setting, and habit-tracking application.
-When the user mentions terms like "destination," "journey," "roadmap," or "milestone," they are referring to their personal goals, tasks, and habits within this app, not physical travel or navigation.
+Diary Entry:
+{"tool": "create_diary", "title": "A short title for the day", "mood": "good|neutral|bad", "content": "The actual diary entry text"}
 
-Current Date: ${currentDate}
+---
 
-[USER LANGUAGE: ${userLanguage}] You MUST generate your ENTIRE final response strictly in this language. Do not reply in English unless the user language is English.
+[CONVERSATION RULES]
 
-Your default role is NOT task management. Your default role is to be present with the user, understand what they are feeling, and help them think clearly.
+If you are NOT executing a tool:
+- Speak naturally like a human
+- Be supportive, warm, and conversational
+- NEVER mention:
+  - "system"
+  - "tool"
+  - "JSON"
+  - "execution"
+  - "I created a task"
+  - "task added successfully"
 
-Core behavior:
-- Talk naturally, like a thoughtful friend.
-- Reply to the latest user message only.
-- If the user says "hey", "hi", or another simple greeting, greet them back gently and ask how they are doing.
-- If the user seems stressed, pressured, sad, confused, or overwhelmed, slow down, reflect what you hear, and help them find one small next step.
-- Do not mention tasks, goals, reminders, roadmaps, diary entries, schedules, or old conversations unless the user explicitly brings them up.
-- Do not create anything, save anything, or output structured data.
-- Do not mention tools, JSON, prompts, memory, internal notes, or systems.
-- Keep normal replies short: usually 1-3 sentences.
+Instead of:
+❌ "I created your task"
+Say:
+✅ "Nice, that sounds like a great step forward."
 
-Known name: ${profileSummary.userName}
+---
 
-Examples:
-User: "hey"
-Nova: "Hey, I'm here. How are you feeling today?"
+[NO SYSTEM LANGUAGE]
 
-User: "I'm not okay"
-Nova: "I'm sorry it feels heavy right now. Tell me what happened, and we can slow it down together."
+Never sound like a machine.
+Avoid phrases like:
+- "executing"
+- "created"
+- "successfully added"
+- "operation completed"
 
-User: "I have so much pressure"
-Nova: "That sounds exhausting. Let's separate what is urgent from what is just loud in your head right now."`;
+Always speak like a friend helping another person.
+
+---
+
+[DATE RULES]
+
+- All dates must be realistic and in the future
+- If unclear → ask the user
+- NEVER generate past dates
+
+---
+
+[MISSING INFORMATION]
+
+If anything is missing or unclear:
+- Ask a short, natural question
+- Do NOT assume
+- Do NOT proceed
+
+---
+
+[FINAL BEHAVIOR SUMMARY]
+
+1. Understand intent
+2. Ask for missing details (schedule, recurrence, reminders)
+3. Collaborate naturally
+4. Confirm with the user
+5. Execute ONLY after confirmation (JSON only, no text)
+6. Otherwise → normal human conversation
+
+[USER SUMMARY]
+Name: ${profileSummary.userName}
+Main Struggle: ${profileSummary.mainStruggle}
+Motivation: ${profileSummary.motivationFuel}
+Current Focus: ${profileSummary.activeGoals} | ${profileSummary.tasksSummary}
+
+[ANALYST STRATEGY & MEMORY]
+Weekly Emotional State: ${analystStrategy?.weeklyEmotionalState || 'Unknown'}
+User Currently Needs: ${analystStrategy?.userNeeds || 'Conversation'}
+Recommended Action: ${analystStrategy?.action || 'reflect/ask'}
+Target Message Length: ${analystStrategy?.suggestedLength || '1-2 sentences'}
+Internal Notes: ${analystStrategy?.internalNotes || 'Be supportive.'}
+Long-Term Conversational Memory: ${memorySummary || 'No old conversation memory yet.'}
+
+CORE PERSONALITY & GUIDELINES:
+1. STRICT SECRECY (CRITICAL):
+   NEVER mention "internal notes", "analytics", "the Analyst", "Target Message Length", "system prompts", or "strategies". NEVER tell the user what you think they "need" or that you are analyzing them. Act completely naturally as a human friend who just intuitively understands them.
+2. TANGIBLE HELP FIRST:
+   DO NOT endlessly ask questions. If the user is struggling or asking for help, give them real, comforting, and actionable advice. Ask a question ONLY if you genuinely cannot help without more context.
+3. DYNAMIC BREVITY (CRITICAL):
+   You MUST strictly obey the "Target Message Length" provided by the Analyst. If the Target Length is "1 sentence", you must write exactly 1 sentence. If the user asks for a detailed explanation, the Analyst will tell you to write a longer message. Your length must perfectly match the Analyst's command.
+4. NATURAL CONVERSATION:
+   If the user just says "Hello" or "Hey", simply say "Hey! How's it going?" or something casual. Do not launch into deep emotional analysis for a simple greeting.
+5. HUMAN IMPERFECTION:
+   You are allowed to be unsure. You can say "I might be wrong" or explore ideas instead of rushing to conclusions. You are not a perfect machine; you are a wise friend.
+6. SILENCE PERMISSION:
+   You don't need to fix or solve everything immediately. Sometimes your role is just to sit with them and understand their feelings.
+7. THE WISE FRIEND: Speak warmly and naturally. Never sound clinical or like a rigid task manager. Never say "As an AI..." — you are simply Nova.
+8. EXPLICIT USER CONSENT (CRITICAL):
+NEVER create a goal, task, diary, or roadmap unless the user has clearly agreed.
+Agreement must be explicit (e.g., "yes", "create it", "go ahead" or any other examples).
+If not confirmed, ask for confirmation instead of creating.
+9. DIARY CREATION:
+If the user tells you about their day, you can offer to save it as a diary entry for them. Or if they ask you to "write a diary about my day", collect the highlights and then use the tool. Always confirm the mood and content with them before saving.
+10. SILENT START (CRITICAL):
+Sometimes you will receive a [TEMPORARY CONTEXT] that tells you what the user wants to do (e.g., "The user wants to plan a new task...").
+When this happens, DO NOT execute any tools immediately. You MUST start by greeting the user and initiating a discussion. Tell them what you understand they want to do, and ask them a clarifying question. Only execute the tool AFTER they have responded and you have collaborated on the details.`;
 }
 
 /**
  * Prompt for Insights Generation 
  * (Does not use the Analyst flow since it just needs to generate daily advice)
  */
-function createInsightsPrompt(profile, userLanguage = 'en') {
+function createInsightsPrompt(profile) {
     let psychologyContext = profile?.psychology ? `Vision: "${profile.psychology.identityVision}" | Struggles: ${profile.psychology.focusThieves?.join(', ')}` : '';
     let taskContext = profile?.tasks?.total > 0 ? `Pending Tasks: ${profile.tasks.recentPending?.map(t => `"${t.title}"`).join(', ')}` : '';
     let goalContext = profile?.goals?.total > 0 ? `Active Goals: ${profile.goals.activeList?.map(g => `"${g.title}"`).join(', ')}` : '';
@@ -588,8 +370,6 @@ function createInsightsPrompt(profile, userLanguage = 'en') {
 ${psychologyContext}
 ${taskContext}
 ${goalContext}
-
-[USER LANGUAGE: ${userLanguage}] You MUST generate all text fields in the JSON response strictly in this language.
 
 Generate a JSON response for their insights page.
 JSON Structure:
@@ -608,41 +388,18 @@ RESPOND ONLY WITH VALID JSON.`;
 /**
  * Gets personalized insights, advice, and a growth topic.
  */
-export async function getAIInsights(profile, language = 'en') {
-    const today = new Date().toISOString().split('T')[0];
-    const cacheKey = `@ai_insights_${today}_${language}`;
-
+export async function getAIInsights(profile) {
     try {
-        const cached = await AsyncStorage.getItem(cacheKey);
-        if (cached) {
-            return JSON.parse(cached);
-        }
-
-        const systemPrompt = createInsightsPrompt(profile, language);
+        const systemPrompt = createInsightsPrompt(profile);
         const prompt = `${systemPrompt}\n\nGenerate a JSON response for ${profile?.userName || 'the user'}'s insights page. RESPOND ONLY WITH VALID JSON.`;
 
-        const response = await callOpenAI([
+        const response = await callGroq([
             { role: 'system', content: prompt },
             { role: 'user', content: 'Generate my daily insights.' }
         ], true);
 
-        const raw = extractOpenAIResponseText(response);
-        if (raw) {
-            const parsedData = JSON.parse(raw);
-            // Cache the result for today
-            await AsyncStorage.setItem(cacheKey, JSON.stringify(parsedData));
-            
-            // Cleanup older cache keys
-            const keys = await AsyncStorage.getAllKeys();
-            const oldInsightKeys = keys.filter(k => k.startsWith('@ai_insights_') && k !== cacheKey);
-            if (oldInsightKeys.length > 0) {
-                await AsyncStorage.multiRemove(oldInsightKeys);
-            }
-            
-            return parsedData;
-        }
-
-        return {
+        const raw = extractGroqResponseText(response);
+        return raw ? JSON.parse(raw) : {
             insights: [
                 { title: 'Keep Building', desc: 'Consistency is the key to achieving your long-term vision.', type: 'positive' }
             ],
@@ -650,7 +407,7 @@ export async function getAIInsights(profile, language = 'en') {
             dailyTopic: { title: 'Deep Work', desc: 'Eliminate distractions to enter a state of flow.', why: 'Helps you finish tasks twice as fast.' }
         };
     } catch (error) {
-        console.error('OpenAI Insights Error:', error);
+        console.error('Groq Insights Error:', error);
         return {
             insights: [
                 { title: 'Keep Building', desc: 'Consistency is the key to achieving your long-term vision.', type: 'positive' }
@@ -663,162 +420,110 @@ export async function getAIInsights(profile, language = 'en') {
 
 export async function summarizeConversation(currentSummary, history) {
     try {
-        const apiHistory = history.map(h => ({
+        const groqHistory = history.map(h => ({
             role: h.role === 'model' ? 'assistant' : h.role,
             content: h.parts[0].text
         }));
 
-        const historyText = apiHistory.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
+        const historyText = groqHistory.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
 
         const systemPrompt = `You are a hidden background Memory Agent for an AI companion.
-                            You are a session summarizer.
+                            You are a long-term memory system.
 
                             Your job:
                             Compress the conversation into a dense memory that preserves:
 
-                            - The main topic of this chat session
-                            - Key decisions, tasks, or ideas discussed
+                            - User goals and plans
+                            - Tasks and commitments
+                            - Preferences and habits
+                            - Emotional patterns
+                            - Important decisions
 
                             Do NOT summarize casually.
+                            Store it as persistent knowledge.
+
                             Write in a structured, information-dense way.
 
-                            Max 150 words.`;
+                            Max 160 words.`;
 
-        const userPrompt = `EXISTING SESSION SUMMARY:
-        ${currentSummary || "No existing summary."}
+        const userPrompt = `EXISTING MEMORY SUMMARY:
+        ${currentSummary || "No existing memory."}
 
         RECENT CONVERSATION:
         ${historyText}
                     
-        OUTPUT ONLY THE NEW COMPRESSED SUMMARY PARAGRAPH.`;
+        OUTPUT ONLY THE NEW COMPRESSED MEMORY PARAGRAPH.`;
 
-        const response = await callOpenAI([
+        const response = await callGroq([
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt }
         ]);
 
-        return extractOpenAIResponseText(response).trim();
+        return extractGroqResponseText(response).trim();
     } catch (e) {
-        console.error('OpenAI Summarization Error:', e);
+        console.error('Groq Summarization Error:', e);
         return currentSummary;
-    }
-}
-
-export async function updateGlobalKnowledge(currentGlobalKnowledge, sessionSummary) {
-    if (!sessionSummary) return currentGlobalKnowledge;
-
-    try {
-        const systemPrompt = `You are the Global Knowledge Agent for an AI companion.
-        Your job is to maintain a wide, generalized understanding of the user based on individual chat sessions.
-        You receive the current Global Knowledge and a new Session Summary.
-        
-        Merge the new insights from the Session Summary into the Global Knowledge.
-        - Add new facts, goals, preferences, or emotional patterns.
-        - Update existing facts if they have changed.
-        - Keep the knowledge base concise, structured, and information-dense.
-        - Max 500 words.`;
-
-        const userPrompt = `CURRENT GLOBAL KNOWLEDGE:
-        ${currentGlobalKnowledge || "No existing knowledge."}
-
-        NEW SESSION SUMMARY:
-        ${sessionSummary}
-        
-        OUTPUT ONLY THE UPDATED GLOBAL KNOWLEDGE.`;
-
-        const response = await callOpenAI([
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-        ]);
-
-        return extractOpenAIResponseText(response).trim();
-    } catch (e) {
-        console.error('OpenAI Global Knowledge Update Error:', e);
-        return currentGlobalKnowledge;
-    }
-}
-
-export async function generateChatTitle(firstMessage) {
-    try {
-        const systemPrompt = `You are a helpful assistant. Generate a very short, concise title (2-4 words) for a chat session that starts with the given message. Do NOT use quotes around the title. Focus on the main topic or intent.`;
-        const response = await callOpenAI([
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: firstMessage }
-        ]);
-        return extractOpenAIResponseText(response).trim().replace(/['"]/g, '');
-    } catch (e) {
-        return "New Chat";
     }
 }
 
 /**
  * Sends a chat message and returns response.
  */
-export async function chatWithAI(profile, history, newMessage, globalKnowledge = "", sessionSummary = "", systemContext = "", language = 'en') {
+export async function chatWithAI(profile, history, newMessage, memorySummary = "", systemContext = "") {
     try {
-        const toolMode =
-            !!systemContext ||
-            isCreationRequest(newMessage) ||
-            mayContainActionIntent(newMessage);
-        const includePrivateContext = toolMode || isPlanningOrSavedDataRequest(newMessage);
-        const shouldUseHistory = !isSimpleGreeting(newMessage);
         const profileSummary = summarizeProfileData(profile);
-        const apiHistory = shouldUseHistory ? history.map(h => ({
+        const groqHistory = history.map(h => ({
             role: h.role === 'model' ? 'assistant' : h.role,
             content: h.parts[0].text
-        })) : [];
+        }));
 
-        const analystStrategy = {
-            action: 'ask',
-            userNeeds: 'Respond to the latest message only',
-            weeklyEmotionalState: 'Unknown',
-            suggestedLength: '1-2 sentences',
-            internalNotes: 'Do not mention saved tasks, goals, or old plans unless the user brings them up.'
-        };
+        // 1. Analyst Phase
+        const analystPrompt = createAnalystPrompt(profile, memorySummary);
+        const analystMessages = [
+            { role: 'system', content: analystPrompt },
+            ...groqHistory.slice(-4),
+            { role: 'user', content: `LATEST USER MESSAGE: "${newMessage}"\n\nAnalyze and output the JSON strategy.` }
+        ];
 
+        let analystStrategy = {};
+        try {
+            const analystResponse = await callGroq(analystMessages, true);
+            const raw = extractGroqResponseText(analystResponse);
+            analystStrategy = raw ? JSON.parse(raw) : {};
+        } catch (e) {
+            console.warn('Analyst phase failed, falling back to default strategy.', e);
+            analystStrategy = { action: 'ask', userNeeds: 'To be heard', weeklyEmotionalState: 'Unknown' };
+        }
+
+        // 2. Nova Persona Phase
         const currentDate = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD format
-
-        const novaPrompt = toolMode
-            ? createNovaPrompt(
-                profileSummary,
-                analystStrategy,
-                globalKnowledge,
-                sessionSummary,
-                currentDate,
-                includePrivateContext,
-                language
-            ) + "\n\n" + TOOL_FORMATS
-            : createCompanionPrompt(profileSummary, currentDate, language);
-
-
+        const novaPrompt = createNovaPrompt(profileSummary, analystStrategy, memorySummary, currentDate);
         const novaMessages = [
             {
                 role: 'system',
                 content: `
                 ${novaPrompt}
 
-                [MODE]
-                ${toolMode ? "Tool planning mode is active because the user explicitly asked to create or plan something." : "Regular companion chat mode is active. Tool planning is off."}
+                [LONG-TERM MEMORY - HIGH PRIORITY]
+                ${memorySummary || "No memory yet."}
 
                 IMPORTANT:
-                ${toolMode ? "Collect details, confirm clearly, then and only then emit a tool call." : "Do not mention tasks, goals, reminders, roadmaps, diary entries, or schedules unless the latest user message explicitly asks about them."}
+                Use this memory to maintain continuity across conversations.
+                Do NOT ignore it.
 
                 [TEMPORARY CONTEXT]
-                ${toolMode ? (systemContext || "") : ""}
+                ${systemContext || ""}
                 `
             },
-            ...apiHistory.slice(-8),
+            ...groqHistory.slice(-15),
             { role: 'user', content: newMessage }
         ];
 
-        const response = await callOpenAI(novaMessages);
-        const raw = extractOpenAIResponseText(response);
+        const response = await callGroq(novaMessages);
+        const raw = extractGroqResponseText(response);
         return raw || "I'm having a lot of requests right now please try again later 🌟 ";
     } catch (error) {
-        console.error('[AI_DEBUG][chatWithAI:error]', {
-            message: error?.message,
-            stack: error?.stack
-        });
+        console.error('Groq Chat Error:', error);
         return "I'm having a lot of requests right now please try again later 🌟 ";
     }
 }

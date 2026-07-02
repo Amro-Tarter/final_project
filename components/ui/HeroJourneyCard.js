@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { GlassCard } from './GlassCard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
 import { MapPin, ChevronRight } from 'lucide-react-native';
@@ -31,21 +32,25 @@ export function HeroJourneyCard({
                 from={{ opacity: 0, translateY: 20 }}
                 animate={{ opacity: 1, translateY: 0 }}
                 transition={{ type: 'timing', duration: 600 }}
-                style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                style={styles.shadowWrap}
             >
-                <MapPin size={28} color={colors.primary} />
-                <Text style={[styles.emptyTitle, { color: colors.textMain }]}>{t('noGoalSet')}</Text>
-                <Text style={[styles.emptySub, { color: colors.textSecondary }]}>{t('chooseGoal')}</Text>
-                <TouchableOpacity style={styles.emptyBtnWrapper} onPress={onSetDestination}>
-                    <LinearGradient
-                        colors={Theme.gradients.hero}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.emptyBtnGradient}
-                    >
-                        <Text style={styles.emptyBtnText}>{t('setGoal')}</Text>
-                    </LinearGradient>
-                </TouchableOpacity>
+                <GlassCard style={[styles.emptyCard, { borderColor: colors.border }]}>
+                    <View style={{ alignItems: 'center', width: '100%' }}>
+                        <MapPin size={28} color={colors.primary} />
+                        <Text style={[styles.emptyTitle, { color: colors.textMain }]}>{t('noGoalSet')}</Text>
+                        <Text style={[styles.emptySub, { color: colors.textSecondary }]}>{t('chooseGoal')}</Text>
+                        <TouchableOpacity style={styles.emptyBtnWrapper} onPress={onSetDestination}>
+                            <LinearGradient
+                                colors={Theme.gradients.hero}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.emptyBtnGradient}
+                            >
+                                <Text style={styles.emptyBtnText}>{t('setGoal')}</Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </View>
+                </GlassCard>
             </MotiView>
         );
     }
@@ -177,15 +182,10 @@ const styles = StyleSheet.create({
         marginRight: 4,
     },
     emptyCard: {
-        backgroundColor: Theme.colors.surface,
         borderRadius: Theme.radii.lg,
         padding: 32,
-        alignItems: 'center',
-        marginBottom: 20,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
         borderStyle: 'dashed',
-        ...Theme.shadows.float,
     },
     emptyTitle: {
         fontSize: 20,

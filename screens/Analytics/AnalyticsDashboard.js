@@ -12,11 +12,11 @@ import { useAppTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { getWeeklyCompletionData, getJourneyStats, calculateMomentum } from '../../utils/journeyHelpers';
 
-const ChartBar = ({ height, day, color, isPrimary }) => {
+const ChartBar = ({ height, day, color }) => {
     const { colors } = useAppTheme();
     return (
         <View style={styles.chartBarContainer}>
-            {isPrimary ? (
+            {color === Theme.colors.primary ? (
                 <LinearGradient
                     colors={Theme.gradients.hero}
                     start={{ x: 0, y: 1 }}
@@ -88,7 +88,7 @@ export default function AnalyticsDashboard({ navigation }) {
                     <Text style={[styles.chartSubtitle, { color: colors.textSecondary }]}>{t('stepsByDay')}</Text>
                     <View style={styles.chartRow}>
                         {weeklyData.map((d, i) => (
-                            <ChartBar key={i} day={d.day} height={d.height} isPrimary={true} />
+                            <ChartBar key={i} day={d.day} height={d.height} color={colors.primary} />
                         ))}
                     </View>
                 </View>

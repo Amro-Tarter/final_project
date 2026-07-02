@@ -112,8 +112,8 @@ export default function DiaryEntry({ navigation, route }) {
                     from={{ opacity: 0, translateY: 20 }}
                     animate={{ opacity: 1, translateY: 0 }}
                     transition={{ type: 'timing', duration: 500 }}
-                    style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 >
+                    <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
                     <View style={[styles.moodBadge, { backgroundColor: moodColor.bg }]}>
                         <Text style={{ fontSize: 20 }}>{getMoodEmoji(entry.mood)}</Text>
                         <Text style={[styles.moodText, { color: moodColor.text }]}>
@@ -129,6 +129,7 @@ export default function DiaryEntry({ navigation, route }) {
                     <Text style={[styles.title, { color: colors.textMain }]}>{entry.title}</Text>
                     <View style={[styles.divider, { backgroundColor: colors.border }]} />
                     <Text style={[styles.body, { color: colors.textMain }]}>{entry.content}</Text>
+                    </View>
                 </MotiView>
             </ScrollView>
 
@@ -172,12 +173,9 @@ const styles = StyleSheet.create({
         padding: Theme.spacing.lg,
     },
     card: {
-        backgroundColor: Theme.colors.surface,
         padding: 24,
         borderRadius: Theme.radii.lg,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
-        ...Theme.shadows.float,
     },
     divider: {
         height: 1,

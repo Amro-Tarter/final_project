@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { GlassCard } from './GlassCard';
 import { MotiView } from 'moti';
 import { Theme } from '../components';
 import { ProgressBar } from './ProgressRing';
@@ -14,21 +15,22 @@ export function MomentumMeter({ level = 0, message }) {
             from={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ type: 'timing', duration: 450, delay: 200 }}
-            style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            style={{ marginBottom: 20 }}
         >
+            <GlassCard style={[styles.card, { borderColor: colors.border }]}>
             <View style={styles.header}>
                 <Text style={[styles.label, { color: colors.textMain }]}>{t('momentumLevel')}</Text>
                 <Text style={[styles.value, { color: colors.success }]}>{level}%</Text>
             </View>
             <ProgressBar progress={level} height={10} color={colors.success} />
             <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text>
+            </GlassCard>
         </MotiView>
     );
 }
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: Theme.colors.surface,
         borderRadius: Theme.radii.lg,
         padding: 20,
         borderWidth: 1,
