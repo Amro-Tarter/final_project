@@ -132,16 +132,7 @@ export default function Settings({ navigation }) {
                         >
                             <Text style={[styles.langText, { color: colors.textMain }, themeMode === 'dark' && [styles.langTextActive, { color: colors.primary }]]}>{t('darkMode') || 'Dark'}</Text>
                         </TouchableOpacity>
-                        <View style={[styles.dividerFull, { backgroundColor: colors.border }]} />
-                        <TouchableOpacity
-                            style={[
-                                styles.langBtn, 
-                                themeMode === 'system' && [styles.langBtnActive, { backgroundColor: colors.primaryLight }]
-                            ]}
-                            onPress={() => changeThemeMode('system')}
-                        >
-                            <Text style={[styles.langText, { color: colors.textMain }, themeMode === 'system' && [styles.langTextActive, { color: colors.primary }]]}>{t('systemTheme') || 'Device Default'}</Text>
-                        </TouchableOpacity>
+                        
                     </View>
                 </MotiView>
 
