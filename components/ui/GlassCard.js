@@ -11,7 +11,7 @@ export function GlassCard({ style, contentStyle, children, onPress, activeOpacit
 
     const textureTransform = useMemo(() => {
         const rotations = ['0deg', '90deg', '180deg', '270deg'];
-        const scales = [1.2, 1.5, 1.8, 2.0];
+        const scales = [2.0, 2.2, 2.5, 2.8];
         return {
             transform: [
                 { rotate: rotations[Math.floor(Math.random() * rotations.length)] },
